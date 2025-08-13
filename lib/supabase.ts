@@ -597,11 +597,12 @@ export const checkHackathonRegistration = async (hackathonId: string, userId: st
 // Analytics functions for admin dashboard
 export const getAnalytics = async () => {
   try {
-    const [usersResult, hackathonsResult, jobsResult, coursesResult] = await Promise.all([
-      supabase.from("users").select("id, created_at, role"),
-      supabase.from("hackathons").select("id, status, participants_count"),
-      supabase.from("jobs").select("id, status, posted_date"),
-      supabase.from("courses").select("id, status, students_count"),
+    const [usersResult, hackathonsResult, jobsResult, coursesResult, registrationsResult] = await Promise.all([
+      supabase.from("users").select("id, created_at, role, email"),
+      supabase.from("hackathons").select("id, status, participants_count, created_at, technologies"),
+      supabase.from("jobs").select("id, status, posted_date, created_at, technologies"),
+      supabase.from("courses").select("id, status, students_count, created_at, technologies"),
+      supabase.from("hackathon_registrations").select("id, created_at, hackathon_id, user_id"),
     ])
 
     return {
@@ -609,6 +610,7 @@ export const getAnalytics = async () => {
       hackathons: hackathonsResult.data || [],
       jobs: jobsResult.data || [],
       courses: coursesResult.data || [],
+      registrations: registrationsResult.data || [],
     }
   } catch (error) {
     console.error("Error fetching analytics:", error)
@@ -617,6 +619,102 @@ export const getAnalytics = async () => {
       hackathons: [],
       jobs: [],
       courses: [],
+      registrations: [],
+    }
+  }
+}
+
+// Get detailed analytics with growth calculations
+export const getDetailedAnalytics = async () => {
+  try {
+    const data = await getAnalytics()
+
+    const now = new Date()
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
+
+    // Calculate totals
+    const totalUsers = data.users.length
+    const activeHackathons = data.hackathons.filter((h) => h.status === "upcoming" || h.status === "ongoing").length
+    const jobListings = data.jobs.filter((j) => j.status === "active").length
+    const courses = data.courses.filter((c) => c.status === "active").length
+
+    // Calculate growth
+    const recentUsers = data.users.filter((u) => new Date(u.created_at) > lastMonth).length
+    const userGrowth = totalUsers > 0 ? (recentUsers / totalUsers) * 100 : 0
+
+    const recentHackathons = data.hackathons.filter((h) => new Date(h.created_at) > lastMonth).length
+    const hackathonGrowth = activeHackathons > 0 ? (recentHackathons / activeHackathons) * 100 : 0
+
+    const recentJobs = data.jobs.filter((j) => new Date(j.created_at) > lastMonth).length
+    const jobGrowth = jobListings > 0 ? (recentJobs / jobListings) * 100 : 0
+
+    const recentCourses = data.courses.filter((c) => new Date(c.created_at) > lastMonth).length
+    const courseGrowth = courses > 0 ? (recentCourses / courses) * 100 : 0
+
+    // Technology analysis
+    const techCount: { [key: string]: number } = {}
+
+    data.courses.forEach((course) => {
+      if (course.technologies) {
+        course.technologies.forEach((tech: string) => {
+          techCount[tech] = (techCount[tech] || 0) + 1
+        })
+      }
+    })
+
+    data.hackathons.forEach((hackathon) => {
+      if (hackathon.technologies) {
+        hackathon.technologies.forEach((tech: string) => {
+          techCount[tech] = (techCount[tech] || 0) + 1
+        })
+      }
+    })
+
+    data.jobs.forEach((job) => {
+      if (job.technologies) {
+        job.technologies.forEach((tech: string) => {
+          techCount[tech] = (techCount[tech] || 0) + 1
+        })
+      }
+    })
+
+    const topTechnologies = Object.entries(techCount)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10)
+
+    // Users by role
+    const roleCount: { [key: string]: number } = {}
+    data.users.forEach((user) => {
+      roleCount[user.role] = (roleCount[user.role] || 0) + 1
+    })
+    const usersByRole = Object.entries(roleCount).map(([role, count]) => ({ role, count }))
+
+    return {
+      totals: {
+        totalUsers,
+        activeHackathons,
+        jobListings,
+        courses,
+      },
+      growth: {
+        userGrowth: Math.round(userGrowth * 10) / 10,
+        hackathonGrowth: Math.round(hackathonGrowth * 10) / 10,
+        jobGrowth: Math.round(jobGrowth * 10) / 10,
+        courseGrowth: Math.round(courseGrowth * 10) / 10,
+      },
+      topTechnologies,
+      usersByRole,
+      rawData: data,
+    }
+  } catch (error) {
+    console.error("Error fetching detailed analytics:", error)
+    return {
+      totals: { totalUsers: 0, activeHackathons: 0, jobListings: 0, courses: 0 },
+      growth: { userGrowth: 0, hackathonGrowth: 0, jobGrowth: 0, courseGrowth: 0 },
+      topTechnologies: [],
+      usersByRole: [],
+      rawData: { users: [], hackathons: [], jobs: [], courses: [], registrations: [] },
     }
   }
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { getCurrentUser, isAdmin } from "@/lib/supabase"
+import { getCurrentUser, isAdmin, getAnalytics } from "@/lib/supabase"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -28,6 +28,10 @@ export default function AdminDashboard() {
     jobListings: 0,
     courses: 0,
   })
+  const [userGrowth, setUserGrowth] = useState(0)
+  const [hackathonGrowth, setHackathonGrowth] = useState(0)
+  const [jobGrowth, setJobGrowth] = useState(0)
+  const [courseGrowth, setCourseGrowth] = useState(0)
   const router = useRouter()
 
   useEffect(() => {
@@ -69,15 +73,48 @@ export default function AdminDashboard() {
 
   const loadStats = async () => {
     try {
-      // These would be real API calls in production
+      const data = await getAnalytics()
+
+      const totalUsers = data.users.length
+      const activeHackathons = data.hackathons.filter((h) => h.status === "upcoming" || h.status === "ongoing").length
+      const jobListings = data.jobs.filter((j) => j.status === "active").length
+      const courses = data.courses.filter((c) => c.status === "active").length
+
+      // Calculate growth percentages based on recent data
+      const now = new Date()
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
+
+      const recentUsers = data.users.filter((u) => new Date(u.created_at) > lastMonth).length
+      const userGrowthCalc = totalUsers > 0 ? (recentUsers / totalUsers) * 100 : 0
+
+      const recentHackathons = data.hackathons.filter((h) => new Date(h.created_at) > lastMonth).length
+      const hackathonGrowthCalc = activeHackathons > 0 ? (recentHackathons / activeHackathons) * 100 : 0
+
+      const recentJobs = data.jobs.filter((j) => new Date(j.created_at) > lastMonth).length
+      const jobGrowthCalc = jobListings > 0 ? (recentJobs / jobListings) * 100 : 0
+
+      const recentCourses = data.courses.filter((c) => new Date(c.created_at) > lastMonth).length
+      const courseGrowthCalc = courses > 0 ? (recentCourses / courses) * 100 : 0
+
+      setStats({
+        totalUsers,
+        activeHackathons,
+        jobListings,
+        courses,
+      })
+      setUserGrowth(userGrowthCalc)
+      setHackathonGrowth(hackathonGrowthCalc)
+      setJobGrowth(jobGrowthCalc)
+      setCourseGrowth(courseGrowthCalc)
+    } catch (error) {
+      console.error("Error loading stats:", error)
+      // Fallback to default values
       setStats({
         totalUsers: 1234,
         activeHackathons: 12,
         jobListings: 89,
         courses: 45,
       })
-    } catch (error) {
-      console.error("Error loading stats:", error)
     }
   }
 
@@ -85,7 +122,7 @@ export default function AdminDashboard() {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-yellow-400 mx-auto"></div>
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-400 mx-auto"></div>
           <p className="text-white mt-4">Loading Admin Dashboard...</p>
         </div>
       </div>
@@ -100,7 +137,7 @@ export default function AdminDashboard() {
           <h1 className="text-2xl font-bold text-red-400 mb-4">Access Denied</h1>
           <p className="text-gray-400 mb-4">You don't have permission to access this admin portal.</p>
           <p className="text-gray-500 text-sm">Only authorized administrators can access this area.</p>
-          <Button onClick={() => router.push("/")} className="mt-6 bg-yellow-400 hover:bg-yellow-500 text-black">
+          <Button onClick={() => router.push("/")} className="mt-6 bg-purple-400 hover:bg-purple-500 text-black">
             Return to Home
           </Button>
         </div>
@@ -116,12 +153,12 @@ export default function AdminDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-white flex items-center gap-2">
-                <Shield className="w-8 h-8 text-yellow-400" />
+                <Shield className="w-8 h-8 text-purple-400" />
                 Admin Dashboard
               </h1>
               <p className="text-gray-400 mt-1">Welcome back, {user?.email}</p>
               <div className="flex items-center gap-2 mt-2">
-                <div className="bg-yellow-400 text-black px-3 py-1 rounded-full text-sm font-medium">Super Admin</div>
+                <div className="bg-purple-400 text-black px-3 py-1 rounded-full text-sm font-medium">Super Admin</div>
                 <div className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">Full Access</div>
               </div>
             </div>
@@ -141,18 +178,18 @@ export default function AdminDashboard() {
 
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Admin Access Notice */}
-        <div className="mb-8 p-6 bg-gradient-to-r from-yellow-400/10 to-yellow-600/10 border border-yellow-400/20 rounded-lg">
+        <div className="mb-8 p-6 bg-gradient-to-r from-purple-400/10 to-purple-600/10 border border-purple-400/20 rounded-lg">
           <div className="flex items-start gap-3">
-            <Mail className="w-6 h-6 text-yellow-400 mt-1" />
+            <Mail className="w-6 h-6 text-purple-400 mt-1" />
             <div>
               <h3 className="text-lg font-semibold text-white mb-2">Admin Portal Access</h3>
               <p className="text-gray-300 text-sm leading-relaxed mb-3">
                 This admin portal is exclusively accessible to{" "}
-                <strong className="text-yellow-400">sonishriyash@gmail.com</strong>. You have full administrative
+                <strong className="text-purple-400">sonishriyash@gmail.com</strong>. You have full administrative
                 privileges to manage all platform content, users, and settings.
               </p>
               <div className="text-xs text-gray-400">
-                Admin Portal URL: <code className="bg-gray-800 px-2 py-1 rounded text-yellow-400">/admin</code>
+                Admin Portal URL: <code className="bg-gray-800 px-2 py-1 rounded text-purple-400">/admin</code>
               </div>
             </div>
           </div>
@@ -160,64 +197,64 @@ export default function AdminDashboard() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-gray-900 border-gray-800 hover:border-yellow-400 transition-colors">
+          <Card className="bg-gray-900 border-gray-800 hover:border-purple-400 transition-colors">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-400">Total Users</CardTitle>
-              <Users className="h-4 w-4 text-yellow-400" />
+              <Users className="h-4 w-4 text-purple-400" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-white">{stats.totalUsers.toLocaleString()}</div>
-              <p className="text-xs text-green-400">+20.1% from last month</p>
+              <p className="text-xs text-green-400">+{userGrowth.toFixed(1)}% from last month</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-900 border-gray-800 hover:border-yellow-400 transition-colors">
+          <Card className="bg-gray-900 border-gray-800 hover:border-purple-400 transition-colors">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-400">Active Hackathons</CardTitle>
-              <Calendar className="h-4 w-4 text-yellow-400" />
+              <Calendar className="h-4 w-4 text-purple-400" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-white">{stats.activeHackathons}</div>
-              <p className="text-xs text-green-400">+2 new this week</p>
+              <p className="text-xs text-green-400">+{hackathonGrowth.toFixed(1)}% from last month</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-900 border-gray-800 hover:border-yellow-400 transition-colors">
+          <Card className="bg-gray-900 border-gray-800 hover:border-purple-400 transition-colors">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-400">Job Listings</CardTitle>
-              <Briefcase className="h-4 w-4 text-yellow-400" />
+              <Briefcase className="h-4 w-4 text-purple-400" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-white">{stats.jobListings}</div>
-              <p className="text-xs text-green-400">+12 new this week</p>
+              <p className="text-xs text-green-400">+{jobGrowth.toFixed(1)}% from last month</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-900 border-gray-800 hover:border-yellow-400 transition-colors">
+          <Card className="bg-gray-900 border-gray-800 hover:border-purple-400 transition-colors">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-400">Courses</CardTitle>
-              <BookOpen className="h-4 w-4 text-yellow-400" />
+              <BookOpen className="h-4 w-4 text-purple-400" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-white">{stats.courses}</div>
-              <p className="text-xs text-green-400">+5 new this month</p>
+              <p className="text-xs text-green-400">+{courseGrowth.toFixed(1)}% from last month</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Management Sections */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          <Card className="bg-gray-900 border-gray-800 hover:border-yellow-400 transition-colors cursor-pointer group">
+          <Card className="bg-gray-900 border-gray-800 hover:border-purple-400 transition-colors cursor-pointer group">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-white group-hover:text-yellow-400 transition-colors">
-                <Calendar className="h-5 w-5 text-yellow-400" />
+              <CardTitle className="flex items-center gap-2 text-white group-hover:text-purple-400 transition-colors">
+                <Calendar className="h-5 w-5 text-purple-400" />
                 Manage Hackathons
               </CardTitle>
               <CardDescription className="text-gray-400">Create, edit, and manage hackathon events</CardDescription>
             </CardHeader>
             <CardContent>
               <Button
-                className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
+                className="w-full bg-purple-400 hover:bg-purple-500 text-black font-semibold"
                 onClick={() => router.push("/admin/hackathons")}
               >
                 Manage Hackathons
@@ -225,17 +262,17 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-900 border-gray-800 hover:border-yellow-400 transition-colors cursor-pointer group">
+          <Card className="bg-gray-900 border-gray-800 hover:border-purple-400 transition-colors cursor-pointer group">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-white group-hover:text-yellow-400 transition-colors">
-                <Briefcase className="h-5 w-5 text-yellow-400" />
+              <CardTitle className="flex items-center gap-2 text-white group-hover:text-purple-400 transition-colors">
+                <Briefcase className="h-5 w-5 text-purple-400" />
                 Manage Jobs
               </CardTitle>
               <CardDescription className="text-gray-400">Post and manage job listings and internships</CardDescription>
             </CardHeader>
             <CardContent>
               <Button
-                className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
+                className="w-full bg-purple-400 hover:bg-purple-500 text-black font-semibold"
                 onClick={() => router.push("/admin/jobs")}
               >
                 Manage Jobs
@@ -243,17 +280,17 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-900 border-gray-800 hover:border-yellow-400 transition-colors cursor-pointer group">
+          <Card className="bg-gray-900 border-gray-800 hover:border-purple-400 transition-colors cursor-pointer group">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-white group-hover:text-yellow-400 transition-colors">
-                <BookOpen className="h-5 w-5 text-yellow-400" />
+              <CardTitle className="flex items-center gap-2 text-white group-hover:text-purple-400 transition-colors">
+                <BookOpen className="h-5 w-5 text-purple-400" />
                 Manage Courses
               </CardTitle>
               <CardDescription className="text-gray-400">Add and update course content</CardDescription>
             </CardHeader>
             <CardContent>
               <Button
-                className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
+                className="w-full bg-purple-400 hover:bg-purple-500 text-black font-semibold"
                 onClick={() => router.push("/admin/courses")}
               >
                 Manage Courses
@@ -261,17 +298,17 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-900 border-gray-800 hover:border-yellow-400 transition-colors cursor-pointer group">
+          <Card className="bg-gray-900 border-gray-800 hover:border-purple-400 transition-colors cursor-pointer group">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-white group-hover:text-yellow-400 transition-colors">
-                <Users className="h-5 w-5 text-yellow-400" />
+              <CardTitle className="flex items-center gap-2 text-white group-hover:text-purple-400 transition-colors">
+                <Users className="h-5 w-5 text-purple-400" />
                 User Management
               </CardTitle>
               <CardDescription className="text-gray-400">View and manage user accounts</CardDescription>
             </CardHeader>
             <CardContent>
               <Button
-                className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
+                className="w-full bg-purple-400 hover:bg-purple-500 text-black font-semibold"
                 onClick={() => router.push("/admin/users")}
               >
                 Manage Users
@@ -279,17 +316,17 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-900 border-gray-800 hover:border-yellow-400 transition-colors cursor-pointer group">
+          <Card className="bg-gray-900 border-gray-800 hover:border-purple-400 transition-colors cursor-pointer group">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-white group-hover:text-yellow-400 transition-colors">
-                <BarChart3 className="h-5 w-5 text-yellow-400" />
+              <CardTitle className="flex items-center gap-2 text-white group-hover:text-purple-400 transition-colors">
+                <BarChart3 className="h-5 w-5 text-purple-400" />
                 Analytics
               </CardTitle>
               <CardDescription className="text-gray-400">View detailed platform analytics</CardDescription>
             </CardHeader>
             <CardContent>
               <Button
-                className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
+                className="w-full bg-purple-400 hover:bg-purple-500 text-black font-semibold"
                 onClick={() => router.push("/admin/analytics")}
               >
                 View Analytics
@@ -297,17 +334,17 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-900 border-gray-800 hover:border-yellow-400 transition-colors cursor-pointer group">
+          <Card className="bg-gray-900 border-gray-800 hover:border-purple-400 transition-colors cursor-pointer group">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-white group-hover:text-yellow-400 transition-colors">
-                <Settings className="h-5 w-5 text-yellow-400" />
+              <CardTitle className="flex items-center gap-2 text-white group-hover:text-purple-400 transition-colors">
+                <Settings className="h-5 w-5 text-purple-400" />
                 Site Settings
               </CardTitle>
               <CardDescription className="text-gray-400">Configure site settings and preferences</CardDescription>
             </CardHeader>
             <CardContent>
               <Button
-                className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
+                className="w-full bg-purple-400 hover:bg-purple-500 text-black font-semibold"
                 onClick={() => router.push("/admin/settings")}
               >
                 Site Settings
@@ -320,7 +357,7 @@ export default function AdminDashboard() {
         <Card className="bg-gray-900 border-gray-800">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-white">
-              <Plus className="h-5 w-5 text-yellow-400" />
+              <Plus className="h-5 w-5 text-purple-400" />
               Quick Actions
             </CardTitle>
             <CardDescription className="text-gray-400">Perform common administrative tasks</CardDescription>
