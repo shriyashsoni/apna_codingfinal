@@ -772,3 +772,21 @@ export const searchJobs = async (query: string, type?: string, experience?: stri
   const { data, error } = await queryBuilder.order("posted_date", { ascending: false })
   return { data, error }
 }
+
+// Utility function to generate slug from title
+export const generateSlug = (title: string, id: string) => {
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9 -]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .trim()
+
+  return `${slug}-${id}`
+}
+
+// Function to extract ID from slug
+export const extractIdFromSlug = (slug: string) => {
+  const parts = slug.split("-")
+  return parts[parts.length - 1]
+}

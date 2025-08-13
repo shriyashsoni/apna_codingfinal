@@ -20,6 +20,14 @@ export default function Navbar() {
 
   useEffect(() => {
     checkUser()
+
+    // Check for auth parameter in URL
+    const urlParams = new URLSearchParams(window.location.search)
+    const authParam = urlParams.get("auth")
+    if (authParam === "signup" || authParam === "login") {
+      setAuthMode(authParam as "login" | "signup")
+      setShowAuthModal(true)
+    }
   }, [])
 
   const checkUser = async () => {
@@ -41,6 +49,10 @@ export default function Navbar() {
   const handleAuthSuccess = () => {
     setShowAuthModal(false)
     checkUser()
+    // Remove auth parameter from URL
+    const url = new URL(window.location.href)
+    url.searchParams.delete("auth")
+    window.history.replaceState({}, "", url.toString())
   }
 
   const handleSignOut = async () => {
@@ -179,6 +191,7 @@ export default function Navbar() {
                     variant="ghost"
                     onClick={() => openAuthModal("login")}
                     className="text-gray-300 hover:text-white"
+                    data-auth-modal
                   >
                     Login
                   </Button>

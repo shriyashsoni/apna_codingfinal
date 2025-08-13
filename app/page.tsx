@@ -8,13 +8,45 @@ import { Card, CardContent } from "@/components/ui/card"
 import AnimatedCounter from "@/components/animated-counter"
 import FloatingElements from "@/components/floating-elements"
 import CodeAnimation from "@/components/code-animation"
+import AIChatbot from "@/components/ai-chatbot"
+import { getCurrentUser } from "@/lib/supabase"
 
 export default function HomePage() {
   const [isVisible, setIsVisible] = useState(false)
+  const [user, setUser] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     setIsVisible(true)
+    checkUser()
   }, [])
+
+  const checkUser = async () => {
+    try {
+      const currentUser = await getCurrentUser()
+      setUser(currentUser)
+    } catch (error) {
+      console.error("Error checking user:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleStartLearning = () => {
+    if (user) {
+      // User is logged in, redirect to dashboard
+      window.location.href = "/dashboard"
+    } else {
+      // User is not logged in, show auth modal or redirect to login
+      const authModal = document.querySelector("[data-auth-modal]") as any
+      if (authModal) {
+        authModal.click()
+      } else {
+        // Fallback: redirect to a login page or show auth modal
+        window.location.href = "/?auth=signup"
+      }
+    }
+  }
 
   const features = [
     {
@@ -111,8 +143,12 @@ export default function HomePage() {
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-                <Button className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold text-lg px-8 py-4 rounded-xl">
-                  Start Learning Free
+                <Button
+                  onClick={handleStartLearning}
+                  disabled={loading}
+                  className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold text-lg px-8 py-4 rounded-xl"
+                >
+                  {loading ? "Loading..." : user ? "Go to Dashboard" : "Start Learning Free"}
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
                 <Button className="border border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black text-lg px-8 py-4 rounded-xl backdrop-blur-sm">
@@ -134,9 +170,27 @@ export default function HomePage() {
                       type="text"
                       placeholder="Ask AI: 'How do I learn React in 30 days?'"
                       className="w-full bg-transparent text-white placeholder-gray-400 text-lg outline-none"
+                      onClick={() => {
+                        // Trigger AI chatbot
+                        const chatbotTrigger = document.querySelector("[data-chatbot-trigger]") as HTMLElement
+                        if (chatbotTrigger) {
+                          chatbotTrigger.click()
+                        }
+                      }}
                     />
                   </div>
-                  <Button className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold">Ask AI</Button>
+                  <Button
+                    className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
+                    onClick={() => {
+                      // Trigger AI chatbot
+                      const chatbotTrigger = document.querySelector("[data-chatbot-trigger]") as HTMLElement
+                      if (chatbotTrigger) {
+                        chatbotTrigger.click()
+                      }
+                    }}
+                  >
+                    Ask AI
+                  </Button>
                 </div>
               </div>
             </div>
@@ -294,8 +348,12 @@ export default function HomePage() {
               AI-powered learning platform.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold text-lg px-8 py-4 rounded-xl">
-                Start Free Trial
+              <Button
+                onClick={handleStartLearning}
+                disabled={loading}
+                className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold text-lg px-8 py-4 rounded-xl"
+              >
+                {loading ? "Loading..." : user ? "Go to Dashboard" : "Start Free Trial"}
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
               <Link href="/courses">
@@ -308,6 +366,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* AI Chatbot */}
+      <AIChatbot />
     </div>
   )
 }

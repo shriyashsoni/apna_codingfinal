@@ -2,43 +2,24 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { getCurrentUser, isAdmin, getAnalytics } from "@/lib/supabase"
+import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import {
-  Users,
-  Calendar,
-  Briefcase,
-  BookOpen,
-  Settings,
-  Plus,
-  Shield,
-  BarChart3,
-  Mail,
-  ExternalLink,
-} from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { getCurrentUser, getDetailedAnalytics, type User } from "@/lib/supabase"
+import { Users, BookOpen, Trophy, Briefcase, TrendingUp, TrendingDown, BarChart3, Settings, Plus } from "lucide-react"
 
 export default function AdminDashboard() {
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<User | null>(null)
+  const [analytics, setAnalytics] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [adminAccess, setAdminAccess] = useState(false)
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    activeHackathons: 0,
-    jobListings: 0,
-    courses: 0,
-  })
-  const [userGrowth, setUserGrowth] = useState(0)
-  const [hackathonGrowth, setHackathonGrowth] = useState(0)
-  const [jobGrowth, setJobGrowth] = useState(0)
-  const [courseGrowth, setCourseGrowth] = useState(0)
   const router = useRouter()
 
   useEffect(() => {
-    checkAdminAccess()
+    loadAdminData()
   }, [])
 
-  const checkAdminAccess = async () => {
+  const loadAdminData = async () => {
     try {
       const currentUser = await getCurrentUser()
       if (!currentUser) {
@@ -46,348 +27,298 @@ export default function AdminDashboard() {
         return
       }
 
-      // Strict check - only allow sonishriyash@gmail.com
-      if (currentUser.email !== "sonishriyash@gmail.com") {
-        router.push("/")
-        return
-      }
-
-      const hasAdminAccess = await isAdmin(currentUser.email)
-      if (!hasAdminAccess) {
-        router.push("/")
+      if (currentUser.role !== "admin") {
+        router.push("/dashboard")
         return
       }
 
       setUser(currentUser)
-      setAdminAccess(true)
 
-      // Load dashboard stats
-      await loadStats()
+      // Load analytics data
+      const analyticsData = await getDetailedAnalytics()
+      setAnalytics(analyticsData)
     } catch (error) {
-      console.error("Error checking admin access:", error)
-      router.push("/")
+      console.error("Error loading admin data:", error)
     } finally {
       setLoading(false)
     }
   }
 
-  const loadStats = async () => {
-    try {
-      const data = await getAnalytics()
-
-      const totalUsers = data.users.length
-      const activeHackathons = data.hackathons.filter((h) => h.status === "upcoming" || h.status === "ongoing").length
-      const jobListings = data.jobs.filter((j) => j.status === "active").length
-      const courses = data.courses.filter((c) => c.status === "active").length
-
-      // Calculate growth percentages based on recent data
-      const now = new Date()
-      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
-
-      const recentUsers = data.users.filter((u) => new Date(u.created_at) > lastMonth).length
-      const userGrowthCalc = totalUsers > 0 ? (recentUsers / totalUsers) * 100 : 0
-
-      const recentHackathons = data.hackathons.filter((h) => new Date(h.created_at) > lastMonth).length
-      const hackathonGrowthCalc = activeHackathons > 0 ? (recentHackathons / activeHackathons) * 100 : 0
-
-      const recentJobs = data.jobs.filter((j) => new Date(j.created_at) > lastMonth).length
-      const jobGrowthCalc = jobListings > 0 ? (recentJobs / jobListings) * 100 : 0
-
-      const recentCourses = data.courses.filter((c) => new Date(c.created_at) > lastMonth).length
-      const courseGrowthCalc = courses > 0 ? (recentCourses / courses) * 100 : 0
-
-      setStats({
-        totalUsers,
-        activeHackathons,
-        jobListings,
-        courses,
-      })
-      setUserGrowth(userGrowthCalc)
-      setHackathonGrowth(hackathonGrowthCalc)
-      setJobGrowth(jobGrowthCalc)
-      setCourseGrowth(courseGrowthCalc)
-    } catch (error) {
-      console.error("Error loading stats:", error)
-      // Fallback to default values
-      setStats({
-        totalUsers: 1234,
-        activeHackathons: 12,
-        jobListings: 89,
-        courses: 45,
-      })
-    }
-  }
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-400 mx-auto"></div>
-          <p className="text-white mt-4">Loading Admin Dashboard...</p>
-        </div>
+      <div className="min-h-screen bg-black pt-20 flex items-center justify-center">
+        <div className="text-white text-xl">Loading admin dashboard...</div>
       </div>
     )
   }
 
-  if (!adminAccess || user?.email !== "sonishriyash@gmail.com") {
+  if (!user || user.role !== "admin") {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <Shield className="w-16 h-16 text-red-400 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-red-400 mb-4">Access Denied</h1>
-          <p className="text-gray-400 mb-4">You don't have permission to access this admin portal.</p>
-          <p className="text-gray-500 text-sm">Only authorized administrators can access this area.</p>
-          <Button onClick={() => router.push("/")} className="mt-6 bg-purple-400 hover:bg-purple-500 text-black">
-            Return to Home
-          </Button>
-        </div>
+      <div className="min-h-screen bg-black pt-20 flex items-center justify-center">
+        <div className="text-white text-xl">Access denied. Admin privileges required.</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      {/* Header */}
-      <div className="bg-gray-900 border-b border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-white flex items-center gap-2">
-                <Shield className="w-8 h-8 text-purple-400" />
-                Admin Dashboard
-              </h1>
-              <p className="text-gray-400 mt-1">Welcome back, {user?.email}</p>
-              <div className="flex items-center gap-2 mt-2">
-                <div className="bg-purple-400 text-black px-3 py-1 rounded-full text-sm font-medium">Super Admin</div>
-                <div className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">Full Access</div>
+    <div className="min-h-screen bg-black pt-20">
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-white mb-2">
+            Admin <span className="text-yellow-400">Dashboard</span> 🛠️
+          </h1>
+          <p className="text-gray-300 text-lg">Manage your platform and monitor performance</p>
+        </div>
+
+        {/* Stats Overview */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card className="bg-gray-900/50 border-gray-700">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-400 text-sm">Total Users</p>
+                  <p className="text-2xl font-bold text-white">{analytics?.totals?.totalUsers || 0}</p>
+                  <div className="flex items-center mt-1">
+                    {analytics?.growth?.userGrowth >= 0 ? (
+                      <TrendingUp className="w-4 h-4 text-green-400 mr-1" />
+                    ) : (
+                      <TrendingDown className="w-4 h-4 text-red-400 mr-1" />
+                    )}
+                    <span
+                      className={`text-sm ${analytics?.growth?.userGrowth >= 0 ? "text-green-400" : "text-red-400"}`}
+                    >
+                      {analytics?.growth?.userGrowth || 0}%
+                    </span>
+                  </div>
+                </div>
+                <Users className="w-8 h-8 text-yellow-400" />
               </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <Button
-                onClick={() => router.push("/")}
-                variant="outline"
-                className="border-gray-700 text-white hover:bg-gray-800"
-              >
-                <ExternalLink className="w-4 h-4 mr-2" />
-                View Website
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+            </CardContent>
+          </Card>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Admin Access Notice */}
-        <div className="mb-8 p-6 bg-gradient-to-r from-purple-400/10 to-purple-600/10 border border-purple-400/20 rounded-lg">
-          <div className="flex items-start gap-3">
-            <Mail className="w-6 h-6 text-purple-400 mt-1" />
-            <div>
-              <h3 className="text-lg font-semibold text-white mb-2">Admin Portal Access</h3>
-              <p className="text-gray-300 text-sm leading-relaxed mb-3">
-                This admin portal is exclusively accessible to{" "}
-                <strong className="text-purple-400">sonishriyash@gmail.com</strong>. You have full administrative
-                privileges to manage all platform content, users, and settings.
-              </p>
-              <div className="text-xs text-gray-400">
-                Admin Portal URL: <code className="bg-gray-800 px-2 py-1 rounded text-purple-400">/admin</code>
+          <Card className="bg-gray-900/50 border-gray-700">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-400 text-sm">Active Courses</p>
+                  <p className="text-2xl font-bold text-white">{analytics?.totals?.courses || 0}</p>
+                  <div className="flex items-center mt-1">
+                    {analytics?.growth?.courseGrowth >= 0 ? (
+                      <TrendingUp className="w-4 h-4 text-green-400 mr-1" />
+                    ) : (
+                      <TrendingDown className="w-4 h-4 text-red-400 mr-1" />
+                    )}
+                    <span
+                      className={`text-sm ${analytics?.growth?.courseGrowth >= 0 ? "text-green-400" : "text-red-400"}`}
+                    >
+                      {analytics?.growth?.courseGrowth || 0}%
+                    </span>
+                  </div>
+                </div>
+                <BookOpen className="w-8 h-8 text-yellow-400" />
               </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-gray-900 border-gray-800 hover:border-purple-400 transition-colors">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-400">Total Users</CardTitle>
-              <Users className="h-4 w-4 text-purple-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-white">{stats.totalUsers.toLocaleString()}</div>
-              <p className="text-xs text-green-400">+{userGrowth.toFixed(1)}% from last month</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-900 border-gray-800 hover:border-purple-400 transition-colors">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-400">Active Hackathons</CardTitle>
-              <Calendar className="h-4 w-4 text-purple-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-white">{stats.activeHackathons}</div>
-              <p className="text-xs text-green-400">+{hackathonGrowth.toFixed(1)}% from last month</p>
+          <Card className="bg-gray-900/50 border-gray-700">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-400 text-sm">Active Hackathons</p>
+                  <p className="text-2xl font-bold text-white">{analytics?.totals?.activeHackathons || 0}</p>
+                  <div className="flex items-center mt-1">
+                    {analytics?.growth?.hackathonGrowth >= 0 ? (
+                      <TrendingUp className="w-4 h-4 text-green-400 mr-1" />
+                    ) : (
+                      <TrendingDown className="w-4 h-4 text-red-400 mr-1" />
+                    )}
+                    <span
+                      className={`text-sm ${analytics?.growth?.hackathonGrowth >= 0 ? "text-green-400" : "text-red-400"}`}
+                    >
+                      {analytics?.growth?.hackathonGrowth || 0}%
+                    </span>
+                  </div>
+                </div>
+                <Trophy className="w-8 h-8 text-yellow-400" />
+              </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-900 border-gray-800 hover:border-purple-400 transition-colors">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-400">Job Listings</CardTitle>
-              <Briefcase className="h-4 w-4 text-purple-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-white">{stats.jobListings}</div>
-              <p className="text-xs text-green-400">+{jobGrowth.toFixed(1)}% from last month</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gray-900 border-gray-800 hover:border-purple-400 transition-colors">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-400">Courses</CardTitle>
-              <BookOpen className="h-4 w-4 text-purple-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-white">{stats.courses}</div>
-              <p className="text-xs text-green-400">+{courseGrowth.toFixed(1)}% from last month</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Management Sections */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          <Card className="bg-gray-900 border-gray-800 hover:border-purple-400 transition-colors cursor-pointer group">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-white group-hover:text-purple-400 transition-colors">
-                <Calendar className="h-5 w-5 text-purple-400" />
-                Manage Hackathons
-              </CardTitle>
-              <CardDescription className="text-gray-400">Create, edit, and manage hackathon events</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                className="w-full bg-purple-400 hover:bg-purple-500 text-black font-semibold"
-                onClick={() => router.push("/admin/hackathons")}
-              >
-                Manage Hackathons
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gray-900 border-gray-800 hover:border-purple-400 transition-colors cursor-pointer group">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-white group-hover:text-purple-400 transition-colors">
-                <Briefcase className="h-5 w-5 text-purple-400" />
-                Manage Jobs
-              </CardTitle>
-              <CardDescription className="text-gray-400">Post and manage job listings and internships</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                className="w-full bg-purple-400 hover:bg-purple-500 text-black font-semibold"
-                onClick={() => router.push("/admin/jobs")}
-              >
-                Manage Jobs
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gray-900 border-gray-800 hover:border-purple-400 transition-colors cursor-pointer group">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-white group-hover:text-purple-400 transition-colors">
-                <BookOpen className="h-5 w-5 text-purple-400" />
-                Manage Courses
-              </CardTitle>
-              <CardDescription className="text-gray-400">Add and update course content</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                className="w-full bg-purple-400 hover:bg-purple-500 text-black font-semibold"
-                onClick={() => router.push("/admin/courses")}
-              >
-                Manage Courses
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gray-900 border-gray-800 hover:border-purple-400 transition-colors cursor-pointer group">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-white group-hover:text-purple-400 transition-colors">
-                <Users className="h-5 w-5 text-purple-400" />
-                User Management
-              </CardTitle>
-              <CardDescription className="text-gray-400">View and manage user accounts</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                className="w-full bg-purple-400 hover:bg-purple-500 text-black font-semibold"
-                onClick={() => router.push("/admin/users")}
-              >
-                Manage Users
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gray-900 border-gray-800 hover:border-purple-400 transition-colors cursor-pointer group">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-white group-hover:text-purple-400 transition-colors">
-                <BarChart3 className="h-5 w-5 text-purple-400" />
-                Analytics
-              </CardTitle>
-              <CardDescription className="text-gray-400">View detailed platform analytics</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                className="w-full bg-purple-400 hover:bg-purple-500 text-black font-semibold"
-                onClick={() => router.push("/admin/analytics")}
-              >
-                View Analytics
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gray-900 border-gray-800 hover:border-purple-400 transition-colors cursor-pointer group">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-white group-hover:text-purple-400 transition-colors">
-                <Settings className="h-5 w-5 text-purple-400" />
-                Site Settings
-              </CardTitle>
-              <CardDescription className="text-gray-400">Configure site settings and preferences</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                className="w-full bg-purple-400 hover:bg-purple-500 text-black font-semibold"
-                onClick={() => router.push("/admin/settings")}
-              >
-                Site Settings
-              </Button>
+          <Card className="bg-gray-900/50 border-gray-700">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-400 text-sm">Job Listings</p>
+                  <p className="text-2xl font-bold text-white">{analytics?.totals?.jobListings || 0}</p>
+                  <div className="flex items-center mt-1">
+                    {analytics?.growth?.jobGrowth >= 0 ? (
+                      <TrendingUp className="w-4 h-4 text-green-400 mr-1" />
+                    ) : (
+                      <TrendingDown className="w-4 h-4 text-red-400 mr-1" />
+                    )}
+                    <span
+                      className={`text-sm ${analytics?.growth?.jobGrowth >= 0 ? "text-green-400" : "text-red-400"}`}
+                    >
+                      {analytics?.growth?.jobGrowth || 0}%
+                    </span>
+                  </div>
+                </div>
+                <Briefcase className="w-8 h-8 text-yellow-400" />
+              </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Quick Create Actions */}
-        <Card className="bg-gray-900 border-gray-800">
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          {/* Management Actions */}
+          <Card className="bg-gray-900/50 border-gray-700">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center">
+                <Settings className="w-5 h-5 mr-2 text-yellow-400" />
+                Content Management
+              </CardTitle>
+              <CardDescription className="text-gray-400">Manage courses, hackathons, jobs, and users</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <Link href="/admin/courses">
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                    <BookOpen className="w-4 h-4 mr-2" />
+                    Courses
+                  </Button>
+                </Link>
+                <Link href="/admin/hackathons">
+                  <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white">
+                    <Trophy className="w-4 h-4 mr-2" />
+                    Hackathons
+                  </Button>
+                </Link>
+                <Link href="/admin/jobs">
+                  <Button className="w-full bg-green-600 hover:bg-green-700 text-white">
+                    <Briefcase className="w-4 h-4 mr-2" />
+                    Jobs
+                  </Button>
+                </Link>
+                <Link href="/admin/users">
+                  <Button className="w-full bg-orange-600 hover:bg-orange-700 text-white">
+                    <Users className="w-4 h-4 mr-2" />
+                    Users
+                  </Button>
+                </Link>
+              </div>
+
+              <div className="pt-4 border-t border-gray-700">
+                <h4 className="text-white font-semibold mb-3">Quick Add</h4>
+                <div className="grid grid-cols-1 gap-2">
+                  <Link href="/admin/courses/new">
+                    <Button
+                      variant="outline"
+                      className="w-full border-gray-700 text-white hover:bg-gray-800 bg-transparent"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add New Course
+                    </Button>
+                  </Link>
+                  <Link href="/admin/hackathons/new">
+                    <Button
+                      variant="outline"
+                      className="w-full border-gray-700 text-white hover:bg-gray-800 bg-transparent"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add New Hackathon
+                    </Button>
+                  </Link>
+                  <Link href="/admin/jobs/new">
+                    <Button
+                      variant="outline"
+                      className="w-full border-gray-700 text-white hover:bg-gray-800 bg-transparent"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add New Job
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Analytics & Settings */}
+          <Card className="bg-gray-900/50 border-gray-700">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center">
+                <BarChart3 className="w-5 h-5 mr-2 text-yellow-400" />
+                Analytics & Settings
+              </CardTitle>
+              <CardDescription className="text-gray-400">
+                View detailed analytics and manage site settings
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 gap-4">
+                <Link href="/admin/analytics">
+                  <Button className="w-full bg-yellow-400 hover:bg-yellow-500 text-black">
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    View Analytics
+                  </Button>
+                </Link>
+                <Link href="/admin/settings">
+                  <Button className="w-full bg-gray-700 hover:bg-gray-600 text-white">
+                    <Settings className="w-4 h-4 mr-2" />
+                    Site Settings
+                  </Button>
+                </Link>
+              </div>
+
+              <div className="pt-4 border-t border-gray-700">
+                <h4 className="text-white font-semibold mb-3">User Roles</h4>
+                <div className="space-y-2">
+                  {analytics?.usersByRole?.map((roleData: any) => (
+                    <div key={roleData.role} className="flex items-center justify-between">
+                      <span className="text-gray-400 capitalize">{roleData.role}s:</span>
+                      <Badge variant="secondary" className="bg-yellow-400/20 text-yellow-400">
+                        {roleData.count}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Recent Activity */}
+        <Card className="bg-gray-900/50 border-gray-700">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-white">
-              <Plus className="h-5 w-5 text-purple-400" />
-              Quick Actions
-            </CardTitle>
-            <CardDescription className="text-gray-400">Perform common administrative tasks</CardDescription>
+            <CardTitle className="text-white">Recent Activity</CardTitle>
+            <CardDescription className="text-gray-400">Latest updates and changes to your platform</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Button
-                variant="outline"
-                className="border-gray-700 text-white hover:bg-gray-800 bg-transparent"
-                onClick={() => router.push("/admin/hackathons/new")}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                New Hackathon
-              </Button>
-              <Button
-                variant="outline"
-                className="border-gray-700 text-white hover:bg-gray-800 bg-transparent"
-                onClick={() => router.push("/admin/jobs/new")}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                New Job Posting
-              </Button>
-              <Button
-                variant="outline"
-                className="border-gray-700 text-white hover:bg-gray-800 bg-transparent"
-                onClick={() => router.push("/admin/courses/new")}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                New Course
-              </Button>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  <span className="text-white">System is running smoothly</span>
+                </div>
+                <span className="text-gray-400 text-sm">Just now</span>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                  <span className="text-white">Database backup completed</span>
+                </div>
+                <span className="text-gray-400 text-sm">2 hours ago</span>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
+                  <span className="text-white">New user registrations: +{analytics?.growth?.userGrowth || 0}%</span>
+                </div>
+                <span className="text-gray-400 text-sm">Today</span>
+              </div>
             </div>
           </CardContent>
         </Card>

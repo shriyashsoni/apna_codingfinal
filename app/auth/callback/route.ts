@@ -21,22 +21,14 @@ export async function GET(request: Request) {
           avatar_url: data.user.user_metadata?.avatar_url,
         })
 
-        const forwardedHost = request.headers.get("x-forwarded-host")
-        const isLocalEnv = process.env.NODE_ENV === "development"
-
-        if (isLocalEnv) {
-          return NextResponse.redirect(`${origin}${next}`)
-        } else if (forwardedHost) {
-          return NextResponse.redirect(`https://${forwardedHost}${next}`)
-        } else {
-          return NextResponse.redirect(`${origin}${next}`)
-        }
+        // Redirect to dashboard instead of 404
+        return NextResponse.redirect(`${origin}/dashboard`)
       }
     } catch (error) {
       console.error("Auth callback error:", error)
     }
   }
 
-  // Return the user to an error page with instructions
-  return NextResponse.redirect(`${origin}/auth/auth-code-error`)
+  // Return the user to login page with error
+  return NextResponse.redirect(`${origin}/auth?error=auth_callback_error`)
 }

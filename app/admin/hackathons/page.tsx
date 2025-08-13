@@ -2,12 +2,19 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { getCurrentUser, isAdmin, getAllHackathons, deleteHackathon, type Hackathon } from "@/lib/supabase"
+import {
+  getCurrentUser,
+  isAdmin,
+  getAllHackathons,
+  deleteHackathon,
+  updateHackathon,
+  type Hackathon,
+} from "@/lib/supabase"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Calendar, MapPin, Users, Trophy, Edit, Trash2, Plus, Search, Shield } from "lucide-react"
+import { Calendar, MapPin, Users, Trophy, Edit, Trash2, Plus, Search, Shield, Star } from "lucide-react"
 
 export default function AdminHackathons() {
   const [user, setUser] = useState<any>(null)
@@ -93,6 +100,22 @@ export default function AdminHackathons() {
     }
   }
 
+  const toggleFeatured = async (id: string, currentFeatured: boolean) => {
+    try {
+      const { error } = await updateHackathon(id, { featured: !currentFeatured })
+      if (error) {
+        alert("Error updating hackathon: " + error.message)
+        return
+      }
+
+      await loadHackathons()
+      alert(`Hackathon ${!currentFeatured ? "featured" : "unfeatured"} successfully!`)
+    } catch (error) {
+      console.error("Error updating hackathon:", error)
+      alert("Error updating hackathon")
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "upcoming":
@@ -108,11 +131,22 @@ export default function AdminHackathons() {
     }
   }
 
+  const createSlug = (title: string, id: string) => {
+    return (
+      title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "") +
+      "-" +
+      id
+    )
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-yellow-400 mx-auto"></div>
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-400 mx-auto"></div>
           <p className="text-white mt-4">Loading Hackathons...</p>
         </div>
       </div>
@@ -139,7 +173,7 @@ export default function AdminHackathons() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-white flex items-center gap-2">
-                <Calendar className="w-8 h-8 text-yellow-400" />
+                <Calendar className="w-8 h-8 text-purple-400" />
                 Manage Hackathons
               </h1>
               <p className="text-gray-400 mt-1">Create, edit, and manage hackathon events</p>
@@ -147,7 +181,7 @@ export default function AdminHackathons() {
             <div className="flex items-center gap-4">
               <Button
                 onClick={() => router.push("/admin/hackathons/new")}
-                className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
+                className="bg-purple-400 hover:bg-purple-500 text-black font-semibold"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 New Hackathon
@@ -181,7 +215,7 @@ export default function AdminHackathons() {
                   className="pl-10 bg-gray-800 border-gray-700 text-white"
                 />
               </div>
-              <Badge variant="outline" className="border-yellow-400 text-yellow-400">
+              <Badge variant="outline" className="border-purple-400 text-purple-400">
                 {filteredHackathons.length} hackathons
               </Badge>
             </div>
@@ -191,14 +225,22 @@ export default function AdminHackathons() {
         {/* Hackathons Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredHackathons.map((hackathon) => (
-            <Card key={hackathon.id} className="bg-gray-900 border-gray-800 hover:border-yellow-400 transition-colors">
+            <Card key={hackathon.id} className="bg-gray-900 border-gray-800 hover:border-purple-400 transition-colors">
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <CardTitle className="text-white text-lg mb-2">{hackathon.title}</CardTitle>
-                    <Badge className={`${getStatusColor(hackathon.status)} text-white mb-2`}>
-                      {hackathon.status.charAt(0).toUpperCase() + hackathon.status.slice(1)}
-                    </Badge>
+                    <div className="flex gap-2 mb-2">
+                      <Badge className={`${getStatusColor(hackathon.status)} text-white`}>
+                        {hackathon.status.charAt(0).toUpperCase() + hackathon.status.slice(1)}
+                      </Badge>
+                      {hackathon.featured && (
+                        <Badge className="bg-yellow-400 text-black">
+                          <Star className="w-3 h-3 mr-1" />
+                          Featured
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <CardDescription className="text-gray-400 line-clamp-2">{hackathon.description}</CardDescription>
@@ -206,20 +248,20 @@ export default function AdminHackathons() {
               <CardContent>
                 <div className="space-y-3">
                   <div className="flex items-center text-gray-300 text-sm">
-                    <Calendar className="w-4 h-4 mr-2 text-yellow-400" />
+                    <Calendar className="w-4 h-4 mr-2 text-purple-400" />
                     {new Date(hackathon.start_date).toLocaleDateString()} -{" "}
                     {new Date(hackathon.end_date).toLocaleDateString()}
                   </div>
                   <div className="flex items-center text-gray-300 text-sm">
-                    <MapPin className="w-4 h-4 mr-2 text-yellow-400" />
+                    <MapPin className="w-4 h-4 mr-2 text-purple-400" />
                     {hackathon.location}
                   </div>
                   <div className="flex items-center text-gray-300 text-sm">
-                    <Trophy className="w-4 h-4 mr-2 text-yellow-400" />
+                    <Trophy className="w-4 h-4 mr-2 text-purple-400" />
                     {hackathon.prize_pool}
                   </div>
                   <div className="flex items-center text-gray-300 text-sm">
-                    <Users className="w-4 h-4 mr-2 text-yellow-400" />
+                    <Users className="w-4 h-4 mr-2 text-purple-400" />
                     {hackathon.participants_count} participants
                   </div>
 
@@ -249,6 +291,24 @@ export default function AdminHackathons() {
                     <Button
                       size="sm"
                       variant="outline"
+                      className={`border-yellow-400 hover:bg-yellow-400 hover:text-black bg-transparent ${
+                        hackathon.featured ? "text-yellow-400" : "text-gray-400"
+                      }`}
+                      onClick={() => toggleFeatured(hackathon.id, hackathon.featured)}
+                    >
+                      <Star className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-blue-400 text-blue-400 hover:bg-blue-400 hover:text-black bg-transparent"
+                      onClick={() => window.open(`/hackathons/${createSlug(hackathon.title, hackathon.id)}`, "_blank")}
+                    >
+                      View
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
                       className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white bg-transparent"
                       onClick={() => handleDelete(hackathon.id, hackathon.title)}
                     >
@@ -273,7 +333,7 @@ export default function AdminHackathons() {
               </p>
               <Button
                 onClick={() => router.push("/admin/hackathons/new")}
-                className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
+                className="bg-purple-400 hover:bg-purple-500 text-black font-semibold"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Create Hackathon
