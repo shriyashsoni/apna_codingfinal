@@ -19,29 +19,24 @@ import {
   AlertCircle,
   LogIn,
 } from "lucide-react"
-import { hackathons, searchHackathons, type HackathonData } from "@/lib/hackathons-data"
-import { getCurrentUser } from "@/lib/supabase"
+import { getCurrentUser, getHackathons, searchHackathons, type Hackathon } from "@/lib/supabase"
 
 export default function HackathonsPage() {
   const [searchQuery, setSearchQuery] = useState("")
-  const [filteredHackathons, setFilteredHackathons] = useState<HackathonData[]>(hackathons)
+  const [filteredHackathons, setFilteredHackathons] = useState<Hackathon[]>([])
   const [selectedStatus, setSelectedStatus] = useState<string>("all")
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [hackathons, setHackathons] = useState<Hackathon[]>([])
 
   useEffect(() => {
     checkUser()
+    loadHackathons()
   }, [])
 
   useEffect(() => {
-    let filtered = searchHackathons(searchQuery)
-
-    if (selectedStatus !== "all") {
-      filtered = filtered.filter((hackathon) => hackathon.status === selectedStatus)
-    }
-
-    setFilteredHackathons(filtered)
-  }, [searchQuery, selectedStatus])
+    filterHackathons()
+  }, [searchQuery, selectedStatus, hackathons])
 
   const checkUser = async () => {
     try {
@@ -49,12 +44,39 @@ export default function HackathonsPage() {
       setUser(currentUser)
     } catch (error) {
       console.error("Error checking user:", error)
+    }
+  }
+
+  const loadHackathons = async () => {
+    try {
+      const { data, error } = await getHackathons()
+      if (error) {
+        console.error("Error loading hackathons:", error)
+        return
+      }
+      setHackathons(data || [])
+    } catch (error) {
+      console.error("Error loading hackathons:", error)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleShare = async (hackathon: HackathonData) => {
+  const filterHackathons = async () => {
+    try {
+      const { data, error } = await searchHackathons(searchQuery, selectedStatus)
+      if (error) {
+        console.error("Error searching hackathons:", error)
+        return
+      }
+      setFilteredHackathons(data || [])
+    } catch (error) {
+      console.error("Error filtering hackathons:", error)
+      setFilteredHackathons(hackathons)
+    }
+  }
+
+  const handleShare = async (hackathon: Hackathon) => {
     const shareData = {
       title: hackathon.title,
       text: `Check out ${hackathon.title} - ${hackathon.description.substring(0, 100)}...`,
@@ -74,27 +96,27 @@ export default function HackathonsPage() {
     }
   }
 
-  const handleRegistration = (hackathon: HackathonData) => {
+  const handleRegistration = (hackathon: Hackathon) => {
     if (!user) {
       alert("Please login to register for hackathons!")
       return
     }
 
-    if (hackathon.registrationLink) {
-      window.open(hackathon.registrationLink, "_blank")
+    if (hackathon.registration_link) {
+      window.open(hackathon.registration_link, "_blank")
     } else {
       alert("Registration link not available for this hackathon.")
     }
   }
 
-  const handleWhatsAppJoin = (hackathon: HackathonData) => {
+  const handleWhatsAppJoin = (hackathon: Hackathon) => {
     if (!user) {
       alert("Please login to join WhatsApp groups!")
       return
     }
 
-    if (hackathon.whatsappLink) {
-      window.open(hackathon.whatsappLink, "_blank")
+    if (hackathon.whatsapp_link) {
+      window.open(hackathon.whatsapp_link, "_blank")
     }
   }
 
@@ -119,6 +141,14 @@ export default function HackathonsPage() {
       day: "numeric",
       year: "numeric",
     })
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-yellow-400"></div>
+      </div>
+    )
   }
 
   return (
@@ -187,11 +217,11 @@ export default function HackathonsPage() {
           </div>
         </div>
 
-        {/* Featured BNB Hackathons */}
+        {/* Featured Hackathons */}
         <div className="mb-12">
           <h2 className="text-3xl font-bold text-white mb-6 flex items-center gap-2">
             <Star className="w-8 h-8 text-yellow-400" />
-            Featured BNB AI Hackathons
+            Featured Hackathons
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredHackathons
@@ -204,7 +234,7 @@ export default function HackathonsPage() {
                   <CardHeader className="pb-4">
                     <div className="relative">
                       <img
-                        src={hackathon.image || "/placeholder.svg"}
+                        src={hackathon.image_url || "/images/hackathon-hero.png"}
                         alt={hackathon.title}
                         className="w-full h-48 object-cover rounded-lg mb-4"
                       />
@@ -243,7 +273,7 @@ export default function HackathonsPage() {
                       <div className="flex items-center gap-2 text-sm text-gray-300">
                         <Calendar className="w-4 h-4 text-yellow-400" />
                         <span>
-                          {formatDate(hackathon.startDate)} - {formatDate(hackathon.endDate)}
+                          {formatDate(hackathon.start_date)} - {formatDate(hackathon.end_date)}
                         </span>
                       </div>
 
@@ -254,12 +284,12 @@ export default function HackathonsPage() {
 
                       <div className="flex items-center gap-2 text-sm text-gray-300">
                         <Users className="w-4 h-4 text-yellow-400" />
-                        <span>{hackathon.participants.toLocaleString()} participants</span>
+                        <span>{hackathon.participants_count.toLocaleString()} participants</span>
                       </div>
 
                       <div className="flex items-center gap-2 text-sm">
                         <Trophy className="w-4 h-4 text-yellow-400" />
-                        <span className="text-green-400 font-semibold">{hackathon.prizePool}</span>
+                        <span className="text-green-400 font-semibold">{hackathon.prize_pool}</span>
                       </div>
                     </div>
 
@@ -285,7 +315,7 @@ export default function HackathonsPage() {
                         <p className="text-sm text-gray-400">{hackathon.organizer}</p>
                       </div>
 
-                      {hackathon.partnerships.length > 0 && (
+                      {hackathon.partnerships && hackathon.partnerships.length > 0 && (
                         <div>
                           <h4 className="text-sm font-medium text-gray-300 mb-1">Partners</h4>
                           <p className="text-sm text-gray-400">{hackathon.partnerships.join(", ")}</p>
@@ -316,7 +346,7 @@ export default function HackathonsPage() {
                         )}
                       </Button>
 
-                      {hackathon.whatsappLink && (
+                      {hackathon.whatsapp_link && (
                         <Button
                           onClick={() => handleWhatsAppJoin(hackathon)}
                           disabled={!user}
@@ -351,7 +381,7 @@ export default function HackathonsPage() {
                   <CardHeader className="pb-4">
                     <div className="relative">
                       <img
-                        src={hackathon.image || "/placeholder.svg"}
+                        src={hackathon.image_url || "/images/hackathon-hero.png"}
                         alt={hackathon.title}
                         className="w-full h-48 object-cover rounded-lg mb-4"
                       />
@@ -384,7 +414,7 @@ export default function HackathonsPage() {
                       <div className="flex items-center gap-2 text-sm text-gray-300">
                         <Calendar className="w-4 h-4 text-yellow-400" />
                         <span>
-                          {formatDate(hackathon.startDate)} - {formatDate(hackathon.endDate)}
+                          {formatDate(hackathon.start_date)} - {formatDate(hackathon.end_date)}
                         </span>
                       </div>
 
@@ -395,12 +425,12 @@ export default function HackathonsPage() {
 
                       <div className="flex items-center gap-2 text-sm text-gray-300">
                         <Users className="w-4 h-4 text-yellow-400" />
-                        <span>{hackathon.participants.toLocaleString()} participants</span>
+                        <span>{hackathon.participants_count.toLocaleString()} participants</span>
                       </div>
 
                       <div className="flex items-center gap-2 text-sm">
                         <Trophy className="w-4 h-4 text-yellow-400" />
-                        <span className="text-green-400 font-semibold">{hackathon.prizePool}</span>
+                        <span className="text-green-400 font-semibold">{hackathon.prize_pool}</span>
                       </div>
                     </div>
 
@@ -426,7 +456,7 @@ export default function HackathonsPage() {
                         <p className="text-sm text-gray-400">{hackathon.organizer}</p>
                       </div>
 
-                      {hackathon.partnerships.length > 0 && (
+                      {hackathon.partnerships && hackathon.partnerships.length > 0 && (
                         <div>
                           <h4 className="text-sm font-medium text-gray-300 mb-1">Partners</h4>
                           <p className="text-sm text-gray-400">{hackathon.partnerships.join(", ")}</p>
@@ -457,7 +487,7 @@ export default function HackathonsPage() {
                         )}
                       </Button>
 
-                      {hackathon.whatsappLink && (
+                      {hackathon.whatsapp_link && (
                         <Button
                           onClick={() => handleWhatsAppJoin(hackathon)}
                           disabled={!user}

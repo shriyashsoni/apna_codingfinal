@@ -1,123 +1,78 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { Search, MapPin, Clock, DollarSign, ExternalLink, Building, Users, Share2, Bookmark } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
+import { getCurrentUser, getJobs, searchJobs, type Job } from "@/lib/supabase"
 
 export default function JobsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedType, setSelectedType] = useState("All")
   const [selectedLevel, setSelectedLevel] = useState("All")
-  const [bookmarkedJobs, setBookmarkedJobs] = useState<number[]>([])
+  const [bookmarkedJobs, setBookmarkedJobs] = useState<string[]>([])
+  const [user, setUser] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [jobs, setJobs] = useState<Job[]>([])
+  const [filteredJobs, setFilteredJobs] = useState<Job[]>([])
 
   const jobTypes = ["All", "Full-time", "Part-time", "Contract", "Internship"]
   const experienceLevels = ["All", "Entry Level", "Mid Level", "Senior Level"]
 
-  const jobs = [
-    {
-      id: 1,
-      title: "Senior Full Stack Developer",
-      company: "TechCorp",
-      location: "San Francisco, CA",
-      type: "Full-time",
-      experience: "Senior Level",
-      salary: "$120k - $160k",
-      description:
-        "Join our team to build scalable web applications using React, Node.js, and cloud technologies. Work with cutting-edge tools and collaborate with talented engineers.",
-      requirements: ["5+ years experience", "React/Node.js", "AWS/GCP", "Team leadership"],
-      posted: "2 days ago",
-      applicationUrl: "https://techcorp.com/careers",
-    },
-    {
-      id: 2,
-      title: "Frontend Developer",
-      company: "StartupXYZ",
-      location: "Remote",
-      type: "Full-time",
-      experience: "Mid Level",
-      salary: "$80k - $110k",
-      description:
-        "Build beautiful and responsive user interfaces for our SaaS platform. Create engaging user experiences with modern frontend technologies.",
-      requirements: ["3+ years experience", "React/Vue.js", "TypeScript", "CSS/SCSS"],
-      posted: "1 week ago",
-      applicationUrl: "https://startupxyz.com/jobs",
-    },
-    {
-      id: 3,
-      title: "Data Scientist",
-      company: "DataCorp",
-      location: "New York, NY",
-      type: "Full-time",
-      experience: "Mid Level",
-      salary: "$100k - $130k",
-      description:
-        "Analyze large datasets and build machine learning models to drive business insights. Work with advanced analytics and AI technologies.",
-      requirements: ["Python/R", "Machine Learning", "SQL", "Statistics"],
-      posted: "3 days ago",
-      applicationUrl: "https://datacorp.com/careers",
-    },
-    {
-      id: 4,
-      title: "DevOps Engineer",
-      company: "CloudTech",
-      location: "Austin, TX",
-      type: "Full-time",
-      experience: "Senior Level",
-      salary: "$110k - $140k",
-      description:
-        "Manage cloud infrastructure and implement CI/CD pipelines for our microservices architecture. Ensure scalability and reliability of our systems.",
-      requirements: ["AWS/Azure", "Docker/Kubernetes", "Terraform", "CI/CD"],
-      posted: "5 days ago",
-      applicationUrl: "https://cloudtech.com/jobs",
-    },
-    {
-      id: 5,
-      title: "Software Engineering Intern",
-      company: "BigTech",
-      location: "Seattle, WA",
-      type: "Internship",
-      experience: "Entry Level",
-      salary: "$6k - $8k/month",
-      description:
-        "Summer internship program for computer science students to work on real projects. Gain hands-on experience with industry-leading technologies.",
-      requirements: ["CS student", "Programming skills", "Problem solving", "Team collaboration"],
-      posted: "1 day ago",
-      applicationUrl: "https://bigtech.com/internships",
-    },
-    {
-      id: 6,
-      title: "Mobile App Developer",
-      company: "AppStudio",
-      location: "Los Angeles, CA",
-      type: "Contract",
-      experience: "Mid Level",
-      salary: "$70 - $90/hour",
-      description:
-        "Develop cross-platform mobile applications using React Native or Flutter. Create innovative mobile solutions for various industries.",
-      requirements: ["React Native/Flutter", "Mobile development", "API integration", "App store deployment"],
-      posted: "4 days ago",
-      applicationUrl: "https://appstudio.com/contracts",
-    },
-  ]
+  useEffect(() => {
+    checkUser()
+    loadJobs()
+  }, [])
 
-  const filteredJobs = jobs.filter((job) => {
-    const matchesSearch =
-      job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      job.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      job.description.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesType = selectedType === "All" || job.type === selectedType
-    const matchesLevel = selectedLevel === "All" || job.experience === selectedLevel
-    return matchesSearch && matchesType && matchesLevel
-  })
+  useEffect(() => {
+    filterJobs()
+  }, [searchTerm, selectedType, selectedLevel, jobs])
 
-  const handleBookmark = (jobId: number) => {
+  const checkUser = async () => {
+    try {
+      const currentUser = await getCurrentUser()
+      setUser(currentUser)
+    } catch (error) {
+      console.error("Error checking user:", error)
+    }
+  }
+
+  const loadJobs = async () => {
+    try {
+      const { data, error } = await getJobs()
+      if (error) {
+        console.error("Error loading jobs:", error)
+        return
+      }
+      setJobs(data || [])
+    } catch (error) {
+      console.error("Error loading jobs:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const filterJobs = async () => {
+    try {
+      const { data, error } = await searchJobs(searchTerm, selectedType, selectedLevel)
+      if (error) {
+        console.error("Error searching jobs:", error)
+        return
+      }
+      setFilteredJobs(data || [])
+    } catch (error) {
+      console.error("Error filtering jobs:", error)
+      setFilteredJobs(jobs)
+    }
+  }
+
+  const handleBookmark = (jobId: string) => {
     setBookmarkedJobs((prev) => (prev.includes(jobId) ? prev.filter((id) => id !== jobId) : [...prev, jobId]))
   }
 
-  const handleShare = (job: any) => {
+  const handleShare = (job: Job) => {
     if (navigator.share) {
       navigator.share({
         title: job.title,
@@ -127,6 +82,14 @@ export default function JobsPage() {
     } else {
       navigator.clipboard.writeText(`${job.title} at ${job.company} - ${window.location.href}`)
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-yellow-400"></div>
+      </div>
+    )
   }
 
   return (
@@ -262,19 +225,21 @@ export default function JobsPage() {
                         </div>
                         <div className="flex items-center">
                           <Clock className="w-4 h-4 mr-1" />
-                          {job.posted}
+                          {new Date(job.posted_date).toLocaleDateString()}
                         </div>
                       </div>
                     </div>
 
                     <div className="flex items-center space-x-3 mt-4 lg:mt-0">
                       <span className="text-yellow-400 text-sm font-medium">{job.experience}</span>
-                      <a href={job.applicationUrl} target="_blank" rel="noopener noreferrer">
-                        <Button className="bg-yellow-400 hover:bg-yellow-500 text-black">
-                          Apply Now
-                          <ExternalLink className="ml-2 w-4 h-4" />
-                        </Button>
-                      </a>
+                      {job.apply_link && (
+                        <a href={job.apply_link} target="_blank" rel="noopener noreferrer">
+                          <Button className="bg-yellow-400 hover:bg-yellow-500 text-black">
+                            Apply Now
+                            <ExternalLink className="ml-2 w-4 h-4" />
+                          </Button>
+                        </a>
+                      )}
                     </div>
                   </div>
 
@@ -283,9 +248,20 @@ export default function JobsPage() {
                   <div>
                     <h4 className="text-white font-medium mb-3">Requirements:</h4>
                     <div className="flex flex-wrap gap-2">
-                      {job.requirements.map((req, idx) => (
+                      {job.requirements?.map((req, idx) => (
                         <span key={idx} className="bg-gray-800 text-gray-300 px-3 py-1 rounded-full text-sm">
                           {req}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <h4 className="text-white font-medium mb-3">Technologies:</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {job.technologies.map((tech, idx) => (
+                        <span key={idx} className="bg-yellow-400/20 text-yellow-400 px-3 py-1 rounded-full text-sm">
+                          {tech}
                         </span>
                       ))}
                     </div>

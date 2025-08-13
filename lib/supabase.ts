@@ -38,6 +38,10 @@ export interface Course {
   students_count: number
   rating: number
   status: "active" | "inactive" | "draft"
+  redirect_url?: string
+  category: string
+  original_price?: string
+  tags?: string[]
   created_at: string
   updated_at: string
 }
@@ -57,6 +61,13 @@ export interface Hackathon {
   registration_open: boolean
   technologies: string[]
   registration_link?: string
+  whatsapp_link?: string
+  organizer?: string
+  partnerships?: string[]
+  featured: boolean
+  mode: "online" | "offline" | "hybrid"
+  difficulty: "beginner" | "intermediate" | "advanced"
+  max_team_size?: number
   created_at: string
   updated_at: string
 }
@@ -76,6 +87,7 @@ export interface Job {
   posted_date: string
   application_deadline?: string
   apply_link?: string
+  requirements?: string[]
   created_at: string
   updated_at: string
 }
@@ -356,7 +368,7 @@ export async function checkUserAuth() {
   }
 }
 
-// Database functions
+// Database functions for Courses
 export const getCourses = async () => {
   const { data, error } = await supabase
     .from("courses")
@@ -366,52 +378,22 @@ export const getCourses = async () => {
   return { data, error }
 }
 
-export const getHackathons = async () => {
-  const { data, error } = await supabase.from("hackathons").select("*").order("start_date", { ascending: true })
-  return { data, error }
-}
-
-export const getJobs = async () => {
-  const { data, error } = await supabase
-    .from("jobs")
-    .select("*")
-    .eq("status", "active")
-    .order("posted_date", { ascending: false })
-  return { data, error }
-}
-
-export const getCommunities = async () => {
-  const { data, error } = await supabase
-    .from("communities")
-    .select("*")
-    .eq("status", "active")
-    .order("member_count", { ascending: false })
-  return { data, error }
-}
-
-// Admin functions for CRUD operations
 export const getAllCourses = async () => {
   const { data, error } = await supabase.from("courses").select("*").order("created_at", { ascending: false })
   return { data, error }
 }
 
-export const getAllHackathons = async () => {
-  const { data, error } = await supabase.from("hackathons").select("*").order("created_at", { ascending: false })
-  return { data, error }
-}
-
-export const getAllJobs = async () => {
-  const { data, error } = await supabase.from("jobs").select("*").order("created_at", { ascending: false })
-  return { data, error }
-}
-
-export const getAllUsers = async () => {
-  const { data, error } = await supabase.from("users").select("*").order("created_at", { ascending: false })
-  return { data, error }
-}
-
 export const createCourse = async (course: Omit<Course, "id" | "created_at" | "updated_at">) => {
-  const { data, error } = await supabase.from("courses").insert([course]).select()
+  const { data, error } = await supabase
+    .from("courses")
+    .insert([
+      {
+        ...course,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ])
+    .select()
   return { data, error }
 }
 
@@ -429,8 +411,33 @@ export const deleteCourse = async (id: string) => {
   return { data, error }
 }
 
+export const getCourseById = async (id: string) => {
+  const { data, error } = await supabase.from("courses").select("*").eq("id", id).single()
+  return { data, error }
+}
+
+// Database functions for Hackathons
+export const getHackathons = async () => {
+  const { data, error } = await supabase.from("hackathons").select("*").order("start_date", { ascending: true })
+  return { data, error }
+}
+
+export const getAllHackathons = async () => {
+  const { data, error } = await supabase.from("hackathons").select("*").order("created_at", { ascending: false })
+  return { data, error }
+}
+
 export const createHackathon = async (hackathon: Omit<Hackathon, "id" | "created_at" | "updated_at">) => {
-  const { data, error } = await supabase.from("hackathons").insert([hackathon]).select()
+  const { data, error } = await supabase
+    .from("hackathons")
+    .insert([
+      {
+        ...hackathon,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ])
+    .select()
   return { data, error }
 }
 
@@ -448,8 +455,37 @@ export const deleteHackathon = async (id: string) => {
   return { data, error }
 }
 
+export const getHackathonById = async (id: string) => {
+  const { data, error } = await supabase.from("hackathons").select("*").eq("id", id).single()
+  return { data, error }
+}
+
+// Database functions for Jobs
+export const getJobs = async () => {
+  const { data, error } = await supabase
+    .from("jobs")
+    .select("*")
+    .eq("status", "active")
+    .order("posted_date", { ascending: false })
+  return { data, error }
+}
+
+export const getAllJobs = async () => {
+  const { data, error } = await supabase.from("jobs").select("*").order("created_at", { ascending: false })
+  return { data, error }
+}
+
 export const createJob = async (job: Omit<Job, "id" | "created_at" | "updated_at">) => {
-  const { data, error } = await supabase.from("jobs").insert([job]).select()
+  const { data, error } = await supabase
+    .from("jobs")
+    .insert([
+      {
+        ...job,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ])
+    .select()
   return { data, error }
 }
 
@@ -464,6 +500,41 @@ export const updateJob = async (id: string, updates: Partial<Job>) => {
 
 export const deleteJob = async (id: string) => {
   const { data, error } = await supabase.from("jobs").delete().eq("id", id)
+  return { data, error }
+}
+
+export const getJobById = async (id: string) => {
+  const { data, error } = await supabase.from("jobs").select("*").eq("id", id).single()
+  return { data, error }
+}
+
+// User Management Functions
+export const getAllUsers = async () => {
+  const { data, error } = await supabase.from("users").select("*").order("created_at", { ascending: false })
+  return { data, error }
+}
+
+export const updateUserRole = async (userId: string, role: "user" | "admin") => {
+  const { data, error } = await supabase
+    .from("users")
+    .update({ role, updated_at: new Date().toISOString() })
+    .eq("id", userId)
+    .select()
+  return { data, error }
+}
+
+export const deleteUser = async (userId: string) => {
+  const { data, error } = await supabase.from("users").delete().eq("id", userId)
+  return { data, error }
+}
+
+// Communities
+export const getCommunities = async () => {
+  const { data, error } = await supabase
+    .from("communities")
+    .select("*")
+    .eq("status", "active")
+    .order("member_count", { ascending: false })
   return { data, error }
 }
 
@@ -548,4 +619,58 @@ export const getAnalytics = async () => {
       courses: [],
     }
   }
+}
+
+// Search functions
+export const searchCourses = async (query: string, category?: string) => {
+  let queryBuilder = supabase.from("courses").select("*").eq("status", "active")
+
+  if (query) {
+    queryBuilder = queryBuilder.or(`title.ilike.%${query}%,description.ilike.%${query}%,technologies.cs.{${query}}`)
+  }
+
+  if (category && category !== "All") {
+    queryBuilder = queryBuilder.eq("category", category)
+  }
+
+  const { data, error } = await queryBuilder.order("created_at", { ascending: false })
+  return { data, error }
+}
+
+export const searchHackathons = async (query: string, status?: string) => {
+  let queryBuilder = supabase.from("hackathons").select("*")
+
+  if (query) {
+    queryBuilder = queryBuilder.or(
+      `title.ilike.%${query}%,description.ilike.%${query}%,location.ilike.%${query}%,technologies.cs.{${query}}`,
+    )
+  }
+
+  if (status && status !== "all") {
+    queryBuilder = queryBuilder.eq("status", status)
+  }
+
+  const { data, error } = await queryBuilder.order("start_date", { ascending: true })
+  return { data, error }
+}
+
+export const searchJobs = async (query: string, type?: string, experience?: string) => {
+  let queryBuilder = supabase.from("jobs").select("*").eq("status", "active")
+
+  if (query) {
+    queryBuilder = queryBuilder.or(
+      `title.ilike.%${query}%,company.ilike.%${query}%,description.ilike.%${query}%,technologies.cs.{${query}}`,
+    )
+  }
+
+  if (type && type !== "All") {
+    queryBuilder = queryBuilder.eq("type", type)
+  }
+
+  if (experience && experience !== "All") {
+    queryBuilder = queryBuilder.eq("experience", experience)
+  }
+
+  const { data, error } = await queryBuilder.order("posted_date", { ascending: false })
+  return { data, error }
 }

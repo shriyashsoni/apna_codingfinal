@@ -23,31 +23,16 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { getCurrentUser } from "@/lib/supabase"
+import { getCurrentUser, getCourses, searchCourses, type Course } from "@/lib/supabase"
 
 export default function CoursesPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("All")
-  const [bookmarkedCourses, setBookmarkedCourses] = useState<number[]>([])
-  const [isVisible, setIsVisible] = useState(false)
+  const [bookmarkedCourses, setBookmarkedCourses] = useState<string[]>([])
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    setIsVisible(true)
-    checkUser()
-  }, [])
-
-  const checkUser = async () => {
-    try {
-      const currentUser = await getCurrentUser()
-      setUser(currentUser)
-    } catch (error) {
-      console.error("Error checking user:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const [courses, setCourses] = useState<Course[]>([])
+  const [filteredCourses, setFilteredCourses] = useState<Course[]>([])
 
   const categories = [
     "All",
@@ -62,528 +47,73 @@ export default function CoursesPage() {
     "Personal Development",
   ]
 
-  const courses = [
-    {
-      id: 1,
-      title: "Social Media Video Editing with Canva - From Beginner to Pro",
-      description: "Master Canva for creating stunning social media videos and graphics",
-      category: "Design & Video",
-      level: "Beginner to Advanced",
-      duration: "8 hours",
-      students: 15420,
-      rating: 4.8,
-      price: "Free",
-      originalPrice: "$89.99",
-      instructor: "Udemy Expert",
-      tags: ["Canva", "Video Editing", "Social Media"],
-      redirectUrl:
-        "https://techlinks.in/udemy-free-coupons/20519/social-media-video-editing-with-canva-from-beginner-to-pro",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 2,
-      title: "Business Analyst Using Excel",
-      description: "Complete guide to business analysis using Microsoft Excel",
-      category: "Business & Finance",
-      level: "Intermediate",
-      duration: "12 hours",
-      students: 8930,
-      rating: 4.7,
-      price: "Free",
-      originalPrice: "$129.99",
-      instructor: "Udemy Expert",
-      tags: ["Excel", "Business Analysis", "Data Analysis"],
-      redirectUrl: "https://techlinks.in/udemy-free-coupons/3472/business-analyst-using-excel",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 3,
-      title: "CapCut Video Editing for Social Media Reels & Shorts Videos",
-      description: "Master CapCut for creating viral social media content",
-      category: "Design & Video",
-      level: "Beginner",
-      duration: "6 hours",
-      students: 12340,
-      rating: 4.9,
-      price: "Free",
-      originalPrice: "$79.99",
-      instructor: "Udemy Expert",
-      tags: ["CapCut", "Video Editing", "Social Media"],
-      redirectUrl:
-        "https://techlinks.in/udemy-free-coupons/19779/capcut-video-editing-for-social-media-reels-shorts-videos",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 4,
-      title: "Advanced CapCut - From Beginner to Motion Graphics Master",
-      description: "Advanced CapCut techniques for professional video editing",
-      category: "Design & Video",
-      level: "Advanced",
-      duration: "10 hours",
-      students: 7650,
-      rating: 4.8,
-      price: "Free",
-      originalPrice: "$149.99",
-      instructor: "Udemy Expert",
-      tags: ["CapCut", "Motion Graphics", "Advanced Editing"],
-      redirectUrl:
-        "https://techlinks.in/udemy-free-coupons/22730/advanced-capcut-from-beginner-to-motion-graphics-master",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 5,
-      title: "Consumer Lending",
-      description: "Complete guide to consumer lending and financial services",
-      category: "Business & Finance",
-      level: "Intermediate",
-      duration: "8 hours",
-      students: 5420,
-      rating: 4.6,
-      price: "Free",
-      originalPrice: "$99.99",
-      instructor: "Udemy Expert",
-      tags: ["Finance", "Lending", "Banking"],
-      redirectUrl: "https://techlinks.in/udemy-free-coupons/6935/consumer_lending",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 6,
-      title: "100 Lesson Planning Ideas for School Teachers",
-      description: "Creative lesson planning strategies for effective teaching",
-      category: "Personal Development",
-      level: "Beginner",
-      duration: "5 hours",
-      students: 9870,
-      rating: 4.7,
-      price: "Free",
-      originalPrice: "$69.99",
-      instructor: "Udemy Expert",
-      tags: ["Teaching", "Education", "Lesson Planning"],
-      redirectUrl: "https://techlinks.in/udemy-free-coupons/27224/100-lesson-planning-ideas-for-school-teachers",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 7,
-      title: "312-38 Network Security Administrator Practice Test",
-      description: "Complete practice test for network security certification",
-      category: "Certification Prep",
-      level: "Advanced",
-      duration: "4 hours",
-      students: 3210,
-      rating: 4.5,
-      price: "Free",
-      originalPrice: "$59.99",
-      instructor: "Udemy Expert",
-      tags: ["Network Security", "Certification", "Practice Test"],
-      redirectUrl: "https://techlinks.in/udemy-free-coupons/27225/312-38-network-security-administrator-practice-test",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 8,
-      title: "NSE7_SDW-7.0 Fortinet Network Security Expert Practice",
-      description: "Fortinet network security expert certification preparation",
-      category: "Certification Prep",
-      level: "Expert",
-      duration: "6 hours",
-      students: 2890,
-      rating: 4.6,
-      price: "Free",
-      originalPrice: "$199.99",
-      instructor: "Udemy Expert",
-      tags: ["Fortinet", "Network Security", "Expert Level"],
-      redirectUrl:
-        "https://techlinks.in/udemy-free-coupons/25906/nse7_sdw-70-fortinet-network-security-expert-practice",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 9,
-      title: "AI Engineering Complete Bootcamp Masterclass",
-      description: "Complete AI engineering bootcamp from basics to advanced",
-      category: "Data Science & AI",
-      level: "Beginner to Advanced",
-      duration: "25 hours",
-      students: 18750,
-      rating: 4.9,
-      price: "Free",
-      originalPrice: "$299.99",
-      instructor: "Udemy Expert",
-      tags: ["AI", "Machine Learning", "Engineering"],
-      redirectUrl: "https://techlinks.in/udemy-free-coupons/27226/ai-engineering-complete-bootcamp-masterclass",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 10,
-      title: "700-651 Cisco Collaboration Cloud and Managed Services Sale",
-      description: "Cisco collaboration certification preparation course",
-      category: "Certification Prep",
-      level: "Advanced",
-      duration: "8 hours",
-      students: 4320,
-      rating: 4.7,
-      price: "Free",
-      originalPrice: "$179.99",
-      instructor: "Udemy Expert",
-      tags: ["Cisco", "Collaboration", "Cloud Services"],
-      redirectUrl:
-        "https://techlinks.in/udemy-free-coupons/25208/700-651-cisco-collaboration-cloud-and-managed-services-sale",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 11,
-      title: "Master Self-Talk Transformation Personal Development",
-      description: "Transform your mindset through positive self-talk techniques",
-      category: "Personal Development",
-      level: "Beginner",
-      duration: "4 hours",
-      students: 11230,
-      rating: 4.8,
-      price: "Free",
-      originalPrice: "$79.99",
-      instructor: "Udemy Expert",
-      tags: ["Self Development", "Psychology", "Mindset"],
-      redirectUrl: "https://techlinks.in/udemy-free-coupons/27227/master-self-talk-transformation-personal-development",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 12,
-      title: "Practice Test CompTIA IT Fundamentals+ ITF+ FC0-U61",
-      description: "Complete practice test for CompTIA IT Fundamentals certification",
-      category: "Certification Prep",
-      level: "Beginner",
-      duration: "3 hours",
-      students: 6540,
-      rating: 4.6,
-      price: "Free",
-      originalPrice: "$49.99",
-      instructor: "Udemy Expert",
-      tags: ["CompTIA", "IT Fundamentals", "Certification"],
-      redirectUrl: "https://techlinks.in/udemy-free-coupons/27082/practice-test-comptia-it-fundamentals-itf-fc0-u61",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 13,
-      title: "Practice Test Oracle Cloud Infra 2024 1Z0-1085-24",
-      description: "Oracle Cloud Infrastructure certification practice test",
-      category: "Certification Prep",
-      level: "Advanced",
-      duration: "5 hours",
-      students: 3890,
-      rating: 4.7,
-      price: "Free",
-      originalPrice: "$129.99",
-      instructor: "Udemy Expert",
-      tags: ["Oracle", "Cloud", "Infrastructure"],
-      redirectUrl: "https://techlinks.in/udemy-free-coupons/26918/practice-test-oracle-cloud-infra-2024-1z0-1085-24",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 14,
-      title: "Postgraduate Executive Diploma General Management",
-      description: "Executive-level general management diploma course",
-      category: "Business & Finance",
-      level: "Advanced",
-      duration: "20 hours",
-      students: 5670,
-      rating: 4.8,
-      price: "Free",
-      originalPrice: "$399.99",
-      instructor: "Udemy Expert",
-      tags: ["Management", "Executive", "Leadership"],
-      redirectUrl: "https://techlinks.in/udemy-free-coupons/9218/postgraduate-executive-diploma-general-management",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 15,
-      title: "Learn Word Now",
-      description: "Complete Microsoft Word course for beginners",
-      category: "Programming & Tech",
-      level: "Beginner",
-      duration: "6 hours",
-      students: 8920,
-      rating: 4.5,
-      price: "Free",
-      originalPrice: "$59.99",
-      instructor: "Udemy Expert",
-      tags: ["Microsoft Word", "Office", "Productivity"],
-      redirectUrl: "https://techlinks.in/udemy-free-coupons/5109/learn-word-now",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 16,
-      title: "Complete WordPress Elementor Guide - Design, Build & Earn",
-      description: "Master WordPress and Elementor for web design and development",
-      category: "Web Development",
-      level: "Beginner to Advanced",
-      duration: "15 hours",
-      students: 14560,
-      rating: 4.9,
-      price: "Free",
-      originalPrice: "$199.99",
-      instructor: "Udemy Expert",
-      tags: ["WordPress", "Elementor", "Web Design"],
-      redirectUrl: "https://techlinks.in/udemy-free-coupons/26895/complete-wordpress-elementor-guide-design-build-earn",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 17,
-      title: "Mastering the Fundamentals of ChatGPT and AI Tools",
-      description: "Complete guide to ChatGPT and AI tools for productivity",
-      category: "Data Science & AI",
-      level: "Beginner",
-      duration: "8 hours",
-      students: 22340,
-      rating: 4.8,
-      price: "Free",
-      originalPrice: "$149.99",
-      instructor: "Udemy Expert",
-      tags: ["ChatGPT", "AI Tools", "Productivity"],
-      redirectUrl: "https://techlinks.in/udemy-free-coupons/16057/mastering-the-fundamentals-of-chatgpt-and-ai-tools",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 18,
-      title: "HPE0-V27 HPE Edge-to-Cloud Solutions Practice Test",
-      description: "HPE Edge-to-Cloud Solutions certification practice test",
-      category: "Certification Prep",
-      level: "Advanced",
-      duration: "4 hours",
-      students: 2340,
-      rating: 4.6,
-      price: "Free",
-      originalPrice: "$89.99",
-      instructor: "Udemy Expert",
-      tags: ["HPE", "Cloud Solutions", "Certification"],
-      redirectUrl: "https://techlinks.in/udemy-free-coupons/27229/hpe0-v27-hpe-edge-to-cloud-solutions-practice-test",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 19,
-      title: "The Complete Microsoft Excel Course - Basics to Programming",
-      description: "Master Excel from basics to advanced programming with VBA",
-      category: "Programming & Tech",
-      level: "Beginner to Advanced",
-      duration: "18 hours",
-      students: 19870,
-      rating: 4.9,
-      price: "Free",
-      originalPrice: "$249.99",
-      instructor: "Udemy Expert",
-      tags: ["Excel", "VBA", "Data Analysis"],
-      redirectUrl:
-        "https://techlinks.in/udemy-free-coupons/26872/the-complete-microsoft-excel-course-basics-to-programming",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 20,
-      title: "Facebook Ads + ChatGPT - La Fórmula del Éxito",
-      description: "Facebook advertising with ChatGPT for maximum success",
-      category: "Marketing & SEO",
-      level: "Intermediate",
-      duration: "10 hours",
-      students: 7890,
-      rating: 4.7,
-      price: "Free",
-      originalPrice: "$159.99",
-      instructor: "Udemy Expert",
-      tags: ["Facebook Ads", "ChatGPT", "Digital Marketing"],
-      redirectUrl: "https://techlinks.in/udemy-free-coupons/27230/facebook-ads-chatgpt-la-formula-del-exito",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 21,
-      title: "The Complete Guide to Instagram Marketing for Businesses",
-      description: "Master Instagram marketing strategies for business growth",
-      category: "Marketing & SEO",
-      level: "Beginner to Advanced",
-      duration: "12 hours",
-      students: 16540,
-      rating: 4.8,
-      price: "Free",
-      originalPrice: "$179.99",
-      instructor: "Udemy Expert",
-      tags: ["Instagram", "Social Media Marketing", "Business"],
-      redirectUrl:
-        "https://techlinks.in/udemy-free-coupons/22480/the-complete-guide-to-instagram-marketing-for-businesses",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 22,
-      title: "Advanced Skill Test Associate Python Programmer PCAP™ V4",
-      description: "Python programming certification preparation and practice",
-      category: "Programming & Tech",
-      level: "Intermediate",
-      duration: "6 hours",
-      students: 9230,
-      rating: 4.7,
-      price: "Free",
-      originalPrice: "$119.99",
-      instructor: "Udemy Expert",
-      tags: ["Python", "Programming", "Certification"],
-      redirectUrl:
-        "https://techlinks.in/udemy-free-coupons/26466/advanced-skill-test-associate-python-programmer-pcaptm-v4",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 23,
-      title: "Marketing Management Principles",
-      description: "Fundamental principles of marketing management",
-      category: "Marketing & SEO",
-      level: "Beginner",
-      duration: "8 hours",
-      students: 11450,
-      rating: 4.6,
-      price: "Free",
-      originalPrice: "$99.99",
-      instructor: "Udemy Expert",
-      tags: ["Marketing", "Management", "Business Strategy"],
-      redirectUrl: "https://techlinks.in/udemy-free-coupons/10437/marketing-management-principles",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 24,
-      title: "7 Steps for Entrepreneurs to Turn a Business Idea to Reality",
-      description: "Complete guide for entrepreneurs to launch successful businesses",
-      category: "Business & Finance",
-      level: "Beginner",
-      duration: "5 hours",
-      students: 13670,
-      rating: 4.8,
-      price: "Free",
-      originalPrice: "$89.99",
-      instructor: "Udemy Expert",
-      tags: ["Entrepreneurship", "Business", "Startup"],
-      redirectUrl:
-        "https://techlinks.in/udemy-free-coupons/24174/7-steps-for-entrepreneurs-to-turn-a-business-idea-to-reality",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 25,
-      title: "Advanced Skill Test Python Professional Level 2 PCPP2™ V3",
-      description: "Advanced Python programming certification preparation",
-      category: "Programming & Tech",
-      level: "Advanced",
-      duration: "8 hours",
-      students: 5890,
-      rating: 4.8,
-      price: "Free",
-      originalPrice: "$199.99",
-      instructor: "Udemy Expert",
-      tags: ["Python", "Advanced Programming", "Certification"],
-      redirectUrl:
-        "https://techlinks.in/udemy-free-coupons/26590/advanced-skill-test-python-professional-level-2-pcpp2tm-v3",
-      image: "/images/courses-hero.png",
-    },
-    // Continue with more courses...
-    {
-      id: 26,
-      title: "Adobe Illustrator Complete Mega Course - Beginner to Advance",
-      description: "Master Adobe Illustrator from beginner to professional level",
-      category: "Design & Video",
-      level: "Beginner to Advanced",
-      duration: "20 hours",
-      students: 18920,
-      rating: 4.9,
-      price: "Free",
-      originalPrice: "$299.99",
-      instructor: "Udemy Expert",
-      tags: ["Adobe Illustrator", "Graphic Design", "Vector Graphics"],
-      redirectUrl:
-        "https://techlinks.in/udemy-free-coupons/19509/adobe-illustrator-complete-mega-course-beginner-to-advance",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 27,
-      title: "The Logo Design Expert Course",
-      description: "Professional logo design course for graphic designers",
-      category: "Design & Video",
-      level: "Intermediate",
-      duration: "12 hours",
-      students: 14560,
-      rating: 4.8,
-      price: "Free",
-      originalPrice: "$199.99",
-      instructor: "Udemy Expert",
-      tags: ["Logo Design", "Branding", "Graphic Design"],
-      redirectUrl: "https://techlinks.in/udemy-free-coupons/20065/the-logo-design-expert-course",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 28,
-      title: "The Ultimate Adobe Photoshop CC Advanced Course",
-      description: "Advanced Adobe Photoshop techniques and workflows",
-      category: "Design & Video",
-      level: "Advanced",
-      duration: "16 hours",
-      students: 21340,
-      rating: 4.9,
-      price: "Free",
-      originalPrice: "$249.99",
-      instructor: "Udemy Expert",
-      tags: ["Adobe Photoshop", "Photo Editing", "Digital Art"],
-      redirectUrl: "https://techlinks.in/udemy-free-coupons/24010/the-ultimate-adobe-photoshop-cc-advanced-course",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 29,
-      title: "Power BI and Tableau for Data Visualization",
-      description: "Master data visualization with Power BI and Tableau",
-      category: "Data Science & AI",
-      level: "Intermediate",
-      duration: "14 hours",
-      students: 16780,
-      rating: 4.8,
-      price: "Free",
-      originalPrice: "$219.99",
-      instructor: "Udemy Expert",
-      tags: ["Power BI", "Tableau", "Data Visualization"],
-      redirectUrl: "https://techlinks.in/udemy-free-coupons/18880/power-bi-and-tableau-for-data-visualization",
-      image: "/images/courses-hero.png",
-    },
-    {
-      id: 30,
-      title: "Java Course - Beginner to Advance Level",
-      description: "Complete Java programming course from basics to advanced",
-      category: "Programming & Tech",
-      level: "Beginner to Advanced",
-      duration: "25 hours",
-      students: 23450,
-      rating: 4.9,
-      price: "Free",
-      originalPrice: "$299.99",
-      instructor: "Udemy Expert",
-      tags: ["Java", "Programming", "Object-Oriented"],
-      redirectUrl: "https://techlinks.in/udemy-free-coupons/23834/java-course-beginner-to-advance-level",
-      image: "/images/courses-hero.png",
-    },
-    // Add more courses here to reach 100 total...
-  ]
+  useEffect(() => {
+    checkUser()
+    loadCourses()
+  }, [])
 
-  const filteredCourses = courses.filter((course) => {
-    const matchesSearch =
-      course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      course.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      course.tags.some((tag) => tag.toLowerCase().includes(searchTerm.toLowerCase()))
-    const matchesCategory = selectedCategory === "All" || course.category === selectedCategory
-    return matchesSearch && matchesCategory
-  })
+  useEffect(() => {
+    filterCourses()
+  }, [searchTerm, selectedCategory, courses])
 
-  const handleBookmark = (courseId: number) => {
+  const checkUser = async () => {
+    try {
+      const currentUser = await getCurrentUser()
+      setUser(currentUser)
+    } catch (error) {
+      console.error("Error checking user:", error)
+    }
+  }
+
+  const loadCourses = async () => {
+    try {
+      const { data, error } = await getCourses()
+      if (error) {
+        console.error("Error loading courses:", error)
+        return
+      }
+      setCourses(data || [])
+    } catch (error) {
+      console.error("Error loading courses:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const filterCourses = async () => {
+    try {
+      const { data, error } = await searchCourses(searchTerm, selectedCategory)
+      if (error) {
+        console.error("Error searching courses:", error)
+        return
+      }
+      setFilteredCourses(data || [])
+    } catch (error) {
+      console.error("Error filtering courses:", error)
+      setFilteredCourses(courses)
+    }
+  }
+
+  const handleBookmark = (courseId: string) => {
     setBookmarkedCourses((prev) =>
       prev.includes(courseId) ? prev.filter((id) => id !== courseId) : [...prev, courseId],
     )
   }
 
-  const handleCourseAccess = (course: any) => {
+  const handleCourseAccess = (course: Course) => {
     if (!user) {
       alert("Please login to access premium courses!")
       return
     }
 
-    // Open the redirect URL in a new tab
-    window.open(course.redirectUrl, "_blank")
+    if (course.redirect_url) {
+      window.open(course.redirect_url, "_blank")
+    } else {
+      alert("Course link not available")
+    }
   }
 
-  const handleShare = (course: any) => {
+  const handleShare = (course: Course) => {
     if (navigator.share) {
       navigator.share({
         title: course.title,
@@ -640,7 +170,7 @@ export default function CoursesPage() {
                   <Badge className="bg-green-500 text-white px-3 py-1">100% FREE</Badge>
                 </div>
                 <h1 className="text-4xl lg:text-5xl font-bold text-white mb-6">
-                  <span className="text-yellow-400">100+</span> Premium Udemy Courses
+                  <span className="text-yellow-400">{courses.length}+</span> Premium Udemy Courses
                 </h1>
                 <p className="text-lg text-gray-300 mb-8 leading-relaxed">
                   Access exclusive collection of premium Udemy courses worth $10,000+ absolutely FREE!
@@ -779,14 +309,14 @@ export default function CoursesPage() {
                   >
                     <div className="relative h-48 overflow-hidden">
                       <Image
-                        src={course.image || "/placeholder.svg"}
+                        src={course.image_url || "/images/courses-hero.png"}
                         alt={course.title}
                         fill
                         className="object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                       <div className="absolute top-3 left-3 flex gap-2">
                         <Badge className="bg-red-500 text-white text-xs">PREMIUM</Badge>
-                        <Badge className="bg-green-500 text-white text-xs">{course.price}</Badge>
+                        <Badge className="bg-green-500 text-white text-xs">FREE</Badge>
                       </div>
                       <div className="absolute top-3 right-3 flex space-x-2">
                         <Button
@@ -840,12 +370,12 @@ export default function CoursesPage() {
                         </div>
                         <div className="flex items-center">
                           <Users className="w-4 h-4 mr-1" />
-                          <span>{course.students.toLocaleString()}</span>
+                          <span>{course.students_count.toLocaleString()}</span>
                         </div>
                       </div>
 
                       <div className="flex flex-wrap gap-1 mb-4">
-                        {course.tags.slice(0, 3).map((tag) => (
+                        {course.tags?.slice(0, 3).map((tag) => (
                           <Badge key={tag} variant="secondary" className="text-xs">
                             {tag}
                           </Badge>
@@ -856,8 +386,8 @@ export default function CoursesPage() {
                         <div className="text-sm">
                           <span className="text-gray-400">by {course.instructor}</span>
                           <div className="flex items-center gap-2 mt-1">
-                            <span className="text-green-400 font-semibold">{course.price}</span>
-                            <span className="text-gray-500 line-through text-xs">{course.originalPrice}</span>
+                            <span className="text-green-400 font-semibold">FREE</span>
+                            <span className="text-gray-500 line-through text-xs">{course.original_price}</span>
                           </div>
                         </div>
                       </div>
