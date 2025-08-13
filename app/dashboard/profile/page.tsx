@@ -59,7 +59,7 @@ export default function ProfilePage() {
         // Profile is null but no error, means it doesn't exist yet.
         // Form will be empty, ready for creation on first save.
         setFormData({
-          full_name: currentUser.user_metadata?.full_name || "",
+          full_name: currentUser.user_metadata?.full_name || currentUser.full_name || "",
           bio: "",
           github_url: "",
           linkedin_url: "",
@@ -104,7 +104,7 @@ export default function ProfilePage() {
     setMessage(null)
 
     try {
-      const { error } = await updateUserProfile(user.id, {
+      const { data, error } = await updateUserProfile(user.id, {
         full_name: formData.full_name,
         bio: formData.bio,
         github_url: formData.github_url,
@@ -114,7 +114,7 @@ export default function ProfilePage() {
 
       if (error) {
         console.error("Update error:", error)
-        setMessage({ type: "error", text: "Failed to update profile. Please try again." })
+        setMessage({ type: "error", text: "Failed to update profile: " + error.message })
       } else {
         setMessage({ type: "success", text: "Profile updated successfully!" })
         // Reload profile data to get the latest
@@ -160,7 +160,7 @@ export default function ProfilePage() {
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-8">
               <h1 className="text-4xl font-bold text-white mb-4">
-                Profile <span className="text-yellow-400">Settings</span>
+                Profile <span className="text-purple-400">Settings</span>
               </h1>
               <p className="text-gray-300">Manage your account information and preferences</p>
             </div>
@@ -170,11 +170,11 @@ export default function ProfilePage() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-white">Profile Completion</h3>
-                  <span className="text-yellow-400 font-bold">{profileCompletion}%</span>
+                  <span className="text-purple-400 font-bold">{profileCompletion}%</span>
                 </div>
                 <div className="w-full bg-gray-700 rounded-full h-2">
                   <div
-                    className="bg-yellow-400 h-2 rounded-full transition-all duration-300"
+                    className="bg-purple-400 h-2 rounded-full transition-all duration-300"
                     style={{ width: `${profileCompletion}%` }}
                   />
                 </div>
@@ -204,7 +204,7 @@ export default function ProfilePage() {
             <Card className="bg-gray-900 border-gray-800">
               <CardHeader>
                 <CardTitle className="text-white flex items-center">
-                  <User className="w-5 h-5 mr-2 text-yellow-400" />
+                  <User className="w-5 h-5 mr-2 text-purple-400" />
                   Personal Information
                 </CardTitle>
               </CardHeader>
@@ -219,7 +219,7 @@ export default function ProfilePage() {
                         value={formData.full_name}
                         onChange={handleInputChange}
                         required
-                        className="bg-black border-gray-700 text-white focus:border-yellow-400"
+                        className="bg-black border-gray-700 text-white focus:border-purple-400"
                         placeholder="Enter your full name"
                       />
                     </div>
@@ -240,7 +240,7 @@ export default function ProfilePage() {
                       value={formData.bio}
                       onChange={handleInputChange}
                       rows={4}
-                      className="bg-black border-gray-700 text-white focus:border-yellow-400"
+                      className="bg-black border-gray-700 text-white focus:border-purple-400"
                       placeholder="Tell us about yourself, your interests, and goals..."
                     />
                   </div>
@@ -255,7 +255,7 @@ export default function ProfilePage() {
                           name="github_url"
                           value={formData.github_url}
                           onChange={handleInputChange}
-                          className="pl-10 bg-black border-gray-700 text-white focus:border-yellow-400"
+                          className="pl-10 bg-black border-gray-700 text-white focus:border-purple-400"
                           placeholder="https://github.com/username"
                         />
                       </div>
@@ -270,7 +270,7 @@ export default function ProfilePage() {
                           name="linkedin_url"
                           value={formData.linkedin_url}
                           onChange={handleInputChange}
-                          className="pl-10 bg-black border-gray-700 text-white focus:border-yellow-400"
+                          className="pl-10 bg-black border-gray-700 text-white focus:border-purple-400"
                           placeholder="https://linkedin.com/in/username"
                         />
                       </div>
@@ -285,10 +285,10 @@ export default function ProfilePage() {
                         value={newSkill}
                         onChange={(e) => setNewSkill(e.target.value)}
                         onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addSkill())}
-                        className="bg-black border-gray-700 text-white focus:border-yellow-400"
+                        className="bg-black border-gray-700 text-white focus:border-purple-400"
                         placeholder="Add a skill (e.g., React, Python, Node.js)"
                       />
-                      <Button type="button" onClick={addSkill} className="bg-yellow-400 hover:bg-yellow-500 text-black">
+                      <Button type="button" onClick={addSkill} className="bg-purple-400 hover:bg-purple-500 text-black">
                         Add
                       </Button>
                     </div>
@@ -313,7 +313,7 @@ export default function ProfilePage() {
                     <Button
                       type="submit"
                       disabled={saving}
-                      className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-3"
+                      className="bg-purple-400 hover:bg-purple-500 text-black font-semibold px-8 py-3"
                     >
                       {saving ? (
                         <>
