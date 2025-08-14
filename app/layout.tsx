@@ -7,7 +7,6 @@ import Footer from "@/components/footer"
 import Preloader from "@/components/preloader"
 import FuturisticBackground from "@/components/futuristic-background"
 import AIChatbot from "@/components/ai-chatbot"
-import { AuthProvider } from "@/components/auth-provider"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -97,7 +96,7 @@ export const metadata: Metadata = {
     "theme-color": "#000000",
     "msapplication-TileColor": "#000000",
   },
-  generator: "v0.dev",
+    generator: 'v0.dev'
 }
 
 export default function RootLayout({
@@ -165,12 +164,10 @@ export default function RootLayout({
         <Preloader />
         <FuturisticBackground />
         <div className="relative z-10">
-          <AuthProvider>
-            <Navbar />
-            <main className="min-h-screen">{children}</main>
-            <Footer />
-            <AIChatbot />
-          </AuthProvider>
+          <Navbar />
+          <main className="min-h-screen">{children}</main>
+          <Footer />
+          <AIChatbot />
         </div>
       </body>
     </html>
