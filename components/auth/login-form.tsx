@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { motion } from "framer-motion"
 import { Eye, EyeOff, Mail, Lock, Chrome } from "lucide-react"
@@ -42,7 +41,7 @@ export default function LoginForm({ onSwitchToSignup, onClose }: LoginFormProps)
       if (data.user) {
         onClose()
         router.push("/dashboard")
-        window.location.reload()
+        router.refresh()
       }
     } catch (error: any) {
       setError(error.message || "An unexpected error occurred")
@@ -65,7 +64,7 @@ export default function LoginForm({ onSwitchToSignup, onClose }: LoginFormProps)
       }
 
       // Google OAuth will redirect automatically
-      // The loading state will be handled by the redirect
+      // Don't close the modal here, let the redirect handle it
     } catch (error: any) {
       setError(error.message || "Failed to sign in with Google")
       setGoogleLoading(false)

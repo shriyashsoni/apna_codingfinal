@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { motion } from "framer-motion"
 import { Eye, EyeOff, Mail, Lock, User, Chrome } from "lucide-react"
@@ -61,7 +60,7 @@ export default function SignupForm({ onSwitchToLogin, onClose }: SignupFormProps
         setTimeout(() => {
           onClose()
           router.push("/dashboard")
-          window.location.reload()
+          router.refresh()
         }, 2000)
       }
     } catch (error: any) {
@@ -85,6 +84,7 @@ export default function SignupForm({ onSwitchToLogin, onClose }: SignupFormProps
       }
 
       // Google OAuth will redirect automatically
+      // Don't close the modal here, let the redirect handle it
     } catch (error: any) {
       setError(error.message || "Failed to sign in with Google")
       setGoogleLoading(false)

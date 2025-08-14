@@ -22,7 +22,6 @@ import {
   StarOff,
   Eye,
   EyeOff,
-  Upload,
   Search,
 } from "lucide-react"
 import {
@@ -37,15 +36,16 @@ import {
 interface CommunityPartner {
   id: string
   name: string
-  logo: string
-  website?: string
+  logo_url?: string
+  website_url?: string
   description: string
   category: string
   member_count?: number
   location?: string
   status: "active" | "inactive"
-  featured: boolean
+  is_featured: boolean
   created_at: string
+  updated_at: string
 }
 
 export default function CommunityPartnersAdminPage() {
@@ -60,13 +60,13 @@ export default function CommunityPartnersAdminPage() {
   const [editingPartner, setEditingPartner] = useState<CommunityPartner | null>(null)
   const [formData, setFormData] = useState({
     name: "",
-    logo: "",
-    website: "",
+    logo_url: "",
+    website_url: "",
     description: "",
     category: "Tech Communities",
     member_count: "",
     location: "",
-    featured: false,
+    is_featured: false,
   })
   const router = useRouter()
 
@@ -94,13 +94,13 @@ export default function CommunityPartnersAdminPage() {
   const checkAdminAccess = async () => {
     try {
       const currentUser = await getCurrentUser()
-      if (!currentUser || currentUser.email !== "sonishriyash@gmail.com") {
+      if (!currentUser) {
         router.push("/")
         return
       }
 
       const hasAdminAccess = await isAdmin(currentUser.email)
-      if (!hasAdminAccess) {
+      if (!hasAdminAccess && currentUser.email !== "sonishriyash@gmail.com") {
         router.push("/")
         return
       }
@@ -118,9 +118,11 @@ export default function CommunityPartnersAdminPage() {
   const loadPartners = async () => {
     try {
       const { data, error } = await getCommunityPartners()
-      if (data) {
-        setPartners(data)
+      if (error) {
+        console.error("Error loading partners:", error)
+        return
       }
+      setPartners(data || [])
     } catch (error) {
       console.error("Error loading partners:", error)
     }
@@ -150,9 +152,15 @@ export default function CommunityPartnersAdminPage() {
 
     try {
       const partnerData = {
-        ...formData,
+        name: formData.name,
+        logo_url: formData.logo_url || null,
+        website_url: formData.website_url || null,
+        description: formData.description,
+        category: formData.category,
         member_count: formData.member_count ? Number.parseInt(formData.member_count) : null,
+        location: formData.location || null,
         status: "active" as const,
+        is_featured: formData.is_featured,
       }
 
       if (editingPartner) {
@@ -168,6 +176,7 @@ export default function CommunityPartnersAdminPage() {
       resetForm()
       loadPartners()
     } catch (error: any) {
+      console.error("Error saving partner:", error)
       alert(`Error: ${error.message}`)
     }
   }
@@ -175,13 +184,13 @@ export default function CommunityPartnersAdminPage() {
   const resetForm = () => {
     setFormData({
       name: "",
-      logo: "",
-      website: "",
+      logo_url: "",
+      website_url: "",
       description: "",
       category: "Tech Communities",
       member_count: "",
       location: "",
-      featured: false,
+      is_featured: false,
     })
     setShowAddForm(false)
     setEditingPartner(null)
@@ -190,13 +199,13 @@ export default function CommunityPartnersAdminPage() {
   const handleEdit = (partner: CommunityPartner) => {
     setFormData({
       name: partner.name,
-      logo: partner.logo,
-      website: partner.website || "",
+      logo_url: partner.logo_url || "",
+      website_url: partner.website_url || "",
       description: partner.description,
       category: partner.category,
       member_count: partner.member_count?.toString() || "",
       location: partner.location || "",
-      featured: partner.featured,
+      is_featured: partner.is_featured,
     })
     setEditingPartner(partner)
     setShowAddForm(true)
@@ -210,6 +219,7 @@ export default function CommunityPartnersAdminPage() {
         alert("Partner deleted successfully!")
         loadPartners()
       } catch (error: any) {
+        console.error("Error deleting partner:", error)
         alert(`Error: ${error.message}`)
       }
     }
@@ -218,11 +228,12 @@ export default function CommunityPartnersAdminPage() {
   const toggleFeatured = async (partner: CommunityPartner) => {
     try {
       const { error } = await updateCommunityPartner(partner.id, {
-        featured: !partner.featured,
+        is_featured: !partner.is_featured,
       })
       if (error) throw error
       loadPartners()
     } catch (error: any) {
+      console.error("Error updating featured status:", error)
       alert(`Error: ${error.message}`)
     }
   }
@@ -235,6 +246,7 @@ export default function CommunityPartnersAdminPage() {
       if (error) throw error
       loadPartners()
     } catch (error: any) {
+      console.error("Error updating status:", error)
       alert(`Error: ${error.message}`)
     }
   }
@@ -250,7 +262,7 @@ export default function CommunityPartnersAdminPage() {
     )
   }
 
-  if (!adminAccess || user?.email !== "sonishriyash@gmail.com") {
+  if (!adminAccess) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
@@ -321,7 +333,7 @@ export default function CommunityPartnersAdminPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-gray-400 text-sm">Featured Partners</p>
-                  <p className="text-2xl font-bold text-yellow-400">{partners.filter((p) => p.featured).length}</p>
+                  <p className="text-2xl font-bold text-yellow-400">{partners.filter((p) => p.is_featured).length}</p>
                 </div>
                 <Star className="w-8 h-8 text-yellow-400" />
               </div>
@@ -332,8 +344,10 @@ export default function CommunityPartnersAdminPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-400 text-sm">Categories</p>
-                  <p className="text-2xl font-bold text-blue-400">{categories.length - 1}</p>
+                  <p className="text-gray-400 text-sm">Total Members</p>
+                  <p className="text-2xl font-bold text-blue-400">
+                    {partners.reduce((sum, p) => sum + (p.member_count || 0), 0).toLocaleString()}
+                  </p>
                 </div>
                 <Users className="w-8 h-8 text-blue-400" />
               </div>
@@ -424,31 +438,26 @@ export default function CommunityPartnersAdminPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <Label htmlFor="logo" className="text-white">
+                    <Label htmlFor="logo_url" className="text-white">
                       Logo URL
                     </Label>
-                    <div className="flex space-x-2">
-                      <Input
-                        id="logo"
-                        value={formData.logo}
-                        onChange={(e) => setFormData({ ...formData, logo: e.target.value })}
-                        className="bg-black border-gray-700 text-white focus:border-yellow-400"
-                        placeholder="https://example.com/logo.png"
-                      />
-                      <Button type="button" variant="outline" className="border-gray-700 text-white bg-transparent">
-                        <Upload className="w-4 h-4" />
-                      </Button>
-                    </div>
+                    <Input
+                      id="logo_url"
+                      value={formData.logo_url}
+                      onChange={(e) => setFormData({ ...formData, logo_url: e.target.value })}
+                      className="bg-black border-gray-700 text-white focus:border-yellow-400"
+                      placeholder="https://example.com/logo.png"
+                    />
                   </div>
 
                   <div>
-                    <Label htmlFor="website" className="text-white">
+                    <Label htmlFor="website_url" className="text-white">
                       Website URL
                     </Label>
                     <Input
-                      id="website"
-                      value={formData.website}
-                      onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                      id="website_url"
+                      value={formData.website_url}
+                      onChange={(e) => setFormData({ ...formData, website_url: e.target.value })}
                       className="bg-black border-gray-700 text-white focus:border-yellow-400"
                       placeholder="https://example.com"
                     />
@@ -502,12 +511,12 @@ export default function CommunityPartnersAdminPage() {
                 <div className="flex items-center space-x-2">
                   <input
                     type="checkbox"
-                    id="featured"
-                    checked={formData.featured}
-                    onChange={(e) => setFormData({ ...formData, featured: e.target.checked })}
+                    id="is_featured"
+                    checked={formData.is_featured}
+                    onChange={(e) => setFormData({ ...formData, is_featured: e.target.checked })}
                     className="rounded border-gray-700 bg-black text-yellow-400 focus:ring-yellow-400"
                   />
-                  <Label htmlFor="featured" className="text-white">
+                  <Label htmlFor="is_featured" className="text-white">
                     Featured Partner
                   </Label>
                 </div>
@@ -537,89 +546,108 @@ export default function CommunityPartnersAdminPage() {
             <CardDescription className="text-gray-400">Manage all community partnerships</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredPartners.map((partner) => (
-                <div key={partner.id} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center space-x-3">
-                      {partner.logo && (
-                        <img
-                          src={partner.logo || "/placeholder.svg"}
-                          alt={partner.name}
-                          className="w-12 h-12 rounded object-contain bg-white p-1"
-                        />
-                      )}
-                      <div>
-                        <h3 className="text-white font-medium">{partner.name}</h3>
-                        <Badge className="bg-blue-500 text-white text-xs">{partner.category}</Badge>
+            {partners.length === 0 ? (
+              <div className="text-center py-12">
+                <Users className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-400 text-lg">No community partners yet</p>
+                <p className="text-gray-500 text-sm mb-6">Start by adding your first community partner</p>
+                <Button
+                  onClick={() => setShowAddForm(true)}
+                  className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add First Partner
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredPartners.map((partner) => (
+                  <div key={partner.id} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center space-x-3">
+                        {partner.logo_url ? (
+                          <img
+                            src={partner.logo_url || "/placeholder.svg"}
+                            alt={partner.name}
+                            className="w-12 h-12 rounded object-contain bg-white p-1"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-yellow-500 rounded flex items-center justify-center text-black font-bold">
+                            {partner.name.charAt(0)}
+                          </div>
+                        )}
+                        <div>
+                          <h3 className="text-white font-medium">{partner.name}</h3>
+                          <Badge className="bg-blue-500 text-white text-xs">{partner.category}</Badge>
+                        </div>
+                      </div>
+                      <div className="flex space-x-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => toggleFeatured(partner)}
+                          className={`p-1 ${partner.is_featured ? "text-yellow-400" : "text-gray-400"} hover:bg-gray-700`}
+                        >
+                          {partner.is_featured ? <Star className="w-4 h-4" /> : <StarOff className="w-4 h-4" />}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => toggleStatus(partner)}
+                          className={`p-1 ${
+                            partner.status === "active" ? "text-green-400" : "text-gray-400"
+                          } hover:bg-gray-700`}
+                        >
+                          {partner.status === "active" ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex space-x-1">
+
+                    <p className="text-gray-400 text-sm mb-3 line-clamp-2">{partner.description}</p>
+
+                    <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
+                      {partner.member_count && (
+                        <span className="flex items-center">
+                          <Users className="w-3 h-3 mr-1" />
+                          {partner.member_count.toLocaleString()}
+                        </span>
+                      )}
+                      {partner.location && <span>{partner.location}</span>}
+                    </div>
+
+                    <div className="flex space-x-2">
                       <Button
                         size="sm"
-                        variant="ghost"
-                        onClick={() => toggleFeatured(partner)}
-                        className={`p-1 ${partner.featured ? "text-yellow-400" : "text-gray-400"} hover:bg-gray-700`}
+                        onClick={() => handleEdit(partner)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white flex-1"
                       >
-                        {partner.featured ? <Star className="w-4 h-4" /> : <StarOff className="w-4 h-4" />}
+                        <Edit className="w-3 h-3 mr-1" />
+                        Edit
                       </Button>
+                      {partner.website_url && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => window.open(partner.website_url, "_blank")}
+                          className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                        </Button>
+                      )}
                       <Button
                         size="sm"
-                        variant="ghost"
-                        onClick={() => toggleStatus(partner)}
-                        className={`p-1 ${
-                          partner.status === "active" ? "text-green-400" : "text-gray-400"
-                        } hover:bg-gray-700`}
+                        onClick={() => handleDelete(partner.id)}
+                        className="bg-red-600 hover:bg-red-700 text-white"
                       >
-                        {partner.status === "active" ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                        <Trash2 className="w-3 h-3" />
                       </Button>
                     </div>
                   </div>
+                ))}
+              </div>
+            )}
 
-                  <p className="text-gray-400 text-sm mb-3 line-clamp-2">{partner.description}</p>
-
-                  <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
-                    {partner.member_count && (
-                      <span className="flex items-center">
-                        <Users className="w-3 h-3 mr-1" />
-                        {partner.member_count.toLocaleString()}
-                      </span>
-                    )}
-                    {partner.location && <span>{partner.location}</span>}
-                  </div>
-
-                  <div className="flex space-x-2">
-                    <Button
-                      size="sm"
-                      onClick={() => handleEdit(partner)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white flex-1"
-                    >
-                      <Edit className="w-3 h-3 mr-1" />
-                      Edit
-                    </Button>
-                    {partner.website && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => window.open(partner.website, "_blank")}
-                        className="border-gray-600 text-gray-300 hover:bg-gray-700"
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      onClick={() => handleDelete(partner.id)}
-                      className="bg-red-600 hover:bg-red-700 text-white"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {filteredPartners.length === 0 && (
+            {filteredPartners.length === 0 && partners.length > 0 && (
               <div className="text-center py-12">
                 <Users className="w-16 h-16 text-gray-600 mx-auto mb-4" />
                 <p className="text-gray-400 text-lg">No partners found</p>
