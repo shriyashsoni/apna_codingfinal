@@ -117,12 +117,14 @@ export interface HackathonRegistration {
   updated_at: string
 }
 
-// Community Partner interface
-export interface CommunityPartner {
+// Partner interface for both community and hackathon partners
+export interface Partner {
   id: string
   name: string
   logo_url?: string
-  website_url: string
+  website_url?: string
+  category: "community" | "hackathon"
+  display_order: number
   status: "active" | "inactive"
   created_at: string
   updated_at: string
@@ -184,18 +186,20 @@ export const signOut = async () => {
 export const getCurrentUser = async () => {
   try {
     const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser()
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession()
 
-    if (error) {
-      console.error("Auth error:", error)
+    if (sessionError) {
+      console.error("Session error:", sessionError)
       return null
     }
 
-    if (!user) {
+    if (!session?.user) {
       return null
     }
+
+    const user = session.user
 
     // Get user profile from users table
     const { data: profile, error: profileError } = await supabase.from("users").select("*").eq("id", user.id).single()
@@ -239,10 +243,37 @@ export const getCurrentUser = async () => {
 }
 
 export const getSession = async () => {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  return session
+  try {
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession()
+
+    if (error) {
+      console.error("Error getting session:", error)
+      return null
+    }
+
+    return session
+  } catch (error) {
+    console.error("Error in getSession:", error)
+    return null
+  }
+}
+
+export async function checkUserAuth() {
+  try {
+    const session = await getSession()
+    if (!session?.user) {
+      return null
+    }
+
+    const user = await getCurrentUser()
+    return user
+  } catch (error) {
+    console.error("Error checking user auth:", error)
+    return null
+  }
 }
 
 // Create user profile in database
@@ -372,16 +403,6 @@ export const isAdmin = async (email?: string) => {
     return data?.role === "admin"
   } catch {
     return false
-  }
-}
-
-export async function checkUserAuth() {
-  try {
-    const user = await getCurrentUser()
-    return user
-  } catch (error) {
-    console.error("Error checking user auth:", error)
-    return null
   }
 }
 
@@ -808,33 +829,34 @@ export const extractIdFromSlug = (slug: string) => {
   return parts[parts.length - 1]
 }
 
-// Database functions for Community Partners
-export const getCommunityPartners = async () => {
+// Database functions for Partners (both community and hackathon)
+export const getPartnersByCategory = async (category: "community" | "hackathon") => {
   const { data, error } = await supabase
-    .from("community_partners")
+    .from("partners")
     .select("*")
+    .eq("category", category)
     .eq("status", "active")
+    .order("display_order", { ascending: true })
     .order("created_at", { ascending: false })
   return { data, error }
 }
 
-export const getAllCommunityPartners = async () => {
+export const getAllPartners = async () => {
   const { data, error } = await supabase
-    .from("community_partners")
+    .from("partners")
     .select("*")
+    .order("category", { ascending: true })
+    .order("display_order", { ascending: true })
     .order("created_at", { ascending: false })
   return { data, error }
 }
 
-export const createCommunityPartner = async (
-  partner: Omit<CommunityPartner, "id" | "created_at" | "updated_at" | "status">,
-) => {
+export const createPartner = async (partner: Omit<Partner, "id" | "created_at" | "updated_at">) => {
   const { data, error } = await supabase
-    .from("community_partners")
+    .from("partners")
     .insert([
       {
         ...partner,
-        status: "active",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -843,21 +865,54 @@ export const createCommunityPartner = async (
   return { data, error }
 }
 
-export const updateCommunityPartner = async (id: string, updates: Partial<CommunityPartner>) => {
+export const updatePartner = async (id: string, updates: Partial<Partner>) => {
   const { data, error } = await supabase
-    .from("community_partners")
+    .from("partners")
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq("id", id)
     .select()
   return { data, error }
 }
 
-export const deleteCommunityPartner = async (id: string) => {
-  const { data, error } = await supabase.from("community_partners").delete().eq("id", id)
+export const deletePartner = async (id: string) => {
+  const { data, error } = await supabase.from("partners").delete().eq("id", id)
   return { data, error }
 }
 
-export const getCommunityPartnerById = async (id: string) => {
-  const { data, error } = await supabase.from("community_partners").select("*").eq("id", id).single()
+export const getPartnerById = async (id: string) => {
+  const { data, error } = await supabase.from("partners").select("*").eq("id", id).single()
   return { data, error }
+}
+
+// Legacy community partners functions for backward compatibility
+export const getCommunityPartners = async () => {
+  return getPartnersByCategory("community")
+}
+
+export const getAllCommunityPartners = async () => {
+  const { data, error } = await supabase
+    .from("partners")
+    .select("*")
+    .eq("category", "community")
+    .order("display_order", { ascending: true })
+    .order("created_at", { ascending: false })
+  return { data, error }
+}
+
+export const createCommunityPartner = async (
+  partner: Omit<Partner, "id" | "created_at" | "updated_at" | "category">,
+) => {
+  return createPartner({ ...partner, category: "community" })
+}
+
+export const updateCommunityPartner = async (id: string, updates: Partial<Partner>) => {
+  return updatePartner(id, updates)
+}
+
+export const deleteCommunityPartner = async (id: string) => {
+  return deletePartner(id)
+}
+
+export const getCommunityPartnerById = async (id: string) => {
+  return getPartnerById(id)
 }

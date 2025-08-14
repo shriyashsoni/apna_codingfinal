@@ -8,16 +8,16 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import FuturisticBackground from "@/components/futuristic-background"
 import FloatingElements from "@/components/floating-elements"
-import { getCommunityPartners, type CommunityPartner } from "@/lib/supabase"
+import { getPartnersByCategory, type Partner } from "@/lib/supabase"
 
 export default function CommunityPartnershipsPage() {
-  const [partners, setPartners] = useState<CommunityPartner[]>([])
+  const [partners, setPartners] = useState<Partner[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchPartners = async () => {
       try {
-        const { data, error } = await getCommunityPartners()
+        const { data, error } = await getPartnersByCategory("community")
         if (error) {
           console.error("Error fetching community partners:", error)
         } else {
@@ -95,15 +95,17 @@ export default function CommunityPartnershipsPage() {
                           <h3 className="text-xl font-bold text-white group-hover:text-purple-400 transition-colors">
                             {partner.name}
                           </h3>
-                          <a
-                            href={partner.website_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center text-purple-400 hover:text-purple-300 transition-colors"
-                          >
-                            Visit Website
-                            <ExternalLink className="w-4 h-4 ml-2" />
-                          </a>
+                          {partner.website_url && (
+                            <a
+                              href={partner.website_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center text-purple-400 hover:text-purple-300 transition-colors"
+                            >
+                              Visit Website
+                              <ExternalLink className="w-4 h-4 ml-2" />
+                            </a>
+                          )}
                         </div>
                       </CardContent>
                     </Card>

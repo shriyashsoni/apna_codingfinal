@@ -7,20 +7,17 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Menu, X, ChevronDown, User, LogOut, Settings, Shield, BookOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import AuthModal from "@/components/auth/auth-modal"
-import { getCurrentUser, signOut, getUserProfile, type User as UserType } from "@/lib/supabase"
+import { useAuth } from "@/components/auth-provider"
+import { signOut } from "@/lib/supabase"
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authMode, setAuthMode] = useState<"login" | "signup">("login")
-  const [user, setUser] = useState<any>(null)
-  const [userProfile, setUserProfile] = useState<UserType | null>(null)
   const [showUserMenu, setShowUserMenu] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const { userProfile, loading, refreshUser } = useAuth()
 
   useEffect(() => {
-    checkUser()
-
     // Check for auth parameter in URL
     const urlParams = new URLSearchParams(window.location.search)
     const authParam = urlParams.get("auth")
@@ -30,25 +27,9 @@ export default function Navbar() {
     }
   }, [])
 
-  const checkUser = async () => {
-    try {
-      const currentUser = await getCurrentUser()
-      setUser(currentUser)
-
-      if (currentUser) {
-        const { data: profile } = await getUserProfile(currentUser.id)
-        setUserProfile(profile)
-      }
-    } catch (error) {
-      console.error("Error checking user:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const handleAuthSuccess = () => {
     setShowAuthModal(false)
-    checkUser()
+    refreshUser()
     // Remove auth parameter from URL
     const url = new URL(window.location.href)
     url.searchParams.delete("auth")
@@ -58,8 +39,6 @@ export default function Navbar() {
   const handleSignOut = async () => {
     try {
       await signOut()
-      setUser(null)
-      setUserProfile(null)
       setShowUserMenu(false)
     } catch (error) {
       console.error("Error signing out:", error)
@@ -110,13 +89,13 @@ export default function Navbar() {
             <div className="hidden lg:flex items-center space-x-4">
               {loading ? (
                 <div className="w-8 h-8 bg-gray-700 rounded-full animate-pulse" />
-              ) : user ? (
+              ) : userProfile ? (
                 <div className="relative">
                   <button
                     onClick={() => setShowUserMenu(!showUserMenu)}
                     className="flex items-center space-x-2 bg-gray-800 hover:bg-gray-700 rounded-lg px-3 py-2 transition-colors"
                   >
-                    {userProfile?.avatar_url ? (
+                    {userProfile.avatar_url ? (
                       <Image
                         src={userProfile.avatar_url || "/placeholder.svg"}
                         alt={userProfile.full_name || "User"}
@@ -131,10 +110,10 @@ export default function Navbar() {
                     )}
                     <div className="text-left">
                       <div className="text-white text-sm font-medium flex items-center">
-                        {userProfile?.full_name || user.email?.split("@")[0]}
-                        {userProfile?.role === "admin" && <Shield className="w-3 h-3 text-yellow-400 ml-1" />}
+                        {userProfile.full_name || userProfile.email?.split("@")[0]}
+                        {userProfile.role === "admin" && <Shield className="w-3 h-3 text-yellow-400 ml-1" />}
                       </div>
-                      {userProfile?.role === "admin" && <div className="text-yellow-400 text-xs">Admin</div>}
+                      {userProfile.role === "admin" && <div className="text-yellow-400 text-xs">Admin</div>}
                     </div>
                     <ChevronDown className="w-4 h-4 text-gray-400" />
                   </button>
@@ -163,7 +142,7 @@ export default function Navbar() {
                           <Settings className="w-4 h-4 mr-2" />
                           Profile Settings
                         </Link>
-                        {userProfile?.role === "admin" && (
+                        {userProfile.role === "admin" && (
                           <Link
                             href="/admin"
                             className="flex items-center px-4 py-2 text-yellow-400 hover:bg-gray-800"
@@ -235,10 +214,10 @@ export default function Navbar() {
                     </Link>
                   ))}
 
-                  {user ? (
+                  {userProfile ? (
                     <div className="pt-4 border-t border-gray-800">
                       <div className="flex items-center space-x-2 mb-4">
-                        {userProfile?.avatar_url ? (
+                        {userProfile.avatar_url ? (
                           <Image
                             src={userProfile.avatar_url || "/placeholder.svg"}
                             alt={userProfile.full_name || "User"}
@@ -253,10 +232,10 @@ export default function Navbar() {
                         )}
                         <div>
                           <div className="text-white text-sm font-medium flex items-center">
-                            {userProfile?.full_name || user.email?.split("@")[0]}
-                            {userProfile?.role === "admin" && <Shield className="w-3 h-3 text-yellow-400 ml-1" />}
+                            {userProfile.full_name || userProfile.email?.split("@")[0]}
+                            {userProfile.role === "admin" && <Shield className="w-3 h-3 text-yellow-400 ml-1" />}
                           </div>
-                          {userProfile?.role === "admin" && <div className="text-yellow-400 text-xs">Admin</div>}
+                          {userProfile.role === "admin" && <div className="text-yellow-400 text-xs">Admin</div>}
                         </div>
                       </div>
                       <div className="flex flex-col space-y-2">
@@ -276,7 +255,7 @@ export default function Navbar() {
                           <Settings className="w-4 h-4 mr-2" />
                           Profile Settings
                         </Link>
-                        {userProfile?.role === "admin" && (
+                        {userProfile.role === "admin" && (
                           <Link
                             href="/admin"
                             className="flex items-center text-yellow-400"
