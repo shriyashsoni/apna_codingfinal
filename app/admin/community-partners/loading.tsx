@@ -1,9 +1,9 @@
-export default function CommunityPartnersLoading() {
+export default function Loading() {
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-400 mx-auto"></div>
-        <p className="text-white mt-4">Loading Community Partners...</p>
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+        <p className="mt-4 text-gray-600">Loading community partners management...</p>
       </div>
     </div>
   )

@@ -2,99 +2,87 @@
 
 import type React from "react"
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import Image from "next/image"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect } from "react"
+import { motion } from "framer-motion"
+import { Plus, Edit, Trash2, ExternalLink, Save, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
-import { Users, ArrowLeft, Shield, Plus, Edit, Trash2, ExternalLink, Save, X } from "lucide-react"
 import {
-  getCurrentUser,
-  isAdmin,
-  getCommunityPartners,
+  getAllCommunityPartners,
   createCommunityPartner,
   updateCommunityPartner,
   deleteCommunityPartner,
+  getCurrentUser,
+  isAdmin,
+  type CommunityPartner,
 } from "@/lib/supabase"
 
-interface CommunityPartner {
-  id: string
+interface PartnerFormData {
   name: string
-  logo_url?: string
+  logo_url: string
   website_url: string
-  status: "active" | "inactive"
-  created_at: string
-  updated_at: string
 }
 
 export default function AdminCommunityPartnersPage() {
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [adminAccess, setAdminAccess] = useState(false)
   const [partners, setPartners] = useState<CommunityPartner[]>([])
+  const [loading, setLoading] = useState(true)
+  const [isAuthorized, setIsAuthorized] = useState(false)
+  const [showForm, setShowForm] = useState(false)
   const [editingPartner, setEditingPartner] = useState<CommunityPartner | null>(null)
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<PartnerFormData>({
     name: "",
     logo_url: "",
     website_url: "",
   })
-  const [saving, setSaving] = useState(false)
-  const router = useRouter()
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    checkAdminAccess()
-    loadPartners()
+    const checkAuth = async () => {
+      try {
+        const user = await getCurrentUser()
+        if (user) {
+          const adminStatus = await isAdmin(user.email)
+          setIsAuthorized(adminStatus)
+        }
+      } catch (error) {
+        console.error("Error checking authorization:", error)
+      }
+    }
+
+    checkAuth()
   }, [])
 
-  const checkAdminAccess = async () => {
+  useEffect(() => {
+    if (isAuthorized) {
+      fetchPartners()
+    }
+  }, [isAuthorized])
+
+  const fetchPartners = async () => {
     try {
-      const currentUser = await getCurrentUser()
-      if (!currentUser || currentUser.email !== "sonishriyash@gmail.com") {
-        router.push("/")
-        return
+      const { data, error } = await getAllCommunityPartners()
+      if (error) {
+        console.error("Error fetching partners:", error)
+      } else {
+        setPartners(data || [])
       }
-
-      const hasAdminAccess = await isAdmin(currentUser.email)
-      if (!hasAdminAccess) {
-        router.push("/")
-        return
-      }
-
-      setUser(currentUser)
-      setAdminAccess(true)
     } catch (error) {
-      console.error("Error checking admin access:", error)
-      router.push("/")
+      console.error("Error fetching partners:", error)
     } finally {
       setLoading(false)
     }
   }
 
-  const loadPartners = async () => {
-    try {
-      const { data, error } = await getCommunityPartners()
-      if (error) {
-        console.error("Error loading partners:", error)
-      } else {
-        setPartners(data || [])
-      }
-    } catch (error) {
-      console.error("Error loading partners:", error)
-    }
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.name || !formData.website_url) {
-      alert("Please fill in required fields")
+    if (!formData.name.trim() || !formData.website_url.trim()) {
+      alert("Please fill in all required fields")
       return
     }
 
-    setSaving(true)
+    setSubmitting(true)
     try {
       if (editingPartner) {
         const { error } = await updateCommunityPartner(editingPartner.id, formData)
@@ -103,7 +91,8 @@ export default function AdminCommunityPartnersPage() {
           alert("Error updating partner")
         } else {
           alert("Partner updated successfully!")
-          setEditingPartner(null)
+          fetchPartners()
+          resetForm()
         }
       } else {
         const { error } = await createCommunityPartner(formData)
@@ -112,17 +101,15 @@ export default function AdminCommunityPartnersPage() {
           alert("Error creating partner")
         } else {
           alert("Partner created successfully!")
-          setShowAddForm(false)
+          fetchPartners()
+          resetForm()
         }
       }
-
-      setFormData({ name: "", logo_url: "", website_url: "" })
-      loadPartners()
     } catch (error) {
-      console.error("Error saving partner:", error)
-      alert("Error saving partner")
+      console.error("Error submitting form:", error)
+      alert("An error occurred")
     } finally {
-      setSaving(false)
+      setSubmitting(false)
     }
   }
 
@@ -133,242 +120,198 @@ export default function AdminCommunityPartnersPage() {
       logo_url: partner.logo_url || "",
       website_url: partner.website_url,
     })
-    setShowAddForm(false)
+    setShowForm(true)
   }
 
-  const handleDelete = async (id: string) => {
-    if (confirm("Are you sure you want to delete this community partner?")) {
-      try {
-        const { error } = await deleteCommunityPartner(id)
-        if (error) {
-          console.error("Error deleting partner:", error)
-          alert("Error deleting partner")
-        } else {
-          alert("Partner deleted successfully!")
-          loadPartners()
-        }
-      } catch (error) {
+  const handleDelete = async (partner: CommunityPartner) => {
+    if (!confirm(`Are you sure you want to delete ${partner.name}?`)) {
+      return
+    }
+
+    try {
+      const { error } = await deleteCommunityPartner(partner.id)
+      if (error) {
         console.error("Error deleting partner:", error)
         alert("Error deleting partner")
+      } else {
+        alert("Partner deleted successfully!")
+        fetchPartners()
       }
+    } catch (error) {
+      console.error("Error deleting partner:", error)
+      alert("An error occurred")
     }
   }
 
-  const cancelEdit = () => {
-    setEditingPartner(null)
-    setShowAddForm(false)
+  const resetForm = () => {
     setFormData({ name: "", logo_url: "", website_url: "" })
+    setEditingPartner(null)
+    setShowForm(false)
   }
 
-  if (loading) {
+  if (!isAuthorized) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-400 mx-auto"></div>
-          <p className="text-white mt-4">Loading...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!adminAccess || user?.email !== "sonishriyash@gmail.com") {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <Shield className="w-16 h-16 text-red-400 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-red-400 mb-4">Access Denied</h1>
-          <p className="text-gray-400">You don't have permission to access this page.</p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
+          <p className="text-gray-600">You don't have permission to access this page.</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      {/* Header */}
-      <div className="bg-gray-900 border-b border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-white flex items-center gap-2">
-                <Users className="w-8 h-8 text-purple-400" />
-                Community Partners Management
-              </h1>
-              <p className="text-gray-400 mt-1">Manage community partnerships</p>
-            </div>
-            <Button
-              onClick={() => router.push("/admin")}
-              variant="outline"
-              className="border-gray-700 text-white hover:bg-gray-800"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
-            </Button>
-          </div>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="container mx-auto px-4">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Community Partners Management</h1>
+          <Button onClick={() => setShowForm(true)} className="bg-purple-600 hover:bg-purple-700 text-white">
+            <Plus className="w-4 h-4 mr-2" />
+            Add New Partner
+          </Button>
         </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Add/Edit Form */}
-        {(showAddForm || editingPartner) && (
-          <Card className="bg-gray-900 border-gray-800 mb-8">
-            <CardHeader>
-              <CardTitle className="text-white">
-                {editingPartner ? "Edit Community Partner" : "Add New Community Partner"}
-              </CardTitle>
-              <CardDescription className="text-gray-400">
-                {editingPartner ? "Update partner information" : "Add a new community partner"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+        {/* Form Modal */}
+        {showForm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-white rounded-lg p-6 w-full max-w-md"
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">{editingPartner ? "Edit Partner" : "Add New Partner"}</h2>
+                <Button variant="ghost" size="sm" onClick={resetForm}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="name" className="text-white">
-                      Partner Name *
-                    </Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="bg-black border-gray-700 text-white focus:border-purple-400"
-                      placeholder="Community name"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="website" className="text-white">
-                      Website URL *
-                    </Label>
-                    <Input
-                      id="website"
-                      type="url"
-                      value={formData.website_url}
-                      onChange={(e) => setFormData({ ...formData, website_url: e.target.value })}
-                      className="bg-black border-gray-700 text-white focus:border-purple-400"
-                      placeholder="https://..."
-                      required
-                    />
-                  </div>
+                <div>
+                  <Label htmlFor="name">Partner Name *</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="Enter partner name"
+                    required
+                  />
                 </div>
 
                 <div>
-                  <Label htmlFor="logo" className="text-white">
-                    Logo URL
-                  </Label>
+                  <Label htmlFor="logo_url">Logo URL</Label>
                   <Input
-                    id="logo"
-                    type="url"
+                    id="logo_url"
                     value={formData.logo_url}
                     onChange={(e) => setFormData({ ...formData, logo_url: e.target.value })}
-                    className="bg-black border-gray-700 text-white focus:border-purple-400"
-                    placeholder="https://..."
+                    placeholder="https://example.com/logo.png"
+                    type="url"
                   />
-                  <p className="text-gray-500 text-sm mt-1">
-                    Upload your image to a service like Imgur or use a direct image URL
-                  </p>
                 </div>
 
-                <div className="flex space-x-4">
-                  <Button type="submit" disabled={saving} className="bg-purple-600 hover:bg-purple-700 text-white">
+                <div>
+                  <Label htmlFor="website_url">Website URL *</Label>
+                  <Input
+                    id="website_url"
+                    value={formData.website_url}
+                    onChange={(e) => setFormData({ ...formData, website_url: e.target.value })}
+                    placeholder="https://example.com"
+                    type="url"
+                    required
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-4">
+                  <Button type="submit" disabled={submitting} className="flex-1">
                     <Save className="w-4 h-4 mr-2" />
-                    {saving ? "Saving..." : editingPartner ? "Update Partner" : "Add Partner"}
+                    {submitting ? "Saving..." : editingPartner ? "Update" : "Create"}
                   </Button>
-                  <Button
-                    type="button"
-                    onClick={cancelEdit}
-                    variant="outline"
-                    className="border-gray-700 text-white hover:bg-gray-800 bg-transparent"
-                  >
-                    <X className="w-4 h-4 mr-2" />
+                  <Button type="button" variant="outline" onClick={resetForm}>
                     Cancel
                   </Button>
                 </div>
               </form>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Add Button */}
-        {!showAddForm && !editingPartner && (
-          <div className="mb-8">
-            <Button onClick={() => setShowAddForm(true)} className="bg-purple-600 hover:bg-purple-700 text-white">
-              <Plus className="w-4 h-4 mr-2" />
-              Add New Community Partner
-            </Button>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
 
         {/* Partners List */}
-        <Card className="bg-gray-900 border-gray-800">
-          <CardHeader>
-            <CardTitle className="text-white">Current Community Partners</CardTitle>
-            <CardDescription className="text-gray-400">Manage existing community partnerships</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {partners.length === 0 ? (
-              <div className="text-center py-8">
-                <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-400">No community partners yet</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {partners.map((partner) => (
-                  <div key={partner.id} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center space-x-3">
-                        {partner.logo_url && (
-                          <Image
-                            src={partner.logo_url || "/placeholder.svg"}
-                            alt={partner.name}
-                            width={40}
-                            height={40}
-                            className="rounded object-contain"
-                          />
-                        )}
-                        <div>
-                          <h3 className="text-white font-medium">{partner.name}</h3>
-                          <Badge className={partner.status === "active" ? "bg-green-500" : "bg-gray-500"}>
-                            {partner.status}
-                          </Badge>
-                        </div>
-                      </div>
-                      <div className="flex space-x-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => window.open(partner.website_url, "_blank")}
-                          className="text-gray-400 hover:text-white hover:bg-gray-700 p-1"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleEdit(partner)}
-                          className="text-blue-400 hover:text-blue-300 hover:bg-gray-700 p-1"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDelete(partner.id)}
-                          className="text-red-400 hover:text-red-300 hover:bg-gray-700 p-1"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+        {loading ? (
+          <div className="text-center py-8">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+            <p className="mt-4 text-gray-600">Loading partners...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {partners.map((partner) => (
+              <Card key={partner.id} className="hover:shadow-lg transition-shadow">
+                <CardHeader className="pb-3">
+                  <div className="flex justify-between items-start">
+                    <CardTitle className="text-lg">{partner.name}</CardTitle>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => handleEdit(partner)}>
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(partner)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
-                    <p className="text-gray-400 text-sm">
-                      Created: {new Date(partner.created_at).toLocaleDateString()}
-                    </p>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {partner.logo_url && (
+                      <div className="flex justify-center">
+                        <img
+                          src={partner.logo_url || "/placeholder.svg"}
+                          alt={partner.name}
+                          className="w-16 h-16 object-contain rounded"
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <a
+                        href={partner.website_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center text-purple-600 hover:text-purple-700 text-sm"
+                      >
+                        Visit Website
+                        <ExternalLink className="w-3 h-3 ml-1" />
+                      </a>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Status: <span className="capitalize">{partner.status}</span>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Created: {new Date(partner.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {!loading && partners.length === 0 && (
+          <div className="text-center py-12">
+            <h3 className="text-xl font-semibold text-gray-600 mb-2">No Partners Yet</h3>
+            <p className="text-gray-500 mb-4">Start by adding your first community partner.</p>
+            <Button onClick={() => setShowForm(true)} className="bg-purple-600 hover:bg-purple-700 text-white">
+              <Plus className="w-4 h-4 mr-2" />
+              Add First Partner
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   )
