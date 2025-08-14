@@ -5,9 +5,6 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-// Re-export createClient for other components that might need it
-export { createClient }
-
 // Server-side client for admin operations
 export const createServerClient = () => {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
@@ -24,7 +21,6 @@ export interface User {
   linkedin_url?: string
   bio?: string
   skills?: string[]
-  location?: string
   created_at: string
   updated_at: string
 }
@@ -108,21 +104,6 @@ export interface Community {
   updated_at: string
 }
 
-export interface CommunityPartner {
-  id: string
-  name: string
-  logo_url: string
-  website_url?: string
-  description: string
-  category: string
-  member_count?: number
-  location?: string
-  status: "active" | "inactive"
-  is_featured: boolean
-  created_at: string
-  updated_at: string
-}
-
 export interface HackathonRegistration {
   id: string
   hackathon_id: string
@@ -173,10 +154,6 @@ export const signInWithGoogle = async () => {
     provider: "google",
     options: {
       redirectTo: `${window.location.origin}/auth/callback`,
-      queryParams: {
-        access_type: "offline",
-        prompt: "consent",
-      },
     },
   })
   return { data, error }
@@ -267,9 +244,7 @@ export const createUserProfile = async (
       .upsert(
         {
           id: userId,
-          email: userData.email,
-          full_name: userData.full_name || userData.email.split("@")[0],
-          avatar_url: userData.avatar_url,
+          ...userData,
           role: userData.email === "sonishriyash@gmail.com" ? "admin" : userData.role || "user",
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -331,7 +306,6 @@ export const updateUserProfile = async (userId: string, updates: Partial<User>) 
           github_url: updates.github_url || null,
           linkedin_url: updates.linkedin_url || null,
           skills: updates.skills || null,
-          location: updates.location || null,
           role: authData.user.email === "sonishriyash@gmail.com" ? "admin" : "user",
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -561,53 +535,6 @@ export const getCommunities = async () => {
     .select("*")
     .eq("status", "active")
     .order("member_count", { ascending: false })
-  return { data, error }
-}
-
-// Community Partners Functions
-export const getCommunityPartners = async () => {
-  const { data, error } = await supabase
-    .from("community_partners")
-    .select("*")
-    .order("created_at", { ascending: false })
-  return { data, error }
-}
-
-export const getFeaturedCommunityPartners = async () => {
-  const { data, error } = await supabase
-    .from("community_partners")
-    .select("*")
-    .eq("status", "active")
-    .eq("is_featured", true)
-    .order("created_at", { ascending: false })
-  return { data, error }
-}
-
-export const createCommunityPartner = async (partner: Omit<CommunityPartner, "id" | "created_at" | "updated_at">) => {
-  const { data, error } = await supabase
-    .from("community_partners")
-    .insert([
-      {
-        ...partner,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ])
-    .select()
-  return { data, error }
-}
-
-export const updateCommunityPartner = async (id: string, updates: Partial<CommunityPartner>) => {
-  const { data, error } = await supabase
-    .from("community_partners")
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq("id", id)
-    .select()
-  return { data, error }
-}
-
-export const deleteCommunityPartner = async (id: string) => {
-  const { data, error } = await supabase.from("community_partners").delete().eq("id", id)
   return { data, error }
 }
 

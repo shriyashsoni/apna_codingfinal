@@ -1,22 +1,20 @@
 "use client"
 
 import type React from "react"
+
 import { useState } from "react"
-import { motion } from "framer-motion"
-import { Eye, EyeOff, Mail, Lock, User, Chrome } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { signUp, signInWithGoogle } from "@/lib/supabase"
-import { useRouter } from "next/navigation"
-import AuthLoading from "@/components/auth-loading"
+import { Eye, EyeOff, Mail, Lock, User, Chrome } from "lucide-react"
 
 interface SignupFormProps {
-  onSwitchToLogin: () => void
-  onClose: () => void
+  onSuccess?: () => void
 }
 
-export default function SignupForm({ onSwitchToLogin, onClose }: SignupFormProps) {
+export default function SignupForm({ onSuccess }: SignupFormProps) {
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -24,16 +22,15 @@ export default function SignupForm({ onSwitchToLogin, onClose }: SignupFormProps
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [googleLoading, setGoogleLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    setError("")
-    setSuccess("")
+    setError(null)
+    setSuccess(null)
 
     if (password !== confirmPassword) {
       setError("Passwords do not match")
@@ -57,71 +54,64 @@ export default function SignupForm({ onSwitchToLogin, onClose }: SignupFormProps
 
       if (data.user) {
         setSuccess("Account created successfully! Please check your email to verify your account.")
-        setTimeout(() => {
-          onClose()
-          router.push("/dashboard")
-          router.refresh()
-        }, 2000)
+
+        // Success callback
+        if (onSuccess) {
+          setTimeout(() => {
+            onSuccess()
+          }, 2000)
+        }
+
+        // Clear form
+        setFullName("")
+        setEmail("")
+        setPassword("")
+        setConfirmPassword("")
       }
-    } catch (error: any) {
-      setError(error.message || "An unexpected error occurred")
+    } catch (error) {
+      console.error("Signup error:", error)
+      setError("An unexpected error occurred")
     } finally {
       setLoading(false)
     }
   }
 
   const handleGoogleSignIn = async () => {
-    setGoogleLoading(true)
-    setError("")
+    setLoading(true)
+    setError(null)
 
     try {
-      const { data, error } = await signInWithGoogle()
+      const { error } = await signInWithGoogle()
 
       if (error) {
         setError(error.message)
-        setGoogleLoading(false)
-        return
       }
-
-      // Google OAuth will redirect automatically
-      // Don't close the modal here, let the redirect handle it
-    } catch (error: any) {
-      setError(error.message || "Failed to sign in with Google")
-      setGoogleLoading(false)
+      // Note: Google OAuth will redirect to callback, so we don't handle success here
+    } catch (error) {
+      console.error("Google sign in error:", error)
+      setError("Failed to sign in with Google")
+    } finally {
+      setLoading(false)
     }
   }
 
-  if (googleLoading) {
-    return <AuthLoading />
-  }
-
   return (
-    <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 20 }}
-      transition={{ duration: 0.3 }}
-    >
-      <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold text-white mb-2">Create Account</h2>
-        <p className="text-gray-400">Join our community and start learning</p>
-      </div>
-
+    <div className="space-y-4">
       {error && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-4">
+        <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-md">
           <p className="text-red-400 text-sm">{error}</p>
         </div>
       )}
 
       {success && (
-        <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3 mb-4">
+        <div className="p-3 bg-green-500/20 border border-green-500/30 rounded-md">
           <p className="text-green-400 text-sm">{success}</p>
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <Label htmlFor="fullName" className="text-white">
+          <Label htmlFor="fullName" className="text-gray-300">
             Full Name
           </Label>
           <div className="relative">
@@ -131,7 +121,7 @@ export default function SignupForm({ onSwitchToLogin, onClose }: SignupFormProps
               type="text"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              className="bg-gray-800 border-gray-700 text-white pl-10 focus:border-yellow-400"
+              className="bg-black border-gray-700 text-white pl-10 focus:border-yellow-400"
               placeholder="Enter your full name"
               required
             />
@@ -139,8 +129,8 @@ export default function SignupForm({ onSwitchToLogin, onClose }: SignupFormProps
         </div>
 
         <div>
-          <Label htmlFor="email" className="text-white">
-            Email Address
+          <Label htmlFor="email" className="text-gray-300">
+            Email
           </Label>
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -149,7 +139,7 @@ export default function SignupForm({ onSwitchToLogin, onClose }: SignupFormProps
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="bg-gray-800 border-gray-700 text-white pl-10 focus:border-yellow-400"
+              className="bg-black border-gray-700 text-white pl-10 focus:border-yellow-400"
               placeholder="Enter your email"
               required
             />
@@ -157,7 +147,7 @@ export default function SignupForm({ onSwitchToLogin, onClose }: SignupFormProps
         </div>
 
         <div>
-          <Label htmlFor="password" className="text-white">
+          <Label htmlFor="password" className="text-gray-300">
             Password
           </Label>
           <div className="relative">
@@ -167,7 +157,7 @@ export default function SignupForm({ onSwitchToLogin, onClose }: SignupFormProps
               type={showPassword ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="bg-gray-800 border-gray-700 text-white pl-10 pr-10 focus:border-yellow-400"
+              className="bg-black border-gray-700 text-white pl-10 pr-10 focus:border-yellow-400"
               placeholder="Create a password"
               required
             />
@@ -182,7 +172,7 @@ export default function SignupForm({ onSwitchToLogin, onClose }: SignupFormProps
         </div>
 
         <div>
-          <Label htmlFor="confirmPassword" className="text-white">
+          <Label htmlFor="confirmPassword" className="text-gray-300">
             Confirm Password
           </Label>
           <div className="relative">
@@ -192,7 +182,7 @@ export default function SignupForm({ onSwitchToLogin, onClose }: SignupFormProps
               type={showConfirmPassword ? "text" : "password"}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="bg-gray-800 border-gray-700 text-white pl-10 pr-10 focus:border-yellow-400"
+              className="bg-black border-gray-700 text-white pl-10 pr-10 focus:border-yellow-400"
               placeholder="Confirm your password"
               required
             />
@@ -211,39 +201,29 @@ export default function SignupForm({ onSwitchToLogin, onClose }: SignupFormProps
           disabled={loading}
           className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
         >
-          {loading ? "Creating Account..." : "Create Account"}
+          {loading ? "Creating account..." : "Create Account"}
         </Button>
       </form>
 
-      <div className="mt-6">
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-700"></div>
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-gray-900 text-gray-400">Or continue with</span>
-          </div>
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-gray-700" />
         </div>
-
-        <Button
-          type="button"
-          onClick={handleGoogleSignIn}
-          disabled={googleLoading}
-          className="w-full mt-4 bg-white hover:bg-gray-100 text-black font-semibold flex items-center justify-center space-x-2"
-        >
-          <Chrome className="w-4 h-4" />
-          <span>{googleLoading ? "Connecting..." : "Continue with Google"}</span>
-        </Button>
+        <div className="relative flex justify-center text-sm">
+          <span className="px-2 bg-gray-900 text-gray-400">Or continue with</span>
+        </div>
       </div>
 
-      <div className="mt-6 text-center">
-        <p className="text-gray-400">
-          Already have an account?{" "}
-          <button onClick={onSwitchToLogin} className="text-yellow-400 hover:text-yellow-300 font-medium">
-            Sign in
-          </button>
-        </p>
-      </div>
-    </motion.div>
+      <Button
+        type="button"
+        onClick={handleGoogleSignIn}
+        disabled={loading}
+        variant="outline"
+        className="w-full border-gray-700 text-white hover:bg-gray-800 bg-transparent"
+      >
+        <Chrome className="w-4 h-4 mr-2" />
+        Sign up with Google
+      </Button>
+    </div>
   )
 }

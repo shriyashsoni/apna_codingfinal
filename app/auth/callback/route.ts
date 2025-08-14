@@ -1,9 +1,11 @@
+import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { type NextRequest, NextResponse } from "next/server"
+import { createUserProfile } from "@/lib/supabase"
 
-export async function GET(request: NextRequest) {
-  const requestUrl = new URL(request.url)
-  const code = requestUrl.searchParams.get("code")
+export async function GET(request: Request) {
+  const { searchParams, origin } = new URL(request.url)
+  const code = searchParams.get("code")
+  const next = searchParams.get("next") ?? "/dashboard"
 
   if (code) {
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
@@ -11,45 +13,22 @@ export async function GET(request: NextRequest) {
     try {
       const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
-      if (error) {
-        console.error("Error exchanging code for session:", error)
-        return NextResponse.redirect(`${requestUrl.origin}/?error=auth_error`)
-      }
+      if (!error && data.user) {
+        // Create or update user profile in database
+        await createUserProfile(data.user.id, {
+          email: data.user.email!,
+          full_name: data.user.user_metadata?.full_name || data.user.email!.split("@")[0],
+          avatar_url: data.user.user_metadata?.avatar_url,
+        })
 
-      if (data.user) {
-        // Create user profile if it doesn't exist
-        const { data: existingProfile, error: profileError } = await supabase
-          .from("users")
-          .select("id")
-          .eq("id", data.user.id)
-          .single()
-
-        if (profileError && profileError.code === "PGRST116") {
-          // Profile doesn't exist, create one
-          const { error: insertError } = await supabase.from("users").insert({
-            id: data.user.id,
-            email: data.user.email!,
-            full_name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || "",
-            avatar_url: data.user.user_metadata?.avatar_url || data.user.user_metadata?.picture || "",
-            role: data.user.email === "sonishriyash@gmail.com" ? "admin" : "user",
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-
-          if (insertError) {
-            console.error("Error creating user profile:", insertError)
-          }
-        }
-
-        // Redirect to dashboard on successful authentication
-        return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
+        // Redirect to dashboard instead of 404
+        return NextResponse.redirect(`${origin}/dashboard`)
       }
     } catch (error) {
-      console.error("Unexpected error during auth callback:", error)
-      return NextResponse.redirect(`${requestUrl.origin}/?error=auth_error`)
+      console.error("Auth callback error:", error)
     }
   }
 
-  // Redirect to home if no code or other issues
-  return NextResponse.redirect(`${requestUrl.origin}/`)
+  // Return the user to login page with error
+  return NextResponse.redirect(`${origin}/auth?error=auth_callback_error`)
 }

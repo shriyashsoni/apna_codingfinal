@@ -32,7 +32,6 @@ const Footer = () => {
 
   const partnershipLinks = [
     { name: "Become a Partner", href: "/partnerships" },
-    { name: "Community Partners", href: "/community-partnerships" },
     { name: "College Clubs", href: "/partnerships#college-clubs" },
     { name: "Corporate Partnership", href: "/partnerships#corporate" },
     { name: "Join Our Team", href: "https://forms.gle/S3MWV7rKR69yNv296" },

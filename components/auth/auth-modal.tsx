@@ -8,12 +8,11 @@ import SignupForm from "./signup-form"
 interface AuthModalProps {
   isOpen: boolean
   onClose: () => void
-  mode: "login" | "signup"
   onSuccess?: () => void
 }
 
-export default function AuthModal({ isOpen, onClose, mode: initialMode, onSuccess }: AuthModalProps) {
-  const [activeTab, setActiveTab] = useState<"login" | "signup">(initialMode)
+export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
+  const [activeTab, setActiveTab] = useState<"login" | "signup">("login")
 
   if (!isOpen) return null
 
@@ -61,11 +60,20 @@ export default function AuthModal({ isOpen, onClose, mode: initialMode, onSucces
 
         {/* Content */}
         <div className="p-6">
-          {activeTab === "login" ? (
-            <LoginForm onSwitchToSignup={() => setActiveTab("signup")} onClose={handleSuccess} />
-          ) : (
-            <SignupForm onSwitchToLogin={() => setActiveTab("login")} onClose={handleSuccess} />
-          )}
+          {activeTab === "login" ? <LoginForm onSuccess={handleSuccess} /> : <SignupForm onSuccess={handleSuccess} />}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-gray-800 text-center">
+          <p className="text-sm text-gray-400">
+            {activeTab === "login" ? "Don't have an account? " : "Already have an account? "}
+            <button
+              onClick={() => setActiveTab(activeTab === "login" ? "signup" : "login")}
+              className="text-yellow-400 hover:text-yellow-300 font-medium"
+            >
+              {activeTab === "login" ? "Sign up" : "Sign in"}
+            </button>
+          </p>
         </div>
       </div>
     </div>
