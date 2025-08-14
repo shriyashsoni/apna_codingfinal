@@ -24,7 +24,24 @@ export default function Navbar() {
     // Check for auth parameter in URL
     const urlParams = new URLSearchParams(window.location.search)
     const authParam = urlParams.get("auth")
-    if (authParam === "signup" || authParam === "login") {
+
+    if (authParam === "success") {
+      // Auth was successful, refresh user data
+      setTimeout(() => {
+        checkUser()
+        // Clean up URL
+        const url = new URL(window.location.href)
+        url.searchParams.delete("auth")
+        window.history.replaceState({}, "", url.toString())
+      }, 1000)
+    } else if (authParam === "error") {
+      // Auth failed, show error
+      console.error("Authentication failed")
+      // Clean up URL
+      const url = new URL(window.location.href)
+      url.searchParams.delete("auth")
+      window.history.replaceState({}, "", url.toString())
+    } else if (authParam === "signup" || authParam === "login") {
       setAuthMode(authParam as "login" | "signup")
       setShowAuthModal(true)
     }
@@ -188,18 +205,10 @@ export default function Navbar() {
               ) : (
                 <div className="flex items-center space-x-3">
                   <Button
-                    variant="ghost"
                     onClick={() => openAuthModal("login")}
-                    className="text-gray-300 hover:text-white"
-                    data-auth-modal
-                  >
-                    Login
-                  </Button>
-                  <Button
-                    onClick={() => openAuthModal("signup")}
                     className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
                   >
-                    Sign Up
+                    Login
                   </Button>
                 </div>
               )}
@@ -301,23 +310,13 @@ export default function Navbar() {
                   ) : (
                     <div className="flex flex-col space-y-3 pt-4 border-t border-gray-800">
                       <Button
-                        variant="ghost"
                         onClick={() => {
                           openAuthModal("login")
                           setIsOpen(false)
                         }}
-                        className="text-gray-300 hover:text-white justify-start"
-                      >
-                        Login
-                      </Button>
-                      <Button
-                        onClick={() => {
-                          openAuthModal("signup")
-                          setIsOpen(false)
-                        }}
                         className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold justify-start"
                       >
-                        Sign Up
+                        Login
                       </Button>
                     </div>
                   )}
