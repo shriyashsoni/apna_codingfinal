@@ -154,6 +154,10 @@ export const signInWithGoogle = async () => {
     provider: "google",
     options: {
       redirectTo: `${window.location.origin}/auth/callback`,
+      queryParams: {
+        access_type: "offline",
+        prompt: "consent",
+      },
     },
   })
   return { data, error }
@@ -161,7 +165,9 @@ export const signInWithGoogle = async () => {
 
 export const signOut = async () => {
   const { error } = await supabase.auth.signOut()
-  return { error }
+  if (error) {
+    throw error
+  }
 }
 
 export const getCurrentUser = async () => {
