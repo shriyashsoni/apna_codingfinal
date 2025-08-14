@@ -136,20 +136,20 @@ export default function CoursesPage() {
   return (
     <>
       <Head>
-        <title>100+ Free Premium Udemy Courses | Apna Coding</title>
+        <title>100+ Free Premium Courses | Apna Coding</title>
         <meta
           name="description"
-          content="Access 100+ premium Udemy courses for free! Learn programming, design, business, AI, and more. Exclusive collection for Apna Coding members."
+          content="Access 100+ premium courses for free! Learn programming, design, business, AI, and more. Exclusive collection for Apna Coding members."
         />
         <meta
           name="keywords"
-          content="free udemy courses, premium courses free, programming courses, design courses, business courses, AI courses, certification prep, web development"
+          content="free courses, premium courses free, programming courses, design courses, business courses, AI courses, certification prep, web development, online courses"
         />
         <link rel="canonical" href="https://apnacoding.tech/courses" />
-        <meta property="og:title" content="100+ Free Premium Udemy Courses | Apna Coding" />
+        <meta property="og:title" content="100+ Free Premium Courses | Apna Coding" />
         <meta
           property="og:description"
-          content="Access 100+ premium Udemy courses for free! Learn programming, design, business, AI, and more."
+          content="Access 100+ premium courses for free! Learn programming, design, business, AI, and more."
         />
         <meta property="og:url" content="https://apnacoding.tech/courses" />
         <meta property="og:image" content="https://apnacoding.tech/images/courses-hero.png" />
@@ -170,10 +170,10 @@ export default function CoursesPage() {
                   <Badge className="bg-green-500 text-white px-3 py-1">100% FREE</Badge>
                 </div>
                 <h1 className="text-4xl lg:text-5xl font-bold text-white mb-6">
-                  <span className="text-yellow-400">{courses.length}+</span> Premium Udemy Courses
+                  <span className="text-yellow-400">{courses.length}+</span> Premium Courses
                 </h1>
                 <p className="text-lg text-gray-300 mb-8 leading-relaxed">
-                  Access exclusive collection of premium Udemy courses worth $10,000+ absolutely FREE!
+                  Access exclusive collection of premium courses worth $10,000+ absolutely FREE!
                   {!user && <span className="text-yellow-400 font-semibold"> Login required to access courses.</span>}
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4">
@@ -219,7 +219,7 @@ export default function CoursesPage() {
                 className="relative"
               >
                 <div className="relative w-full h-80 rounded-2xl overflow-hidden">
-                  <Image src="/images/courses-hero.png" alt="Premium Udemy Courses" fill className="object-cover" />
+                  <Image src="/images/courses-hero.png" alt="Premium Courses" fill className="object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                   <div className="absolute bottom-4 left-4 text-white">
                     <h3 className="text-xl font-bold">Worth $10,000+</h3>
@@ -291,7 +291,7 @@ export default function CoursesPage() {
                 {filteredCourses.length} Premium Course{filteredCourses.length !== 1 ? "s" : ""} Available
               </h2>
               <p className="text-gray-300 text-lg">
-                {selectedCategory !== "All" ? `Showing ${selectedCategory} courses` : "All premium Udemy courses"}
+                {selectedCategory !== "All" ? `Showing ${selectedCategory} courses` : "All premium courses"}
               </p>
             </div>
 
@@ -440,7 +440,7 @@ export default function CoursesPage() {
               </h2>
               <p className="text-lg text-gray-300 mb-8 max-w-2xl mx-auto">
                 Join thousands of learners who are advancing their careers with our exclusive collection of premium
-                Udemy courses. All courses are handpicked and verified for quality.
+                courses. All courses are handpicked and verified for quality.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 {user ? (

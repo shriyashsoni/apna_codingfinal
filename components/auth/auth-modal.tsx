@@ -9,10 +9,11 @@ interface AuthModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess?: () => void
+  mode?: "login" | "signup"
 }
 
-export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
-  const [activeTab, setActiveTab] = useState<"login" | "signup">("login")
+export default function AuthModal({ isOpen, onClose, onSuccess, mode = "login" }: AuthModalProps) {
+  const [activeTab, setActiveTab] = useState<"login" | "signup">(mode)
 
   if (!isOpen) return null
 

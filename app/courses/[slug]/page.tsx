@@ -251,7 +251,7 @@ export default function CourseDetailPage() {
                       <span className="text-gray-500 line-through text-lg">{course.original_price}</span>
                     )}
                   </div>
-                  <p className="text-gray-400 text-sm">Premium Udemy Course</p>
+                  <p className="text-gray-400 text-sm">Premium Apna Coding Course</p>
                 </div>
 
                 <div className="space-y-3 pt-4 border-t border-gray-700">
@@ -289,7 +289,9 @@ export default function CourseDetailPage() {
 
                 {!user && (
                   <div className="p-3 bg-yellow-400/10 border border-yellow-400/20 rounded-lg">
-                    <p className="text-yellow-400 text-sm text-center">Login to access this premium course for free!</p>
+                    <p className="text-yellow-400 text-sm text-center">
+                      Login to access this premium Apna Coding course for free!
+                    </p>
                   </div>
                 )}
               </CardContent>
@@ -305,7 +307,7 @@ export default function CourseDetailPage() {
                   <User className="w-8 h-8 text-purple-400" />
                   <div>
                     <p className="text-white font-medium">{course.instructor}</p>
-                    <p className="text-gray-400 text-sm">Course Instructor</p>
+                    <p className="text-gray-400 text-sm">Apna Coding Instructor</p>
                   </div>
                 </div>
               </CardContent>

@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { Search, MapPin, Clock, DollarSign, ExternalLink, Building, Users, Share2, Bookmark } from "lucide-react"
+import { Search, MapPin, Clock, DollarSign, ExternalLink, Building, Users, Share2, Bookmark, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { getCurrentUser, getJobs, searchJobs, type Job } from "@/lib/supabase"
+import AuthModal from "@/components/auth/auth-modal"
 
 export default function JobsPage() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -17,6 +18,8 @@ export default function JobsPage() {
   const [loading, setLoading] = useState(true)
   const [jobs, setJobs] = useState<Job[]>([])
   const [filteredJobs, setFilteredJobs] = useState<Job[]>([])
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login")
 
   const jobTypes = ["All", "Full-time", "Part-time", "Contract", "Internship"]
   const experienceLevels = ["All", "Entry Level", "Mid Level", "Senior Level"]
@@ -69,10 +72,21 @@ export default function JobsPage() {
   }
 
   const handleBookmark = (jobId: string) => {
+    if (!user) {
+      setAuthMode("login")
+      setShowAuthModal(true)
+      return
+    }
     setBookmarkedJobs((prev) => (prev.includes(jobId) ? prev.filter((id) => id !== jobId) : [...prev, jobId]))
   }
 
   const handleShare = (job: Job) => {
+    if (!user) {
+      setAuthMode("login")
+      setShowAuthModal(true)
+      return
+    }
+
     if (navigator.share) {
       navigator.share({
         title: job.title,
@@ -82,6 +96,34 @@ export default function JobsPage() {
     } else {
       navigator.clipboard.writeText(`${job.title} at ${job.company} - ${window.location.href}`)
     }
+  }
+
+  const handleApplyClick = (job: Job) => {
+    if (!user) {
+      setAuthMode("login")
+      setShowAuthModal(true)
+      return
+    }
+
+    if (job.apply_link) {
+      window.open(job.apply_link, "_blank")
+    }
+  }
+
+  const handleViewDetails = (jobId: string) => {
+    if (!user) {
+      setAuthMode("login")
+      setShowAuthModal(true)
+      return
+    }
+
+    // Navigate to job details page
+    window.location.href = `/jobs/${jobId}`
+  }
+
+  const handleAuthSuccess = () => {
+    setShowAuthModal(false)
+    checkUser() // Refresh user data
   }
 
   if (loading) {
@@ -108,6 +150,38 @@ export default function JobsPage() {
           <p className="text-lg text-gray-300 max-w-3xl mx-auto">
             Discover amazing career opportunities from top companies. Your next role is just a click away.
           </p>
+          {!user && (
+            <div className="mt-6 p-4 bg-yellow-400/10 border border-yellow-400/20 rounded-lg max-w-2xl mx-auto">
+              <div className="flex items-center justify-center gap-2 text-yellow-400 mb-2">
+                <Lock className="w-5 h-5" />
+                <span className="font-medium">Login Required</span>
+              </div>
+              <p className="text-gray-300 text-sm">
+                Please sign in to view job details, apply for positions, and bookmark opportunities.
+              </p>
+              <div className="flex gap-3 justify-center mt-4">
+                <Button
+                  onClick={() => {
+                    setAuthMode("login")
+                    setShowAuthModal(true)
+                  }}
+                  className="bg-yellow-400 hover:bg-yellow-500 text-black"
+                >
+                  Sign In
+                </Button>
+                <Button
+                  onClick={() => {
+                    setAuthMode("signup")
+                    setShowAuthModal(true)
+                  }}
+                  variant="outline"
+                  className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black"
+                >
+                  Sign Up
+                </Button>
+              </div>
+            </div>
+          )}
         </motion.div>
 
         {/* Search and Filters */}
@@ -169,7 +243,25 @@ export default function JobsPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: index * 0.1 }}
             >
-              <Card className="bg-gray-900 border-gray-800 hover:border-yellow-400 transition-all duration-300">
+              <Card className="bg-gray-900 border-gray-800 hover:border-yellow-400 transition-all duration-300 relative">
+                {!user && (
+                  <div className="absolute inset-0 bg-black/60 backdrop-blur-sm rounded-lg z-10 flex items-center justify-center">
+                    <div className="text-center">
+                      <Lock className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
+                      <p className="text-white font-medium mb-2">Login Required</p>
+                      <p className="text-gray-300 text-sm mb-4">Sign in to view job details</p>
+                      <Button
+                        onClick={() => {
+                          setAuthMode("login")
+                          setShowAuthModal(true)
+                        }}
+                        className="bg-yellow-400 hover:bg-yellow-500 text-black"
+                      >
+                        Sign In
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 <CardContent className="p-6">
                   <div className="flex flex-col lg:flex-row lg:items-start justify-between mb-4">
                     <div className="flex-1">
@@ -232,38 +324,56 @@ export default function JobsPage() {
 
                     <div className="flex items-center space-x-3 mt-4 lg:mt-0">
                       <span className="text-yellow-400 text-sm font-medium">{job.experience}</span>
+                      <Button
+                        onClick={() => handleViewDetails(job.id)}
+                        variant="outline"
+                        className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                      >
+                        View Details
+                      </Button>
                       {job.apply_link && (
-                        <a href={job.apply_link} target="_blank" rel="noopener noreferrer">
-                          <Button className="bg-yellow-400 hover:bg-yellow-500 text-black">
-                            Apply Now
-                            <ExternalLink className="ml-2 w-4 h-4" />
-                          </Button>
-                        </a>
+                        <Button
+                          onClick={() => handleApplyClick(job)}
+                          className="bg-yellow-400 hover:bg-yellow-500 text-black"
+                        >
+                          Apply Now
+                          <ExternalLink className="ml-2 w-4 h-4" />
+                        </Button>
                       )}
                     </div>
                   </div>
 
-                  <p className="text-gray-300 mb-4 leading-relaxed">{job.description}</p>
+                  <p className="text-gray-300 mb-4 leading-relaxed line-clamp-3">{job.description}</p>
 
                   <div>
                     <h4 className="text-white font-medium mb-3">Requirements:</h4>
                     <div className="flex flex-wrap gap-2">
-                      {job.requirements?.map((req, idx) => (
+                      {job.requirements?.slice(0, 3).map((req, idx) => (
                         <span key={idx} className="bg-gray-800 text-gray-300 px-3 py-1 rounded-full text-sm">
                           {req}
                         </span>
                       ))}
+                      {job.requirements && job.requirements.length > 3 && (
+                        <span className="bg-gray-800 text-gray-400 px-3 py-1 rounded-full text-sm">
+                          +{job.requirements.length - 3} more
+                        </span>
+                      )}
                     </div>
                   </div>
 
                   <div className="mt-4">
                     <h4 className="text-white font-medium mb-3">Technologies:</h4>
                     <div className="flex flex-wrap gap-2">
-                      {job.technologies.map((tech, idx) => (
+                      {job.technologies.slice(0, 5).map((tech, idx) => (
                         <span key={idx} className="bg-yellow-400/20 text-yellow-400 px-3 py-1 rounded-full text-sm">
                           {tech}
                         </span>
                       ))}
+                      {job.technologies.length > 5 && (
+                        <span className="bg-yellow-400/20 text-yellow-400 px-3 py-1 rounded-full text-sm">
+                          +{job.technologies.length - 5} more
+                        </span>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -299,17 +409,47 @@ export default function JobsPage() {
             professionals.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-3">
-              Join Community
-              <Users className="ml-2 w-5 h-5" />
-            </Button>
-            <Button className="border border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black px-8 py-3">
-              Post a Job
-              <ExternalLink className="ml-2 w-5 h-5" />
-            </Button>
+            {user ? (
+              <>
+                <Button className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-3">
+                  Join Community
+                  <Users className="ml-2 w-5 h-5" />
+                </Button>
+                <Button className="border border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black px-8 py-3">
+                  Post a Job
+                  <ExternalLink className="ml-2 w-5 h-5" />
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  onClick={() => {
+                    setAuthMode("signup")
+                    setShowAuthModal(true)
+                  }}
+                  className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-3"
+                >
+                  Sign Up to Get Started
+                  <Users className="ml-2 w-5 h-5" />
+                </Button>
+                <Button
+                  onClick={() => {
+                    setAuthMode("login")
+                    setShowAuthModal(true)
+                  }}
+                  className="border border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black px-8 py-3"
+                >
+                  Already Have Account?
+                  <ExternalLink className="ml-2 w-5 h-5" />
+                </Button>
+              </>
+            )}
           </div>
         </motion.div>
       </div>
+
+      {/* Auth Modal */}
+      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} onSuccess={handleAuthSuccess} />
     </div>
   )
 }

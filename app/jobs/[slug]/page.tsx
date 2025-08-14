@@ -16,8 +16,10 @@ import {
   Briefcase,
   Calendar,
   Target,
+  Lock,
 } from "lucide-react"
 import { getCurrentUser, getJobById, type Job } from "@/lib/supabase"
+import AuthModal from "@/components/auth/auth-modal"
 
 export default function JobDetailPage() {
   const params = useParams()
@@ -25,6 +27,8 @@ export default function JobDetailPage() {
   const [job, setJob] = useState<Job | null>(null)
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login")
 
   useEffect(() => {
     checkUser()
@@ -35,8 +39,14 @@ export default function JobDetailPage() {
     try {
       const currentUser = await getCurrentUser()
       setUser(currentUser)
+
+      // If no user is logged in, show auth modal
+      if (!currentUser) {
+        setShowAuthModal(true)
+      }
     } catch (error) {
       console.error("Error checking user:", error)
+      setShowAuthModal(true)
     }
   }
 
@@ -68,6 +78,12 @@ export default function JobDetailPage() {
   }
 
   const handleApply = () => {
+    if (!user) {
+      setAuthMode("login")
+      setShowAuthModal(true)
+      return
+    }
+
     if (job?.apply_link) {
       window.open(job.apply_link, "_blank")
     } else {
@@ -76,6 +92,12 @@ export default function JobDetailPage() {
   }
 
   const handleShare = async () => {
+    if (!user) {
+      setAuthMode("login")
+      setShowAuthModal(true)
+      return
+    }
+
     if (!job) return
 
     const shareData = {
@@ -96,6 +118,16 @@ export default function JobDetailPage() {
     }
   }
 
+  const handleAuthSuccess = () => {
+    setShowAuthModal(false)
+    checkUser() // Refresh user data
+  }
+
+  const handleAuthClose = () => {
+    setShowAuthModal(false)
+    router.push("/jobs") // Redirect to jobs page if user closes auth modal
+  }
+
   const getTypeColor = (type: string) => {
     switch (type) {
       case "Full-time":
@@ -114,7 +146,53 @@ export default function JobDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-400"></div>
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-yellow-400"></div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-black text-white pt-20">
+        <div className="max-w-4xl mx-auto px-4 py-16">
+          <div className="text-center">
+            <Lock className="w-24 h-24 text-yellow-400 mx-auto mb-8" />
+            <h1 className="text-4xl font-bold text-white mb-6">Authentication Required</h1>
+            <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
+              Please sign in to view job details and apply for positions. Join our community to access exclusive job
+              opportunities.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button
+                onClick={() => {
+                  setAuthMode("login")
+                  setShowAuthModal(true)
+                }}
+                className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-3"
+              >
+                Sign In
+              </Button>
+              <Button
+                onClick={() => {
+                  setAuthMode("signup")
+                  setShowAuthModal(true)
+                }}
+                variant="outline"
+                className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black px-8 py-3"
+              >
+                Create Account
+              </Button>
+              <Button
+                onClick={() => router.push("/jobs")}
+                variant="outline"
+                className="border-gray-600 text-gray-300 hover:bg-gray-700 px-8 py-3"
+              >
+                Back to Jobs
+              </Button>
+            </div>
+          </div>
+        </div>
+        <AuthModal isOpen={showAuthModal} onClose={handleAuthClose} onSuccess={handleAuthSuccess} />
       </div>
     )
   }
@@ -125,7 +203,7 @@ export default function JobDetailPage() {
         <div className="text-center">
           <h1 className="text-2xl font-bold text-white mb-4">Job Not Found</h1>
           <p className="text-gray-400 mb-6">The job you're looking for doesn't exist.</p>
-          <Button onClick={() => router.push("/jobs")} className="bg-purple-400 hover:bg-purple-500 text-black">
+          <Button onClick={() => router.push("/jobs")} className="bg-yellow-400 hover:bg-yellow-500 text-black">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Jobs
           </Button>
@@ -209,7 +287,7 @@ export default function JobDetailPage() {
                   <ul className="space-y-2">
                     {job.requirements.map((req, index) => (
                       <li key={index} className="flex items-start gap-2 text-gray-300">
-                        <span className="text-purple-400 mt-1">•</span>
+                        <span className="text-yellow-400 mt-1">•</span>
                         <span>{req}</span>
                       </li>
                     ))}
@@ -226,7 +304,7 @@ export default function JobDetailPage() {
               <CardContent>
                 <div className="flex flex-wrap gap-2">
                   {job.technologies.map((tech, index) => (
-                    <Badge key={index} variant="outline" className="border-purple-400 text-purple-400">
+                    <Badge key={index} variant="outline" className="border-yellow-400 text-yellow-400">
                       {tech}
                     </Badge>
                   ))}
@@ -268,7 +346,7 @@ export default function JobDetailPage() {
 
                 <div className="space-y-3 pt-4 border-t border-gray-700">
                   {job.apply_link ? (
-                    <Button onClick={handleApply} className="w-full bg-purple-400 hover:bg-purple-500 text-black">
+                    <Button onClick={handleApply} className="w-full bg-yellow-400 hover:bg-yellow-500 text-black">
                       <ExternalLink className="w-4 h-4 mr-2" />
                       Apply Now
                     </Button>
@@ -297,14 +375,14 @@ export default function JobDetailPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <Building className="w-8 h-8 text-purple-400" />
+                  <Building className="w-8 h-8 text-yellow-400" />
                   <div>
                     <p className="text-white font-medium">{job.company}</p>
                     <p className="text-gray-400 text-sm">Company</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <MapPin className="w-5 h-5 text-purple-400" />
+                  <MapPin className="w-5 h-5 text-yellow-400" />
                   <div>
                     <p className="text-white font-medium">{job.location}</p>
                     <p className="text-gray-400 text-sm">Location</p>
@@ -321,28 +399,28 @@ export default function JobDetailPage() {
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Briefcase className="w-4 h-4 text-purple-400" />
+                    <Briefcase className="w-4 h-4 text-yellow-400" />
                     <span className="text-gray-400">Type</span>
                   </div>
                   <Badge className={getTypeColor(job.type)}>{job.type}</Badge>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Target className="w-4 h-4 text-purple-400" />
+                    <Target className="w-4 h-4 text-yellow-400" />
                     <span className="text-gray-400">Experience</span>
                   </div>
                   <span className="text-white font-medium">{job.experience}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-purple-400" />
+                    <Calendar className="w-4 h-4 text-yellow-400" />
                     <span className="text-gray-400">Posted</span>
                   </div>
                   <span className="text-white font-medium">{new Date(job.posted_date).toLocaleDateString()}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-purple-400" />
+                    <DollarSign className="w-4 h-4 text-yellow-400" />
                     <span className="text-gray-400">Salary</span>
                   </div>
                   <span className="text-green-400 font-medium">{job.salary}</span>
@@ -352,6 +430,9 @@ export default function JobDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Auth Modal */}
+      <AuthModal isOpen={showAuthModal} onClose={handleAuthClose} onSuccess={handleAuthSuccess} />
     </div>
   )
 }

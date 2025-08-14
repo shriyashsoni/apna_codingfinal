@@ -3,7 +3,18 @@
 import Link from "next/link"
 import Image from "next/image"
 import { motion } from "framer-motion"
-import { Mail, Phone, MapPin, ExternalLink, Github, MessageCircle } from "lucide-react"
+import {
+  Mail,
+  Phone,
+  MapPin,
+  ExternalLink,
+  Github,
+  MessageCircle,
+  Send,
+  Instagram,
+  Twitter,
+  Linkedin,
+} from "lucide-react"
 
 const Footer = () => {
   const quickLinks = [
@@ -16,22 +27,58 @@ const Footer = () => {
   ]
 
   const communityLinks = [
-    { name: "Discord", href: "https://discord.gg/krffBfBF", icon: <MessageCircle className="w-4 h-4" /> },
     {
       name: "WhatsApp",
       href: "https://chat.whatsapp.com/HqVg4ctR6QKJnfvemsEQ8H?mode=ac_t",
       icon: <MessageCircle className="w-4 h-4" />,
+      members: "5,000+",
     },
-    { name: "GitHub", href: "https://github.com/APNA-CODING-BY-APNA-COUNSELLOR", icon: <Github className="w-4 h-4" /> },
     {
-      name: "Slack",
-      href: "https://join.slack.com/t/apna-coding/shared_invite/zt-38medu00n-AEx8~VnvUZxQgeC4sr55eQ",
+      name: "Telegram",
+      href: "https://t.me/apnacodingtech",
+      icon: <Send className="w-4 h-4" />,
+      members: "500+",
+    },
+    {
+      name: "Discord",
+      href: "https://discord.gg/krffBfBF",
       icon: <MessageCircle className="w-4 h-4" />,
+      members: "200+",
+    },
+    {
+      name: "GitHub",
+      href: "https://github.com/APNA-CODING-BY-APNA-COUNSELLOR",
+      icon: <Github className="w-4 h-4" />,
+      members: "100+",
+    },
+  ]
+
+  const socialMediaLinks = [
+    {
+      name: "Instagram",
+      href: "https://www.instagram.com/apnacoding.tech/",
+      icon: <Instagram className="w-4 h-4" />,
+    },
+    {
+      name: "Twitter",
+      href: "https://x.com/apna_coding",
+      icon: <Twitter className="w-4 h-4" />,
+    },
+    {
+      name: "LinkedIn",
+      href: "https://www.linkedin.com/company/apna-coding-by-apna-counsellors/",
+      icon: <Linkedin className="w-4 h-4" />,
+    },
+    {
+      name: "GitHub",
+      href: "https://github.com/APNA-CODING-BY-APNA-COUNSELLOR",
+      icon: <Github className="w-4 h-4" />,
     },
   ]
 
   const partnershipLinks = [
     { name: "Become a Partner", href: "/partnerships" },
+    { name: "Community Partnerships", href: "/community-partnerships" },
     { name: "College Clubs", href: "/partnerships#college-clubs" },
     { name: "Corporate Partnership", href: "/partnerships#corporate" },
     { name: "Join Our Team", href: "https://forms.gle/S3MWV7rKR69yNv296" },
@@ -142,18 +189,20 @@ const Footer = () => {
                     href={link.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-gray-300 hover:text-yellow-400 transition-colors duration-300 flex items-center"
+                    className="text-gray-300 hover:text-yellow-400 transition-colors duration-300 flex items-center justify-between"
                   >
-                    {link.icon}
-                    <span className="ml-2">{link.name}</span>
-                    <ExternalLink className="w-3 h-3 ml-1" />
+                    <div className="flex items-center">
+                      {link.icon}
+                      <span className="ml-2">{link.name}</span>
+                    </div>
+                    <span className="text-xs text-yellow-400 font-medium">{link.members}</span>
                   </a>
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* Partnerships & Legal */}
+          {/* Partnerships & Social Media */}
           <div>
             <h4 className="text-lg font-semibold text-white mb-4">Partnerships</h4>
             <ul className="space-y-2 mb-6">
@@ -165,6 +214,24 @@ const Footer = () => {
                   >
                     {link.name}
                   </Link>
+                </li>
+              ))}
+            </ul>
+
+            <h4 className="text-lg font-semibold text-white mb-4">Follow Us</h4>
+            <ul className="space-y-2 mb-6">
+              {socialMediaLinks.map((link) => (
+                <li key={link.name}>
+                  <a
+                    href={link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-gray-300 hover:text-yellow-400 transition-colors duration-300 flex items-center text-sm"
+                  >
+                    {link.icon}
+                    <span className="ml-2">{link.name}</span>
+                    <ExternalLink className="w-3 h-3 ml-1" />
+                  </a>
                 </li>
               ))}
             </ul>
@@ -191,13 +258,14 @@ const Footer = () => {
             <div className="text-gray-300 text-sm mb-4 md:mb-0">© 2025 Apna Coding. All rights reserved.</div>
             <div className="flex items-center space-x-6">
               <span className="text-gray-300 text-sm">Follow us:</span>
-              {communityLinks.slice(0, 3).map((link) => (
+              {socialMediaLinks.slice(0, 4).map((link) => (
                 <a
                   key={link.name}
                   href={link.href}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-gray-300 hover:text-yellow-400 transition-colors duration-300"
+                  title={link.name}
                 >
                   {link.icon}
                 </a>
