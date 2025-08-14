@@ -31,48 +31,59 @@ const Footer = () => {
       name: "WhatsApp",
       href: "https://chat.whatsapp.com/HqVg4ctR6QKJnfvemsEQ8H?mode=ac_t",
       icon: <MessageCircle className="w-4 h-4" />,
-      members: "5,000+",
     },
     {
       name: "Telegram",
       href: "https://t.me/apnacodingtech",
       icon: <Send className="w-4 h-4" />,
-      members: "500+",
     },
     {
       name: "Discord",
       href: "https://discord.gg/krffBfBF",
       icon: <MessageCircle className="w-4 h-4" />,
-      members: "200+",
     },
     {
       name: "GitHub",
       href: "https://github.com/APNA-CODING-BY-APNA-COUNSELLOR",
       icon: <Github className="w-4 h-4" />,
-      members: "100+",
     },
   ]
 
-  const socialMediaLinks = [
+  const allSocialLinks = [
     {
       name: "Instagram",
       href: "https://www.instagram.com/apnacoding.tech/",
-      icon: <Instagram className="w-4 h-4" />,
+      icon: <Instagram className="w-5 h-5" />,
     },
     {
       name: "Twitter",
       href: "https://x.com/apna_coding",
-      icon: <Twitter className="w-4 h-4" />,
+      icon: <Twitter className="w-5 h-5" />,
     },
     {
       name: "LinkedIn",
       href: "https://www.linkedin.com/company/apna-coding-by-apna-counsellors/",
-      icon: <Linkedin className="w-4 h-4" />,
+      icon: <Linkedin className="w-5 h-5" />,
+    },
+    {
+      name: "WhatsApp",
+      href: "https://chat.whatsapp.com/HqVg4ctR6QKJnfvemsEQ8H?mode=ac_t",
+      icon: <MessageCircle className="w-5 h-5" />,
+    },
+    {
+      name: "Telegram",
+      href: "https://t.me/apnacodingtech",
+      icon: <Send className="w-5 h-5" />,
+    },
+    {
+      name: "Discord",
+      href: "https://discord.gg/krffBfBF",
+      icon: <MessageCircle className="w-5 h-5" />,
     },
     {
       name: "GitHub",
       href: "https://github.com/APNA-CODING-BY-APNA-COUNSELLOR",
-      icon: <Github className="w-4 h-4" />,
+      icon: <Github className="w-5 h-5" />,
     },
   ]
 
@@ -136,9 +147,9 @@ const Footer = () => {
         </motion.div>
 
         {/* Main Footer Content */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
           {/* Brand Section */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-1">
             <Link href="/" className="flex items-center space-x-3 mb-6">
               <div className="relative w-10 h-10">
                 <Image src="/logo.png" alt="Apna Coding" fill className="object-contain" />
@@ -189,20 +200,18 @@ const Footer = () => {
                     href={link.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-gray-300 hover:text-yellow-400 transition-colors duration-300 flex items-center justify-between"
+                    className="text-gray-300 hover:text-yellow-400 transition-colors duration-300 flex items-center"
                   >
-                    <div className="flex items-center">
-                      {link.icon}
-                      <span className="ml-2">{link.name}</span>
-                    </div>
-                    <span className="text-xs text-yellow-400 font-medium">{link.members}</span>
+                    {link.icon}
+                    <span className="ml-2">{link.name}</span>
+                    <ExternalLink className="w-3 h-3 ml-1" />
                   </a>
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* Partnerships & Social Media */}
+          {/* Partnerships & Legal */}
           <div>
             <h4 className="text-lg font-semibold text-white mb-4">Partnerships</h4>
             <ul className="space-y-2 mb-6">
@@ -214,24 +223,6 @@ const Footer = () => {
                   >
                     {link.name}
                   </Link>
-                </li>
-              ))}
-            </ul>
-
-            <h4 className="text-lg font-semibold text-white mb-4">Follow Us</h4>
-            <ul className="space-y-2 mb-6">
-              {socialMediaLinks.map((link) => (
-                <li key={link.name}>
-                  <a
-                    href={link.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-gray-300 hover:text-yellow-400 transition-colors duration-300 flex items-center text-sm"
-                  >
-                    {link.icon}
-                    <span className="ml-2">{link.name}</span>
-                    <ExternalLink className="w-3 h-3 ml-1" />
-                  </a>
                 </li>
               ))}
             </ul>
@@ -252,25 +243,31 @@ const Footer = () => {
           </div>
         </div>
 
-        {/* Bottom Section */}
+        {/* Bottom Section with All Social Media */}
         <div className="border-t border-gray-700/50 pt-8">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="text-gray-300 text-sm mb-4 md:mb-0">© 2025 Apna Coding. All rights reserved.</div>
-            <div className="flex items-center space-x-6">
-              <span className="text-gray-300 text-sm">Follow us:</span>
-              {socialMediaLinks.slice(0, 4).map((link) => (
-                <a
-                  key={link.name}
-                  href={link.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-gray-300 hover:text-yellow-400 transition-colors duration-300"
-                  title={link.name}
-                >
-                  {link.icon}
-                </a>
-              ))}
+          <div className="flex flex-col items-center space-y-6">
+            {/* Social Media Links */}
+            <div className="flex flex-col items-center space-y-4">
+              <span className="text-gray-300 text-lg font-medium">Connect with us</span>
+              <div className="flex flex-wrap justify-center gap-4">
+                {allSocialLinks.map((link) => (
+                  <a
+                    key={link.name}
+                    href={link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center space-x-2 bg-gray-800/50 hover:bg-yellow-400/20 text-gray-300 hover:text-yellow-400 px-4 py-2 rounded-lg transition-all duration-300 border border-gray-700/50 hover:border-yellow-400/50"
+                    title={link.name}
+                  >
+                    {link.icon}
+                    <span className="text-sm font-medium">{link.name}</span>
+                  </a>
+                ))}
+              </div>
             </div>
+
+            {/* Copyright */}
+            <div className="text-gray-300 text-sm text-center">© 2025 Apna Coding. All rights reserved.</div>
           </div>
         </div>
       </div>
