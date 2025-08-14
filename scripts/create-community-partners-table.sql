@@ -2,29 +2,22 @@
 CREATE TABLE IF NOT EXISTS community_partners (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
+    logo TEXT,
+    website TEXT,
     description TEXT NOT NULL,
-    logo_url TEXT,
-    website_url TEXT,
-    category VARCHAR(100) NOT NULL CHECK (category IN (
-        'tech-communities',
-        'student-organizations', 
-        'developer-groups',
-        'startup-communities',
-        'educational-institutions',
-        'open-source-projects',
-        'coding-bootcamps',
-        'professional-networks'
-    )),
-    is_featured BOOLEAN DEFAULT FALSE,
+    category VARCHAR(100) NOT NULL,
+    member_count INTEGER,
+    location VARCHAR(255),
     status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+    featured BOOLEAN DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Create indexes for better performance
-CREATE INDEX IF NOT EXISTS idx_community_partners_category ON community_partners(category);
 CREATE INDEX IF NOT EXISTS idx_community_partners_status ON community_partners(status);
-CREATE INDEX IF NOT EXISTS idx_community_partners_featured ON community_partners(is_featured);
+CREATE INDEX IF NOT EXISTS idx_community_partners_featured ON community_partners(featured);
+CREATE INDEX IF NOT EXISTS idx_community_partners_category ON community_partners(category);
 CREATE INDEX IF NOT EXISTS idx_community_partners_created_at ON community_partners(created_at);
 
 -- Enable Row Level Security
@@ -39,7 +32,7 @@ CREATE POLICY "Only admins can insert community partners" ON community_partners
         EXISTS (
             SELECT 1 FROM users 
             WHERE users.id = auth.uid() 
-            AND users.role = 'admin'
+            AND (users.role = 'admin' OR users.email = 'sonishriyash@gmail.com')
         )
     );
 
@@ -48,7 +41,7 @@ CREATE POLICY "Only admins can update community partners" ON community_partners
         EXISTS (
             SELECT 1 FROM users 
             WHERE users.id = auth.uid() 
-            AND users.role = 'admin'
+            AND (users.role = 'admin' OR users.email = 'sonishriyash@gmail.com')
         )
     );
 
@@ -57,22 +50,22 @@ CREATE POLICY "Only admins can delete community partners" ON community_partners
         EXISTS (
             SELECT 1 FROM users 
             WHERE users.id = auth.uid() 
-            AND users.role = 'admin'
+            AND (users.role = 'admin' OR users.email = 'sonishriyash@gmail.com')
         )
     );
 
--- Insert sample community partners data
-INSERT INTO community_partners (name, description, logo_url, website_url, category, is_featured, status) VALUES
-('Google Developer Groups', 'Global community of developers interested in Google developer technologies', 'https://developers.google.com/community/gdg/images/gdg-logo.svg', 'https://developers.google.com/community/gdg', 'tech-communities', true, 'active'),
-('Microsoft Student Partners', 'Student community program by Microsoft for aspiring technologists', 'https://studentambassadors.microsoft.com/images/msa-logo.png', 'https://studentambassadors.microsoft.com/', 'student-organizations', true, 'active'),
-('GitHub Campus Experts', 'Student leaders who build technical communities on campus', 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png', 'https://education.github.com/experts', 'student-organizations', true, 'active'),
-('Stack Overflow Community', 'The largest online community for programmers to learn and share knowledge', 'https://cdn.sstatic.net/Sites/stackoverflow/Img/apple-touch-icon.png', 'https://stackoverflow.com/', 'developer-groups', true, 'active'),
-('Dev.to Community', 'A constructive and inclusive social network for software developers', 'https://dev-to-uploads.s3.amazonaws.com/uploads/logos/resized_logo_UQww2soKuUsjaOGNB38o.png', 'https://dev.to/', 'developer-groups', true, 'active'),
-('Startup Grind', 'Global startup community designed to educate, inspire, and connect entrepreneurs', 'https://startupgrind.com/wp-content/uploads/2019/01/SG-Logo-Horizontal-Color-1.png', 'https://startupgrind.com/', 'startup-communities', true, 'active'),
-('IEEE Computer Society', 'Professional organization for computing professionals', 'https://www.computer.org/web/guest/home/-/media/computer/images/computer-society-logo.png', 'https://www.computer.org/', 'professional-networks', false, 'active'),
-('ACM Student Chapters', 'Student chapters of the Association for Computing Machinery', 'https://www.acm.org/binaries/content/gallery/acm/logos/acm_logo_tablet.png', 'https://www.acm.org/chapters/student-chapters', 'student-organizations', false, 'active'),
-('Women Who Code', 'Global nonprofit dedicated to inspiring women to excel in technology careers', 'https://www.womenwhocode.com/assets/logos/wwc_logo_color.png', 'https://www.womenwhocode.com/', 'tech-communities', false, 'active'),
-('FreeCodeCamp', 'Learn to code for free with millions of other people', 'https://cdn.freecodecamp.org/platform/universal/fcc_primary.svg', 'https://www.freecodecamp.org/', 'educational-institutions', false, 'active');
+-- Insert sample community partners
+INSERT INTO community_partners (name, logo, website, description, category, member_count, location, featured) VALUES
+('React India', '/images/community/react-india.png', 'https://reactindia.io', 'Largest React community in India with monthly meetups and conferences', 'Tech Communities', 15000, 'India', true),
+('Google Developer Groups Delhi', '/images/community/gdg-delhi.png', 'https://gdgdelhi.com', 'Official Google Developer Group for Delhi NCR region', 'Developer Groups', 8500, 'Delhi, India', true),
+('Women Who Code Delhi', '/images/community/wwc-delhi.png', 'https://womenwhocode.com/delhi', 'Empowering women in technology through community and mentorship', 'Professional Networks', 3200, 'Delhi, India', false),
+('Coding Ninjas Community', '/images/community/coding-ninjas.png', 'https://codingninjas.com', 'Student community focused on competitive programming and placements', 'Student Organizations', 25000, 'India', true),
+('PyDelhi', '/images/community/pydelhi.png', 'https://pydelhi.org', 'Python community in Delhi with regular workshops and talks', 'Tech Communities', 4500, 'Delhi, India', false),
+('Mozilla Campus Clubs', '/images/community/mozilla.png', 'https://campus.mozilla.community', 'Student clubs promoting open source and web literacy', 'Student Organizations', 12000, 'Global', false),
+('GitHub Campus Experts', '/images/community/github-campus.png', 'https://githubcampus.expert', 'Student leaders building tech communities at universities', 'Student Organizations', 800, 'Global', true),
+('TechStars Startup Community', '/images/community/techstars.png', 'https://techstars.com', 'Global startup accelerator and community', 'Startup Communities', 5000, 'Global', false),
+('FreeCodeCamp Delhi', '/images/community/freecodecamp.png', 'https://freecodecamp.org', 'Local chapter of the global coding education community', 'Educational Institutions', 7800, 'Delhi, India', false),
+('DevFest Community', '/images/community/devfest.png', 'https://devfest.withgoogle.com', 'Annual developer festival organized by GDGs worldwide', 'Developer Groups', 50000, 'Global', true);
 
 -- Create function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()

@@ -5,17 +5,20 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
+// Re-export createClient for other components that might need it
+export { createClient }
+
 // Server-side client for admin operations
 export const createServerClient = () => {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 }
 
 // Database Types
-export interface User {
+export interface AppUser {
   id: string
   email: string
-  full_name: string | null
-  avatar_url: string | null
+  full_name: string
+  avatar_url?: string
   role: "user" | "admin"
   created_at: string
   updated_at: string
@@ -103,12 +106,14 @@ export interface Community {
 export interface CommunityPartner {
   id: string
   name: string
+  logo_url: string
+  website_url?: string
   description: string
-  logo_url: string | null
-  website_url: string | null
   category: string
-  is_featured: boolean
+  member_count?: number
+  location?: string
   status: "active" | "inactive"
+  is_featured: boolean
   created_at: string
   updated_at: string
 }
@@ -172,16 +177,49 @@ export const signInWithGoogle = async () => {
   return { data, error }
 }
 
-export async function signOut() {
+export const signOut = async () => {
   const { error } = await supabase.auth.signOut()
-  if (error) throw error
+  if (error) {
+    throw error
+  }
 }
 
-export async function getCurrentUser() {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  return user
+export const getCurrentUser = async (): Promise<AppUser | null> => {
+  try {
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser()
+
+    if (error || !user) {
+      return null
+    }
+
+    // Get additional user data from profiles table
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single()
+
+    if (profileError) {
+      console.error("Error fetching profile:", profileError)
+      return null
+    }
+
+    return {
+      id: user.id,
+      email: user.email!,
+      full_name: profile?.full_name || user.user_metadata?.full_name || user.email!,
+      avatar_url: profile?.avatar_url || user.user_metadata?.avatar_url,
+      role: profile?.role || "user",
+      created_at: user.created_at,
+      updated_at: profile?.updated_at || user.updated_at,
+    }
+  } catch (error) {
+    console.error("Error getting current user:", error)
+    return null
+  }
 }
 
 export const getSession = async () => {
@@ -228,12 +266,24 @@ export const createUserProfile = async (
 }
 
 // Get user profile from database
-export async function getUserProfile(userId: string) {
-  return await supabase.from("users").select("*").eq("id", userId).single()
+export const getUserProfile = async (userId: string) => {
+  try {
+    const { data, error } = await supabase.from("users").select("*").eq("id", userId).single()
+
+    if (error && error.code === "PGRST116") {
+      // Profile doesn't exist, return null without error
+      return { data: null, error: null }
+    }
+
+    return { data, error }
+  } catch (error) {
+    console.error("Error in getUserProfile:", error)
+    return { data: null, error }
+  }
 }
 
 // Update user profile with better error handling
-export const updateUserProfile = async (userId: string, updates: Partial<User>) => {
+export const updateUserProfile = async (userId: string, updates: Partial<AppUser>) => {
   try {
     // First, check if user exists
     const { data: existingUser, error: fetchError } = await supabase
@@ -255,7 +305,6 @@ export const updateUserProfile = async (userId: string, updates: Partial<User>) 
           id: userId,
           email: authData.user.email,
           full_name: updates.full_name || "",
-          role: authData.user.email === "sonishriyash@gmail.com" ? "admin" : "user",
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
@@ -284,10 +333,20 @@ export const updateUserProfile = async (userId: string, updates: Partial<User>) 
 }
 
 // Admin check function with enhanced logic for sonishriyash@gmail.com
-export async function isAdmin(email: string) {
-  const { data } = await supabase.from("users").select("role").eq("email", email).single()
+export const isAdmin = async (email: string): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase.from("profiles").select("role").eq("email", email).single()
 
-  return data?.role === "admin"
+    if (error) {
+      console.error("Error checking admin status:", error)
+      return false
+    }
+
+    return data?.role === "admin"
+  } catch (error) {
+    console.error("Error checking admin status:", error)
+    return false
+  }
 }
 
 export async function checkUserAuth() {
@@ -471,25 +530,96 @@ export const getCommunities = async () => {
 }
 
 // Community Partners Functions
-export async function getCommunityPartners() {
-  return await supabase.from("community_partners").select("*").order("created_at", { ascending: false })
-}
-
-export async function createCommunityPartner(data: Omit<CommunityPartner, "id" | "created_at" | "updated_at">) {
-  return await supabase.from("community_partners").insert([data]).select().single()
-}
-
-export async function updateCommunityPartner(id: string, data: Partial<CommunityPartner>) {
-  return await supabase
+export const getCommunityPartners = async () => {
+  const { data, error } = await supabase
     .from("community_partners")
-    .update({ ...data, updated_at: new Date().toISOString() })
+    .select("*")
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    throw error
+  }
+
+  return data || []
+}
+
+export const getCommunityPartnersCount = async () => {
+  const { count, error } = await supabase
+    .from("community_partners")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "active")
+
+  if (error) {
+    throw error
+  }
+
+  return count || 0
+}
+
+export const addCommunityPartner = async (partner: {
+  name: string
+  description: string
+  website_url?: string
+  logo_url?: string
+  contact_email?: string
+  partnership_type: string
+}) => {
+  const { data, error } = await supabase
+    .from("community_partners")
+    .insert([
+      {
+        ...partner,
+        status: "active",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ])
+    .select()
+    .single()
+
+  if (error) {
+    throw error
+  }
+
+  return data
+}
+
+export const updateCommunityPartner = async (
+  id: string,
+  updates: Partial<{
+    name: string
+    description: string
+    website_url: string
+    logo_url: string
+    contact_email: string
+    partnership_type: string
+    status: string
+  }>,
+) => {
+  const { data, error } = await supabase
+    .from("community_partners")
+    .update({
+      ...updates,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", id)
     .select()
     .single()
+
+  if (error) {
+    throw error
+  }
+
+  return data
 }
 
-export async function deleteCommunityPartner(id: string) {
-  return await supabase.from("community_partners").delete().eq("id", id)
+export const deleteCommunityPartner = async (id: string) => {
+  const { error } = await supabase.from("community_partners").delete().eq("id", id)
+
+  if (error) {
+    throw error
+  }
 }
 
 // Hackathon registration functions

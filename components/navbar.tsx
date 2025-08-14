@@ -3,84 +3,60 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { motion, AnimatePresence } from "framer-motion"
-import { Menu, X, ChevronDown, User, LogOut, Settings, Shield, BookOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Menu, X, ChevronDown, Settings, LogOut, Shield } from "lucide-react"
+import { getCurrentUser, signOut, isAdmin } from "@/lib/supabase"
 import AuthModal from "@/components/auth/auth-modal"
-import { getCurrentUser, signOut, getUserProfile, type User as UserType } from "@/lib/supabase"
+
+interface AppUser {
+  id: string
+  email: string
+  full_name: string
+  avatar_url?: string
+  role: "user" | "admin"
+}
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
+  const [user, setUser] = useState<AppUser | null>(null)
+  const [isUserAdmin, setIsUserAdmin] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authMode, setAuthMode] = useState<"login" | "signup">("login")
-  const [user, setUser] = useState<any>(null)
-  const [userProfile, setUserProfile] = useState<UserType | null>(null)
   const [showUserMenu, setShowUserMenu] = useState(false)
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    checkUser()
-
-    // Check for auth parameter in URL
-    const urlParams = new URLSearchParams(window.location.search)
-    const authParam = urlParams.get("auth")
-
-    if (authParam === "success") {
-      // Auth was successful, refresh user data
-      setTimeout(() => {
-        checkUser()
-        // Clean up URL
-        const url = new URL(window.location.href)
-        url.searchParams.delete("auth")
-        window.history.replaceState({}, "", url.toString())
-      }, 1000)
-    } else if (authParam === "error") {
-      // Auth failed, show error
-      console.error("Authentication failed")
-      // Clean up URL
-      const url = new URL(window.location.href)
-      url.searchParams.delete("auth")
-      window.history.replaceState({}, "", url.toString())
-    } else if (authParam === "signup" || authParam === "login") {
-      setAuthMode(authParam as "login" | "signup")
-      setShowAuthModal(true)
-    }
+    checkAuth()
   }, [])
 
-  const checkUser = async () => {
+  const checkAuth = async () => {
     try {
       const currentUser = await getCurrentUser()
       setUser(currentUser)
 
       if (currentUser) {
-        const { data: profile } = await getUserProfile(currentUser.id)
-        setUserProfile(profile)
+        const adminStatus = await isAdmin(currentUser.email)
+        setIsUserAdmin(adminStatus)
       }
     } catch (error) {
-      console.error("Error checking user:", error)
-    } finally {
-      setLoading(false)
+      console.error("Error checking auth:", error)
     }
-  }
-
-  const handleAuthSuccess = () => {
-    setShowAuthModal(false)
-    checkUser()
-    // Remove auth parameter from URL
-    const url = new URL(window.location.href)
-    url.searchParams.delete("auth")
-    window.history.replaceState({}, "", url.toString())
   }
 
   const handleSignOut = async () => {
     try {
       await signOut()
       setUser(null)
-      setUserProfile(null)
+      setIsUserAdmin(false)
       setShowUserMenu(false)
+      window.location.href = "/"
     } catch (error) {
       console.error("Error signing out:", error)
     }
+  }
+
+  const handleAuthSuccess = () => {
+    setShowAuthModal(false)
+    checkAuth()
   }
 
   const openAuthModal = (mode: "login" | "signup") => {
@@ -88,242 +64,266 @@ export default function Navbar() {
     setShowAuthModal(true)
   }
 
-  const navItems = [
-    { name: "Home", href: "/" },
-    { name: "Courses", href: "/courses" },
-    { name: "Hackathons", href: "/hackathons" },
-    { name: "Jobs", href: "/jobs" },
-    { name: "AI Tools", href: "/ai-tools" },
-    { name: "Community", href: "/community" },
-    { name: "About", href: "/about" },
-    { name: "Contact", href: "/contact" },
-  ]
-
   return (
     <>
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-md border-b border-gray-800">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
+      <nav className="bg-black/95 backdrop-blur-sm border-b border-yellow-500/20 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
             {/* Logo */}
-            <Link href="/" className="flex items-center space-x-2">
-              <Image src="/logo.png" alt="Apna Coding" width={40} height={40} className="rounded-lg" />
+            <Link href="/" className="flex items-center space-x-3">
+              <Image src="/logo.png" alt="Apna Coding" width={40} height={40} className="w-10 h-10" priority />
               <span className="text-xl font-bold text-white">Apna Coding</span>
             </Link>
 
             {/* Desktop Navigation */}
-            <div className="hidden lg:flex items-center space-x-8">
-              {navItems.map((item) => (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className="text-gray-300 hover:text-yellow-400 transition-colors duration-200 font-medium"
-                >
-                  {item.name}
-                </Link>
-              ))}
+            <div className="hidden md:flex items-center space-x-8">
+              <Link href="/courses" className="text-gray-300 hover:text-yellow-400 transition-colors">
+                Courses
+              </Link>
+              <Link href="/hackathons" className="text-gray-300 hover:text-yellow-400 transition-colors">
+                Hackathons
+              </Link>
+              <Link href="/jobs" className="text-gray-300 hover:text-yellow-400 transition-colors">
+                Jobs
+              </Link>
+              <Link href="/ai-tools" className="text-gray-300 hover:text-yellow-400 transition-colors">
+                AI Tools
+              </Link>
+              <Link href="/community-partnerships" className="text-gray-300 hover:text-yellow-400 transition-colors">
+                Community
+              </Link>
+              <Link href="/about" className="text-gray-300 hover:text-yellow-400 transition-colors">
+                About
+              </Link>
+              <Link href="/contact" className="text-gray-300 hover:text-yellow-400 transition-colors">
+                Contact
+              </Link>
             </div>
 
-            {/* Auth Section */}
-            <div className="hidden lg:flex items-center space-x-4">
-              {loading ? (
-                <div className="w-8 h-8 bg-gray-700 rounded-full animate-pulse" />
-              ) : user ? (
+            {/* Auth Buttons / User Menu */}
+            <div className="hidden md:flex items-center space-x-4">
+              {user ? (
                 <div className="relative">
                   <button
                     onClick={() => setShowUserMenu(!showUserMenu)}
-                    className="flex items-center space-x-2 bg-gray-800 hover:bg-gray-700 rounded-lg px-3 py-2 transition-colors"
+                    className="flex items-center space-x-2 text-white hover:text-yellow-400 transition-colors"
                   >
-                    {userProfile?.avatar_url ? (
+                    {user.avatar_url ? (
                       <Image
-                        src={userProfile.avatar_url || "/placeholder.svg"}
-                        alt={userProfile.full_name || "User"}
+                        src={user.avatar_url || "/placeholder.svg"}
+                        alt={user.full_name}
                         width={32}
                         height={32}
-                        className="rounded-full"
+                        className="w-8 h-8 rounded-full"
                       />
                     ) : (
-                      <div className="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center">
-                        <User className="w-4 h-4 text-black" />
+                      <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
+                        <Settings className="w-4 h-4 text-black" />
                       </div>
                     )}
-                    <div className="text-left">
-                      <div className="text-white text-sm font-medium flex items-center">
-                        {userProfile?.full_name || user.email?.split("@")[0]}
-                        {userProfile?.role === "admin" && <Shield className="w-3 h-3 text-yellow-400 ml-1" />}
-                      </div>
-                      {userProfile?.role === "admin" && <div className="text-yellow-400 text-xs">Admin</div>}
-                    </div>
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                    <span className="text-sm font-medium">{user.full_name}</span>
+                    <ChevronDown className="w-4 h-4" />
                   </button>
 
-                  <AnimatePresence>
-                    {showUserMenu && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 10 }}
-                        className="absolute right-0 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-lg py-2"
+                  {showUserMenu && (
+                    <div className="absolute right-0 mt-2 w-48 bg-black border border-yellow-500/20 rounded-md shadow-lg py-1 z-50">
+                      <Link
+                        href="/dashboard"
+                        className="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-yellow-500/10 hover:text-yellow-400"
+                        onClick={() => setShowUserMenu(false)}
                       >
+                        <Settings className="w-4 h-4 mr-2" />
+                        Dashboard
+                      </Link>
+                      <Link
+                        href="/dashboard/profile"
+                        className="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-yellow-500/10 hover:text-yellow-400"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        <Settings className="w-4 h-4 mr-2" />
+                        Profile Settings
+                      </Link>
+                      {isUserAdmin && (
                         <Link
-                          href="/dashboard"
-                          className="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-800 hover:text-white"
+                          href="/admin"
+                          className="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-yellow-500/10 hover:text-yellow-400"
                           onClick={() => setShowUserMenu(false)}
                         >
-                          <BookOpen className="w-4 h-4 mr-2" />
-                          Dashboard
+                          <Shield className="w-4 h-4 mr-2" />
+                          Admin Panel
                         </Link>
-                        <Link
-                          href="/dashboard/profile"
-                          className="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-800 hover:text-white"
-                          onClick={() => setShowUserMenu(false)}
-                        >
-                          <Settings className="w-4 h-4 mr-2" />
-                          Profile Settings
-                        </Link>
-                        {userProfile?.role === "admin" && (
-                          <Link
-                            href="/admin"
-                            className="flex items-center px-4 py-2 text-yellow-400 hover:bg-gray-800"
-                            onClick={() => setShowUserMenu(false)}
-                          >
-                            <Shield className="w-4 h-4 mr-2" />
-                            Admin Panel
-                          </Link>
-                        )}
-                        <hr className="border-gray-700 my-2" />
-                        <button
-                          onClick={handleSignOut}
-                          className="flex items-center w-full px-4 py-2 text-gray-300 hover:bg-gray-800 hover:text-white"
-                        >
-                          <LogOut className="w-4 h-4 mr-2" />
-                          Sign Out
-                        </button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                      )}
+                      <button
+                        onClick={handleSignOut}
+                        className="flex items-center w-full px-4 py-2 text-sm text-gray-300 hover:bg-yellow-500/10 hover:text-yellow-400"
+                      >
+                        <LogOut className="w-4 h-4 mr-2" />
+                        Sign Out
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="flex items-center space-x-3">
                   <Button
+                    variant="ghost"
                     onClick={() => openAuthModal("login")}
-                    className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
+                    className="text-white border border-yellow-500 hover:bg-yellow-500/10 hover:text-yellow-400"
                   >
                     Login
+                  </Button>
+                  <Button
+                    onClick={() => openAuthModal("signup")}
+                    className="bg-yellow-500 text-black hover:bg-yellow-400 font-medium"
+                  >
+                    Sign Up
                   </Button>
                 </div>
               )}
             </div>
 
-            {/* Mobile Menu Button */}
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="lg:hidden text-white hover:text-yellow-400 transition-colors"
-            >
-              {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
+            {/* Mobile menu button */}
+            <div className="md:hidden">
+              <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="text-gray-300 hover:text-white focus:outline-none focus:text-white"
+              >
+                {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              </button>
+            </div>
           </div>
 
           {/* Mobile Navigation */}
-          <AnimatePresence>
-            {isOpen && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                className="lg:hidden border-t border-gray-800 py-4"
-              >
-                <div className="flex flex-col space-y-4">
-                  {navItems.map((item) => (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      className="text-gray-300 hover:text-yellow-400 transition-colors duration-200 font-medium"
-                      onClick={() => setIsOpen(false)}
-                    >
-                      {item.name}
-                    </Link>
-                  ))}
+          {isOpen && (
+            <div className="md:hidden">
+              <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-black/95 border-t border-yellow-500/20">
+                <Link
+                  href="/courses"
+                  className="block px-3 py-2 text-gray-300 hover:text-yellow-400 transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Courses
+                </Link>
+                <Link
+                  href="/hackathons"
+                  className="block px-3 py-2 text-gray-300 hover:text-yellow-400 transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Hackathons
+                </Link>
+                <Link
+                  href="/jobs"
+                  className="block px-3 py-2 text-gray-300 hover:text-yellow-400 transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Jobs
+                </Link>
+                <Link
+                  href="/ai-tools"
+                  className="block px-3 py-2 text-gray-300 hover:text-yellow-400 transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  AI Tools
+                </Link>
+                <Link
+                  href="/community-partnerships"
+                  className="block px-3 py-2 text-gray-300 hover:text-yellow-400 transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Community
+                </Link>
+                <Link
+                  href="/about"
+                  className="block px-3 py-2 text-gray-300 hover:text-yellow-400 transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  About
+                </Link>
+                <Link
+                  href="/contact"
+                  className="block px-3 py-2 text-gray-300 hover:text-yellow-400 transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Contact
+                </Link>
 
+                {/* Mobile Auth Section */}
+                <div className="border-t border-yellow-500/20 pt-4">
                   {user ? (
-                    <div className="pt-4 border-t border-gray-800">
-                      <div className="flex items-center space-x-2 mb-4">
-                        {userProfile?.avatar_url ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center px-3 py-2">
+                        {user.avatar_url ? (
                           <Image
-                            src={userProfile.avatar_url || "/placeholder.svg"}
-                            alt={userProfile.full_name || "User"}
+                            src={user.avatar_url || "/placeholder.svg"}
+                            alt={user.full_name}
                             width={32}
                             height={32}
-                            className="rounded-full"
+                            className="w-8 h-8 rounded-full mr-3"
                           />
                         ) : (
-                          <div className="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center">
-                            <User className="w-4 h-4 text-black" />
+                          <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center mr-3">
+                            <Settings className="w-4 h-4 text-black" />
                           </div>
                         )}
-                        <div>
-                          <div className="text-white text-sm font-medium flex items-center">
-                            {userProfile?.full_name || user.email?.split("@")[0]}
-                            {userProfile?.role === "admin" && <Shield className="w-3 h-3 text-yellow-400 ml-1" />}
-                          </div>
-                          {userProfile?.role === "admin" && <div className="text-yellow-400 text-xs">Admin</div>}
-                        </div>
+                        <span className="text-white font-medium">{user.full_name}</span>
                       </div>
-                      <div className="flex flex-col space-y-2">
+                      <Link
+                        href="/dashboard"
+                        className="block px-3 py-2 text-gray-300 hover:text-yellow-400 transition-colors"
+                        onClick={() => setIsOpen(false)}
+                      >
+                        Dashboard
+                      </Link>
+                      <Link
+                        href="/dashboard/profile"
+                        className="block px-3 py-2 text-gray-300 hover:text-yellow-400 transition-colors"
+                        onClick={() => setIsOpen(false)}
+                      >
+                        Profile Settings
+                      </Link>
+                      {isUserAdmin && (
                         <Link
-                          href="/dashboard"
-                          className="flex items-center text-gray-300 hover:text-white"
+                          href="/admin"
+                          className="block px-3 py-2 text-gray-300 hover:text-yellow-400 transition-colors"
                           onClick={() => setIsOpen(false)}
                         >
-                          <BookOpen className="w-4 h-4 mr-2" />
-                          Dashboard
+                          Admin Panel
                         </Link>
-                        <Link
-                          href="/dashboard/profile"
-                          className="flex items-center text-gray-300 hover:text-white"
-                          onClick={() => setIsOpen(false)}
-                        >
-                          <Settings className="w-4 h-4 mr-2" />
-                          Profile Settings
-                        </Link>
-                        {userProfile?.role === "admin" && (
-                          <Link
-                            href="/admin"
-                            className="flex items-center text-yellow-400"
-                            onClick={() => setIsOpen(false)}
-                          >
-                            <Shield className="w-4 h-4 mr-2" />
-                            Admin Panel
-                          </Link>
-                        )}
-                        <button
-                          onClick={() => {
-                            handleSignOut()
-                            setIsOpen(false)
-                          }}
-                          className="flex items-center text-gray-300 hover:text-white"
-                        >
-                          <LogOut className="w-4 h-4 mr-2" />
-                          Sign Out
-                        </button>
-                      </div>
+                      )}
+                      <button
+                        onClick={handleSignOut}
+                        className="block w-full text-left px-3 py-2 text-gray-300 hover:text-yellow-400 transition-colors"
+                      >
+                        Sign Out
+                      </button>
                     </div>
                   ) : (
-                    <div className="flex flex-col space-y-3 pt-4 border-t border-gray-800">
+                    <div className="space-y-2 px-3">
                       <Button
+                        variant="ghost"
                         onClick={() => {
                           openAuthModal("login")
                           setIsOpen(false)
                         }}
-                        className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold justify-start"
+                        className="w-full text-white border border-yellow-500 hover:bg-yellow-500/10 hover:text-yellow-400"
                       >
                         Login
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          openAuthModal("signup")
+                          setIsOpen(false)
+                        }}
+                        className="w-full bg-yellow-500 text-black hover:bg-yellow-400 font-medium"
+                      >
+                        Sign Up
                       </Button>
                     </div>
                   )}
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+              </div>
+            </div>
+          )}
         </div>
       </nav>
 
