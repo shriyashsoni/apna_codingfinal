@@ -117,6 +117,17 @@ export interface HackathonRegistration {
   updated_at: string
 }
 
+// Community Partner interface
+export interface CommunityPartner {
+  id: string
+  name: string
+  logo_url?: string
+  website_url: string
+  status: "active" | "inactive"
+  created_at: string
+  updated_at: string
+}
+
 // Auth functions with Google OAuth
 export const signUp = async (email: string, password: string, fullName: string) => {
   const { data, error } = await supabase.auth.signUp({
@@ -795,4 +806,58 @@ export const generateSlug = (title: string, id: string) => {
 export const extractIdFromSlug = (slug: string) => {
   const parts = slug.split("-")
   return parts[parts.length - 1]
+}
+
+// Database functions for Community Partners
+export const getCommunityPartners = async () => {
+  const { data, error } = await supabase
+    .from("community_partners")
+    .select("*")
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+  return { data, error }
+}
+
+export const getAllCommunityPartners = async () => {
+  const { data, error } = await supabase
+    .from("community_partners")
+    .select("*")
+    .order("created_at", { ascending: false })
+  return { data, error }
+}
+
+export const createCommunityPartner = async (
+  partner: Omit<CommunityPartner, "id" | "created_at" | "updated_at" | "status">,
+) => {
+  const { data, error } = await supabase
+    .from("community_partners")
+    .insert([
+      {
+        ...partner,
+        status: "active",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ])
+    .select()
+  return { data, error }
+}
+
+export const updateCommunityPartner = async (id: string, updates: Partial<CommunityPartner>) => {
+  const { data, error } = await supabase
+    .from("community_partners")
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+  return { data, error }
+}
+
+export const deleteCommunityPartner = async (id: string) => {
+  const { data, error } = await supabase.from("community_partners").delete().eq("id", id)
+  return { data, error }
+}
+
+export const getCommunityPartnerById = async (id: string) => {
+  const { data, error } = await supabase.from("community_partners").select("*").eq("id", id).single()
+  return { data, error }
 }
