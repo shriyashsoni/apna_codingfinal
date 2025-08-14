@@ -15,7 +15,7 @@ export default function Navbar() {
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authMode, setAuthMode] = useState<"login" | "signup">("login")
   const [showUserMenu, setShowUserMenu] = useState(false)
-  const { userProfile, loading, refreshUser } = useAuth()
+  const { user, loading, refreshUser } = useAuth()
 
   useEffect(() => {
     // Check for auth parameter in URL
@@ -27,9 +27,24 @@ export default function Navbar() {
     }
   }, [])
 
-  const handleAuthSuccess = () => {
+  useEffect(() => {
+    // Close user menu when clicking outside
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (!target.closest("[data-user-menu]")) {
+        setShowUserMenu(false)
+      }
+    }
+
+    if (showUserMenu) {
+      document.addEventListener("click", handleClickOutside)
+      return () => document.removeEventListener("click", handleClickOutside)
+    }
+  }, [showUserMenu])
+
+  const handleAuthSuccess = async () => {
     setShowAuthModal(false)
-    refreshUser()
+    await refreshUser()
     // Remove auth parameter from URL
     const url = new URL(window.location.href)
     url.searchParams.delete("auth")
@@ -40,6 +55,8 @@ export default function Navbar() {
     try {
       await signOut()
       setShowUserMenu(false)
+      // Refresh the page to clear any cached data
+      window.location.href = "/"
     } catch (error) {
       console.error("Error signing out:", error)
     }
@@ -89,16 +106,16 @@ export default function Navbar() {
             <div className="hidden lg:flex items-center space-x-4">
               {loading ? (
                 <div className="w-8 h-8 bg-gray-700 rounded-full animate-pulse" />
-              ) : userProfile ? (
-                <div className="relative">
+              ) : user ? (
+                <div className="relative" data-user-menu>
                   <button
                     onClick={() => setShowUserMenu(!showUserMenu)}
                     className="flex items-center space-x-2 bg-gray-800 hover:bg-gray-700 rounded-lg px-3 py-2 transition-colors"
                   >
-                    {userProfile.avatar_url ? (
+                    {user.avatar_url ? (
                       <Image
-                        src={userProfile.avatar_url || "/placeholder.svg"}
-                        alt={userProfile.full_name || "User"}
+                        src={user.avatar_url || "/placeholder.svg"}
+                        alt={user.full_name || "User"}
                         width={32}
                         height={32}
                         className="rounded-full"
@@ -110,10 +127,10 @@ export default function Navbar() {
                     )}
                     <div className="text-left">
                       <div className="text-white text-sm font-medium flex items-center">
-                        {userProfile.full_name || userProfile.email?.split("@")[0]}
-                        {userProfile.role === "admin" && <Shield className="w-3 h-3 text-yellow-400 ml-1" />}
+                        {user.full_name || user.email?.split("@")[0]}
+                        {user.role === "admin" && <Shield className="w-3 h-3 text-yellow-400 ml-1" />}
                       </div>
-                      {userProfile.role === "admin" && <div className="text-yellow-400 text-xs">Admin</div>}
+                      {user.role === "admin" && <div className="text-yellow-400 text-xs">Admin</div>}
                     </div>
                     <ChevronDown className="w-4 h-4 text-gray-400" />
                   </button>
@@ -124,11 +141,11 @@ export default function Navbar() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 10 }}
-                        className="absolute right-0 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-lg py-2"
+                        className="absolute right-0 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-lg py-2 z-50"
                       >
                         <Link
                           href="/dashboard"
-                          className="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-800 hover:text-white"
+                          className="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
                           onClick={() => setShowUserMenu(false)}
                         >
                           <BookOpen className="w-4 h-4 mr-2" />
@@ -136,16 +153,16 @@ export default function Navbar() {
                         </Link>
                         <Link
                           href="/dashboard/profile"
-                          className="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-800 hover:text-white"
+                          className="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
                           onClick={() => setShowUserMenu(false)}
                         >
                           <Settings className="w-4 h-4 mr-2" />
                           Profile Settings
                         </Link>
-                        {userProfile.role === "admin" && (
+                        {user.role === "admin" && (
                           <Link
                             href="/admin"
-                            className="flex items-center px-4 py-2 text-yellow-400 hover:bg-gray-800"
+                            className="flex items-center px-4 py-2 text-yellow-400 hover:bg-gray-800 transition-colors"
                             onClick={() => setShowUserMenu(false)}
                           >
                             <Shield className="w-4 h-4 mr-2" />
@@ -155,7 +172,7 @@ export default function Navbar() {
                         <hr className="border-gray-700 my-2" />
                         <button
                           onClick={handleSignOut}
-                          className="flex items-center w-full px-4 py-2 text-gray-300 hover:bg-gray-800 hover:text-white"
+                          className="flex items-center w-full px-4 py-2 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
                         >
                           <LogOut className="w-4 h-4 mr-2" />
                           Sign Out
@@ -169,8 +186,7 @@ export default function Navbar() {
                   <Button
                     variant="ghost"
                     onClick={() => openAuthModal("login")}
-                    className="text-gray-300 hover:text-white"
-                    data-auth-modal
+                    className="text-gray-300 hover:text-white hover:bg-gray-800"
                   >
                     Login
                   </Button>
@@ -214,13 +230,13 @@ export default function Navbar() {
                     </Link>
                   ))}
 
-                  {userProfile ? (
+                  {user ? (
                     <div className="pt-4 border-t border-gray-800">
                       <div className="flex items-center space-x-2 mb-4">
-                        {userProfile.avatar_url ? (
+                        {user.avatar_url ? (
                           <Image
-                            src={userProfile.avatar_url || "/placeholder.svg"}
-                            alt={userProfile.full_name || "User"}
+                            src={user.avatar_url || "/placeholder.svg"}
+                            alt={user.full_name || "User"}
                             width={32}
                             height={32}
                             className="rounded-full"
@@ -232,16 +248,16 @@ export default function Navbar() {
                         )}
                         <div>
                           <div className="text-white text-sm font-medium flex items-center">
-                            {userProfile.full_name || userProfile.email?.split("@")[0]}
-                            {userProfile.role === "admin" && <Shield className="w-3 h-3 text-yellow-400 ml-1" />}
+                            {user.full_name || user.email?.split("@")[0]}
+                            {user.role === "admin" && <Shield className="w-3 h-3 text-yellow-400 ml-1" />}
                           </div>
-                          {userProfile.role === "admin" && <div className="text-yellow-400 text-xs">Admin</div>}
+                          {user.role === "admin" && <div className="text-yellow-400 text-xs">Admin</div>}
                         </div>
                       </div>
                       <div className="flex flex-col space-y-2">
                         <Link
                           href="/dashboard"
-                          className="flex items-center text-gray-300 hover:text-white"
+                          className="flex items-center text-gray-300 hover:text-white transition-colors"
                           onClick={() => setIsOpen(false)}
                         >
                           <BookOpen className="w-4 h-4 mr-2" />
@@ -249,16 +265,16 @@ export default function Navbar() {
                         </Link>
                         <Link
                           href="/dashboard/profile"
-                          className="flex items-center text-gray-300 hover:text-white"
+                          className="flex items-center text-gray-300 hover:text-white transition-colors"
                           onClick={() => setIsOpen(false)}
                         >
                           <Settings className="w-4 h-4 mr-2" />
                           Profile Settings
                         </Link>
-                        {userProfile.role === "admin" && (
+                        {user.role === "admin" && (
                           <Link
                             href="/admin"
-                            className="flex items-center text-yellow-400"
+                            className="flex items-center text-yellow-400 transition-colors"
                             onClick={() => setIsOpen(false)}
                           >
                             <Shield className="w-4 h-4 mr-2" />
@@ -270,7 +286,7 @@ export default function Navbar() {
                             handleSignOut()
                             setIsOpen(false)
                           }}
-                          className="flex items-center text-gray-300 hover:text-white"
+                          className="flex items-center text-gray-300 hover:text-white transition-colors"
                         >
                           <LogOut className="w-4 h-4 mr-2" />
                           Sign Out
@@ -285,7 +301,7 @@ export default function Navbar() {
                           openAuthModal("login")
                           setIsOpen(false)
                         }}
-                        className="text-gray-300 hover:text-white justify-start"
+                        className="text-gray-300 hover:text-white hover:bg-gray-800 justify-start"
                       >
                         Login
                       </Button>

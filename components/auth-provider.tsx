@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { createContext, useContext, useEffect, useState } from "react"
 import { getCurrentUser, supabase, type User } from "@/lib/supabase"
 
@@ -50,6 +49,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth state changed:", event, session?.user?.email)
+
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
         await refreshUser()
       } else if (event === "SIGNED_OUT") {

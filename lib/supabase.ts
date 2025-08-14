@@ -5,22 +5,13 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-// Server-side client for admin operations
-export const createServerClient = () => {
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-}
-
-// Database Types
+// Types
 export interface User {
   id: string
   email: string
-  full_name: string
+  full_name?: string
   avatar_url?: string
   role: "user" | "admin"
-  github_url?: string
-  linkedin_url?: string
-  bio?: string
-  skills?: string[]
   created_at: string
   updated_at: string
 }
@@ -29,19 +20,17 @@ export interface Course {
   id: string
   title: string
   description: string
-  image_url?: string
-  price: number
+  instructor: string
   duration: string
   level: "Beginner" | "Intermediate" | "Advanced"
-  technologies: string[]
-  instructor: string
-  students_count: number
+  price: number
   rating: number
-  status: "active" | "inactive" | "draft"
-  redirect_url?: string
-  category: string
-  original_price?: string
-  tags?: string[]
+  image_url?: string
+  video_url?: string
+  syllabus?: string[]
+  prerequisites?: string[]
+  learning_outcomes?: string[]
+  status: "draft" | "published" | "archived"
   created_at: string
   updated_at: string
 }
@@ -50,24 +39,21 @@ export interface Hackathon {
   id: string
   title: string
   description: string
-  image_url?: string
   start_date: string
   end_date: string
-  registration_deadline?: string
+  registration_deadline: string
   location: string
-  prize_pool: string
-  participants_count: number
-  status: "upcoming" | "ongoing" | "completed" | "cancelled"
-  registration_open: boolean
-  technologies: string[]
-  registration_link?: string
-  whatsapp_link?: string
-  organizer?: string
-  partnerships?: string[]
-  featured: boolean
   mode: "online" | "offline" | "hybrid"
-  difficulty: "beginner" | "intermediate" | "advanced"
-  max_team_size?: number
+  prize_pool: string
+  max_participants?: number
+  current_participants: number
+  status: "upcoming" | "ongoing" | "completed" | "cancelled"
+  image_url?: string
+  registration_link?: string
+  rules?: string[]
+  themes?: string[]
+  sponsors?: string[]
+  slug: string
   created_at: string
   updated_at: string
 }
@@ -77,29 +63,17 @@ export interface Job {
   title: string
   company: string
   description: string
+  requirements: string[]
   location: string
-  type: "Full-time" | "Part-time" | "Contract" | "Internship"
+  type: "full-time" | "part-time" | "contract" | "internship"
   salary: string
-  experience: string
-  technologies: string[]
-  company_logo?: string
-  status: "active" | "inactive" | "filled"
+  experience_level: "entry" | "mid" | "senior"
+  skills: string[]
+  application_link: string
+  status: "active" | "closed" | "draft"
   posted_date: string
   application_deadline?: string
-  apply_link?: string
-  requirements?: string[]
-  created_at: string
-  updated_at: string
-}
-
-export interface Community {
-  id: string
-  name: string
-  description: string
-  member_count: number
-  type: "discord" | "telegram" | "whatsapp"
-  invite_link: string
-  status: "active" | "inactive"
+  slug: string
   created_at: string
   updated_at: string
 }
@@ -108,16 +82,53 @@ export interface HackathonRegistration {
   id: string
   hackathon_id: string
   user_id: string
-  registered_at: string
-  status: "registered" | "cancelled" | "attended"
   team_name?: string
-  team_members?: any[]
-  additional_info?: any
+  team_members?: string[]
+  registration_date: string
+  status: "registered" | "cancelled"
+}
+
+export interface CommunityPartner {
+  id: string
+  name: string
+  logo_url?: string
+  website_url?: string
+  description?: string
+  display_order: number
   created_at: string
   updated_at: string
 }
 
-// Partner interface for both community and hackathon partners
+export interface PublicProfile {
+  id: string
+  user_id: string
+  username: string
+  display_name?: string
+  bio?: string
+  avatar_url?: string
+  website_url?: string
+  github_url?: string
+  linkedin_url?: string
+  twitter_url?: string
+  skills?: string[]
+  is_public: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface HackathonComment {
+  id: string
+  hackathon_id: string
+  user_id: string
+  content: string
+  created_at: string
+  updated_at: string
+  user?: {
+    full_name?: string
+    avatar_url?: string
+  }
+}
+
 export interface Partner {
   id: string
   name: string
@@ -125,65 +136,12 @@ export interface Partner {
   website_url?: string
   category: "community" | "hackathon"
   display_order: number
-  status: "active" | "inactive"
   created_at: string
   updated_at: string
 }
 
-// Auth functions with Google OAuth
-export const signUp = async (email: string, password: string, fullName: string) => {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: {
-        full_name: fullName,
-      },
-    },
-  })
-
-  // Create user profile in database
-  if (data.user && !error) {
-    await createUserProfile(data.user.id, {
-      email: data.user.email!,
-      full_name: fullName,
-      role: data.user.email === "sonishriyash@gmail.com" ? "admin" : "user",
-    })
-  }
-
-  return { data, error }
-}
-
-export const signIn = async (email: string, password: string) => {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  })
-  return { data, error }
-}
-
-export const signInWithGoogle = async () => {
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      redirectTo: `${window.location.origin}/auth/callback`,
-      queryParams: {
-        access_type: "offline",
-        prompt: "consent",
-      },
-    },
-  })
-  return { data, error }
-}
-
-export const signOut = async () => {
-  const { error } = await supabase.auth.signOut()
-  if (error) {
-    throw error
-  }
-}
-
-export const getCurrentUser = async () => {
+// Auth functions
+export const getCurrentUser = async (): Promise<User | null> => {
   try {
     const {
       data: { session },
@@ -199,720 +157,743 @@ export const getCurrentUser = async () => {
       return null
     }
 
-    const user = session.user
+    const { data: userData, error: userError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", session.user.id)
+      .single()
 
-    // Get user profile from users table
-    const { data: profile, error: profileError } = await supabase.from("users").select("*").eq("id", user.id).single()
-
-    if (profileError && profileError.code !== "PGRST116") {
-      console.error("Profile fetch error:", profileError)
+    if (userError) {
+      console.error("User fetch error:", userError)
       return null
     }
 
-    // If no profile exists, create one
-    if (!profile) {
-      const newProfile = {
-        id: user.id,
-        email: user.email!,
-        full_name: user.user_metadata?.full_name || user.user_metadata?.name || "",
-        avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || "",
-        role: user.email === "sonishriyash@gmail.com" ? "admin" : "user",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }
-
-      const { data: createdProfile, error: createError } = await supabase
-        .from("users")
-        .insert([newProfile])
-        .select()
-        .single()
-
-      if (createError) {
-        console.error("Profile creation error:", createError)
-        return null
-      }
-
-      return createdProfile
-    }
-
-    return profile
+    return userData
   } catch (error) {
     console.error("Error getting current user:", error)
     return null
   }
 }
 
-export const getSession = async () => {
+export const signUp = async (email: string, password: string, fullName: string) => {
   try {
-    const {
-      data: { session },
-      error,
-    } = await supabase.auth.getSession()
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+        },
+      },
+    })
 
-    if (error) {
-      console.error("Error getting session:", error)
-      return null
-    }
+    if (error) throw error
 
-    return session
+    return { data, error: null }
   } catch (error) {
-    console.error("Error in getSession:", error)
-    return null
+    console.error("Error signing up:", error)
+    return { data: null, error }
   }
 }
 
-export async function checkUserAuth() {
+export const signIn = async (email: string, password: string) => {
   try {
-    const session = await getSession()
-    if (!session?.user) {
-      return null
-    }
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
 
-    const user = await getCurrentUser()
-    return user
+    if (error) throw error
+
+    return { data, error: null }
   } catch (error) {
-    console.error("Error checking user auth:", error)
-    return null
+    console.error("Error signing in:", error)
+    return { data: null, error }
   }
 }
 
-// Create user profile in database
-export const createUserProfile = async (
-  userId: string,
-  userData: {
-    email: string
-    full_name: string
-    role?: "user" | "admin"
-    avatar_url?: string
-  },
-) => {
+export const signOut = async () => {
+  try {
+    const { error } = await supabase.auth.signOut()
+    if (error) throw error
+
+    // Clear any cached data
+    window.location.href = "/"
+  } catch (error) {
+    console.error("Error signing out:", error)
+    throw error
+  }
+}
+
+export const resetPassword = async (email: string) => {
+  try {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset-password`,
+    })
+
+    if (error) throw error
+
+    return { error: null }
+  } catch (error) {
+    console.error("Error resetting password:", error)
+    return { error }
+  }
+}
+
+// Course functions
+export const getCourses = async () => {
   try {
     const { data, error } = await supabase
-      .from("users")
-      .upsert(
-        {
-          id: userId,
-          ...userData,
-          role: userData.email === "sonishriyash@gmail.com" ? "admin" : userData.role || "user",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: "id",
-        },
-      )
-      .select()
+      .from("courses")
+      .select("*")
+      .eq("status", "published")
+      .order("created_at", { ascending: false })
 
-    return { data, error }
+    if (error) throw error
+
+    return { data, error: null }
   } catch (error) {
-    console.error("Error in createUserProfile:", error)
+    console.error("Error fetching courses:", error)
     return { data: null, error }
   }
 }
 
-// Get user profile from database
-export const getUserProfile = async (userId: string) => {
+export const getCourseBySlug = async (slug: string) => {
   try {
-    const { data, error } = await supabase.from("users").select("*").eq("id", userId).single()
-
-    if (error && error.code === "PGRST116") {
-      // Profile doesn't exist, return null without error
-      return { data: null, error: null }
-    }
-
-    return { data, error }
-  } catch (error) {
-    console.error("Error in getUserProfile:", error)
-    return { data: null, error }
-  }
-}
-
-// Update user profile with better error handling
-export const updateUserProfile = async (userId: string, updates: Partial<User>) => {
-  try {
-    // First, check if user exists
-    const { data: existingUser, error: fetchError } = await supabase
-      .from("users")
-      .select("id")
-      .eq("id", userId)
+    const { data, error } = await supabase
+      .from("courses")
+      .select("*")
+      .eq("slug", slug)
+      .eq("status", "published")
       .single()
 
-    if (fetchError && fetchError.code === "PGRST116") {
-      // User doesn't exist, create new profile
-      const { data: authData, error: authError } = await supabase.auth.getUser()
-      if (authError || !authData.user) {
-        throw new Error("User not authenticated to create profile.")
-      }
+    if (error) throw error
 
-      const { data, error } = await supabase
-        .from("users")
-        .insert({
-          id: userId,
-          email: authData.user.email,
-          full_name: updates.full_name || "",
-          bio: updates.bio || null,
-          github_url: updates.github_url || null,
-          linkedin_url: updates.linkedin_url || null,
-          skills: updates.skills || null,
-          role: authData.user.email === "sonishriyash@gmail.com" ? "admin" : "user",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .select()
-
-      return { data, error }
-    } else if (fetchError) {
-      return { data: null, error: fetchError }
-    }
-
-    // User exists, update profile
-    const { data, error } = await supabase
-      .from("users")
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", userId)
-      .select()
-
-    return { data, error }
+    return { data, error: null }
   } catch (error) {
-    console.error("Error in updateUserProfile:", error)
+    console.error("Error fetching course:", error)
     return { data: null, error }
   }
-}
-
-// Admin check function with enhanced logic for sonishriyash@gmail.com
-export const isAdmin = async (email?: string) => {
-  if (!email) {
-    const user = await getCurrentUser()
-    if (!user?.email) return false
-    email = user.email
-  }
-
-  // Check if the email is the main admin
-  if (email === "sonishriyash@gmail.com") {
-    return true
-  }
-
-  // Check database for additional admins
-  try {
-    const { data, error } = await supabase.from("users").select("role").eq("email", email).single()
-
-    if (error) return false
-    return data?.role === "admin"
-  } catch {
-    return false
-  }
-}
-
-// Database functions for Courses
-export const getCourses = async () => {
-  const { data, error } = await supabase
-    .from("courses")
-    .select("*")
-    .eq("status", "active")
-    .order("created_at", { ascending: false })
-  return { data, error }
-}
-
-export const getAllCourses = async () => {
-  const { data, error } = await supabase.from("courses").select("*").order("created_at", { ascending: false })
-  return { data, error }
 }
 
 export const createCourse = async (course: Omit<Course, "id" | "created_at" | "updated_at">) => {
-  const { data, error } = await supabase
-    .from("courses")
-    .insert([
-      {
-        ...course,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ])
-    .select()
-  return { data, error }
+  try {
+    const { data, error } = await supabase.from("courses").insert([course]).select().single()
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error("Error creating course:", error)
+    return { data: null, error }
+  }
 }
 
 export const updateCourse = async (id: string, updates: Partial<Course>) => {
-  const { data, error } = await supabase
-    .from("courses")
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq("id", id)
-    .select()
-  return { data, error }
+  try {
+    const { data, error } = await supabase
+      .from("courses")
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error("Error updating course:", error)
+    return { data: null, error }
+  }
 }
 
 export const deleteCourse = async (id: string) => {
-  const { data, error } = await supabase.from("courses").delete().eq("id", id)
-  return { data, error }
+  try {
+    const { error } = await supabase.from("courses").delete().eq("id", id)
+
+    if (error) throw error
+
+    return { error: null }
+  } catch (error) {
+    console.error("Error deleting course:", error)
+    return { error }
+  }
 }
 
-export const getCourseById = async (id: string) => {
-  const { data, error } = await supabase.from("courses").select("*").eq("id", id).single()
-  return { data, error }
-}
-
-// Database functions for Hackathons
+// Hackathon functions
 export const getHackathons = async () => {
-  const { data, error } = await supabase.from("hackathons").select("*").order("start_date", { ascending: true })
-  return { data, error }
+  try {
+    const { data, error } = await supabase.from("hackathons").select("*").order("start_date", { ascending: false })
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error("Error fetching hackathons:", error)
+    return { data: null, error }
+  }
 }
 
-export const getAllHackathons = async () => {
-  const { data, error } = await supabase.from("hackathons").select("*").order("created_at", { ascending: false })
-  return { data, error }
+export const getHackathonBySlug = async (slug: string) => {
+  try {
+    const { data, error } = await supabase.from("hackathons").select("*").eq("slug", slug).single()
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error("Error fetching hackathon:", error)
+    return { data: null, error }
+  }
 }
 
 export const createHackathon = async (hackathon: Omit<Hackathon, "id" | "created_at" | "updated_at">) => {
-  const { data, error } = await supabase
-    .from("hackathons")
-    .insert([
-      {
-        ...hackathon,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ])
-    .select()
-  return { data, error }
+  try {
+    const { data, error } = await supabase.from("hackathons").insert([hackathon]).select().single()
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error("Error creating hackathon:", error)
+    return { data: null, error }
+  }
 }
 
 export const updateHackathon = async (id: string, updates: Partial<Hackathon>) => {
-  const { data, error } = await supabase
-    .from("hackathons")
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq("id", id)
-    .select()
-  return { data, error }
+  try {
+    const { data, error } = await supabase
+      .from("hackathons")
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error("Error updating hackathon:", error)
+    return { data: null, error }
+  }
 }
 
 export const deleteHackathon = async (id: string) => {
-  const { data, error } = await supabase.from("hackathons").delete().eq("id", id)
-  return { data, error }
+  try {
+    const { error } = await supabase.from("hackathons").delete().eq("id", id)
+
+    if (error) throw error
+
+    return { error: null }
+  } catch (error) {
+    console.error("Error deleting hackathon:", error)
+    return { error }
+  }
 }
 
-export const getHackathonById = async (id: string) => {
-  const { data, error } = await supabase.from("hackathons").select("*").eq("id", id).single()
-  return { data, error }
-}
-
-// Database functions for Jobs
+// Job functions
 export const getJobs = async () => {
-  const { data, error } = await supabase
-    .from("jobs")
-    .select("*")
-    .eq("status", "active")
-    .order("posted_date", { ascending: false })
-  return { data, error }
+  try {
+    const { data, error } = await supabase
+      .from("jobs")
+      .select("*")
+      .eq("status", "active")
+      .order("posted_date", { ascending: false })
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error("Error fetching jobs:", error)
+    return { data: null, error }
+  }
 }
 
-export const getAllJobs = async () => {
-  const { data, error } = await supabase.from("jobs").select("*").order("created_at", { ascending: false })
-  return { data, error }
+export const getJobBySlug = async (slug: string) => {
+  try {
+    const { data, error } = await supabase.from("jobs").select("*").eq("slug", slug).eq("status", "active").single()
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error("Error fetching job:", error)
+    return { data: null, error }
+  }
 }
 
 export const createJob = async (job: Omit<Job, "id" | "created_at" | "updated_at">) => {
-  const { data, error } = await supabase
-    .from("jobs")
-    .insert([
-      {
-        ...job,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ])
-    .select()
-  return { data, error }
+  try {
+    const { data, error } = await supabase.from("jobs").insert([job]).select().single()
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error("Error creating job:", error)
+    return { data: null, error }
+  }
 }
 
 export const updateJob = async (id: string, updates: Partial<Job>) => {
-  const { data, error } = await supabase
-    .from("jobs")
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq("id", id)
-    .select()
-  return { data, error }
+  try {
+    const { data, error } = await supabase
+      .from("jobs")
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error("Error updating job:", error)
+    return { data: null, error }
+  }
 }
 
 export const deleteJob = async (id: string) => {
-  const { data, error } = await supabase.from("jobs").delete().eq("id", id)
-  return { data, error }
+  try {
+    const { error } = await supabase.from("jobs").delete().eq("id", id)
+
+    if (error) throw error
+
+    return { error: null }
+  } catch (error) {
+    console.error("Error deleting job:", error)
+    return { error }
+  }
 }
 
-export const getJobById = async (id: string) => {
-  const { data, error } = await supabase.from("jobs").select("*").eq("id", id).single()
-  return { data, error }
-}
+// User management functions
+export const getUsers = async () => {
+  try {
+    const { data, error } = await supabase.from("users").select("*").order("created_at", { ascending: false })
 
-// User Management Functions
-export const getAllUsers = async () => {
-  const { data, error } = await supabase.from("users").select("*").order("created_at", { ascending: false })
-  return { data, error }
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error("Error fetching users:", error)
+    return { data: null, error }
+  }
 }
 
 export const updateUserRole = async (userId: string, role: "user" | "admin") => {
-  const { data, error } = await supabase
-    .from("users")
-    .update({ role, updated_at: new Date().toISOString() })
-    .eq("id", userId)
-    .select()
-  return { data, error }
+  try {
+    const { data, error } = await supabase
+      .from("users")
+      .update({ role, updated_at: new Date().toISOString() })
+      .eq("id", userId)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error("Error updating user role:", error)
+    return { data: null, error }
+  }
 }
 
-export const deleteUser = async (userId: string) => {
-  const { data, error } = await supabase.from("users").delete().eq("id", userId)
-  return { data, error }
+export const updateUserProfile = async (userId: string, updates: Partial<User>) => {
+  try {
+    const { data, error } = await supabase
+      .from("users")
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("id", userId)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error("Error updating user profile:", error)
+    return { data: null, error }
+  }
 }
 
-// Communities
-export const getCommunities = async () => {
-  const { data, error } = await supabase
-    .from("communities")
-    .select("*")
-    .eq("status", "active")
-    .order("member_count", { ascending: false })
-  return { data, error }
+// Analytics functions
+export const getBasicAnalytics = async () => {
+  try {
+    const [usersResult, coursesResult, hackathonsResult, jobsResult] = await Promise.all([
+      supabase.from("users").select("id", { count: "exact" }),
+      supabase.from("courses").select("id", { count: "exact" }).eq("status", "published"),
+      supabase.from("hackathons").select("id", { count: "exact" }).in("status", ["upcoming", "ongoing"]),
+      supabase.from("jobs").select("id", { count: "exact" }).eq("status", "active"),
+    ])
+
+    return {
+      totalUsers: usersResult.count || 0,
+      courses: coursesResult.count || 0,
+      activeHackathons: hackathonsResult.count || 0,
+      jobListings: jobsResult.count || 0,
+    }
+  } catch (error) {
+    console.error("Error fetching analytics:", error)
+    return {
+      totalUsers: 0,
+      courses: 0,
+      activeHackathons: 0,
+      jobListings: 0,
+    }
+  }
+}
+
+export const getDetailedAnalytics = async () => {
+  try {
+    const basicAnalytics = await getBasicAnalytics()
+
+    // Get user roles distribution
+    const { data: usersByRole } = await supabase.from("users").select("role")
+
+    const roleDistribution =
+      usersByRole?.reduce((acc: any, user) => {
+        acc[user.role] = (acc[user.role] || 0) + 1
+        return acc
+      }, {}) || {}
+
+    const usersByRoleArray = Object.entries(roleDistribution).map(([role, count]) => ({
+      role,
+      count,
+    }))
+
+    return {
+      totals: basicAnalytics,
+      usersByRole: usersByRoleArray,
+      growth: {
+        userGrowth: 12, // Mock data - implement actual growth calculation
+        courseGrowth: 8,
+        hackathonGrowth: 15,
+        jobGrowth: 5,
+      },
+    }
+  } catch (error) {
+    console.error("Error fetching detailed analytics:", error)
+    return null
+  }
 }
 
 // Hackathon registration functions
-export const registerForHackathon = async (hackathonId: string, userId: string) => {
+export const registerForHackathon = async (hackathonId: string, teamName?: string, teamMembers?: string[]) => {
   try {
+    const user = await getCurrentUser()
+    if (!user) throw new Error("User not authenticated")
+
     const { data, error } = await supabase
       .from("hackathon_registrations")
       .insert([
         {
           hackathon_id: hackathonId,
-          user_id: userId,
-          registered_at: new Date().toISOString(),
+          user_id: user.id,
+          team_name: teamName,
+          team_members: teamMembers,
+          registration_date: new Date().toISOString(),
+          status: "registered",
         },
       ])
       .select()
+      .single()
 
-    if (error) {
-      console.error("Error registering for hackathon:", error)
-      return { success: false, error: error.message }
-    }
+    if (error) throw error
 
     // Update participant count
     const { error: updateError } = await supabase.rpc("increment_hackathon_participants", {
       hackathon_id: hackathonId,
     })
 
-    if (updateError) {
-      console.error("Error updating participant count:", updateError)
-    }
+    if (updateError) console.error("Error updating participant count:", updateError)
 
-    return { success: true, data }
+    return { data, error: null }
   } catch (error) {
-    console.error("Error in registerForHackathon:", error)
-    return { success: false, error: "An unexpected error occurred" }
+    console.error("Error registering for hackathon:", error)
+    return { data: null, error }
   }
 }
 
-export const checkHackathonRegistration = async (hackathonId: string, userId: string) => {
+export const getHackathonRegistration = async (hackathonId: string) => {
   try {
+    const user = await getCurrentUser()
+    if (!user) return { data: null, error: null }
+
     const { data, error } = await supabase
       .from("hackathon_registrations")
       .select("*")
       .eq("hackathon_id", hackathonId)
-      .eq("user_id", userId)
+      .eq("user_id", user.id)
+      .eq("status", "registered")
       .single()
 
-    if (error && error.code !== "PGRST116") {
-      console.error("Error checking registration:", error)
-      return false
-    }
+    if (error && error.code !== "PGRST116") throw error
 
-    return !!data
+    return { data, error: null }
   } catch (error) {
-    console.error("Error in checkHackathonRegistration:", error)
-    return false
+    console.error("Error fetching hackathon registration:", error)
+    return { data: null, error }
   }
 }
 
-// Analytics functions for admin dashboard
-export const getAnalytics = async () => {
-  try {
-    const [usersResult, hackathonsResult, jobsResult, coursesResult, registrationsResult] = await Promise.all([
-      supabase.from("users").select("id, created_at, role, email"),
-      supabase.from("hackathons").select("id, status, participants_count, created_at, technologies"),
-      supabase.from("jobs").select("id, status, posted_date, created_at, technologies"),
-      supabase.from("courses").select("id, status, students_count, created_at, technologies"),
-      supabase.from("hackathon_registrations").select("id, created_at, hackathon_id, user_id"),
-    ])
-
-    return {
-      users: usersResult.data || [],
-      hackathons: hackathonsResult.data || [],
-      jobs: jobsResult.data || [],
-      courses: coursesResult.data || [],
-      registrations: registrationsResult.data || [],
-    }
-  } catch (error) {
-    console.error("Error fetching analytics:", error)
-    return {
-      users: [],
-      hackathons: [],
-      jobs: [],
-      courses: [],
-      registrations: [],
-    }
-  }
-}
-
-// Get detailed analytics with growth calculations
-export const getDetailedAnalytics = async () => {
-  try {
-    const data = await getAnalytics()
-
-    const now = new Date()
-    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
-
-    // Calculate totals
-    const totalUsers = data.users.length
-    const activeHackathons = data.hackathons.filter((h) => h.status === "upcoming" || h.status === "ongoing").length
-    const jobListings = data.jobs.filter((j) => j.status === "active").length
-    const courses = data.courses.filter((c) => c.status === "active").length
-
-    // Calculate growth
-    const recentUsers = data.users.filter((u) => new Date(u.created_at) > lastMonth).length
-    const userGrowth = totalUsers > 0 ? (recentUsers / totalUsers) * 100 : 0
-
-    const recentHackathons = data.hackathons.filter((h) => new Date(h.created_at) > lastMonth).length
-    const hackathonGrowth = activeHackathons > 0 ? (recentHackathons / activeHackathons) * 100 : 0
-
-    const recentJobs = data.jobs.filter((j) => new Date(j.created_at) > lastMonth).length
-    const jobGrowth = jobListings > 0 ? (recentJobs / jobListings) * 100 : 0
-
-    const recentCourses = data.courses.filter((c) => new Date(c.created_at) > lastMonth).length
-    const courseGrowth = courses > 0 ? (recentCourses / courses) * 100 : 0
-
-    // Technology analysis
-    const techCount: { [key: string]: number } = {}
-
-    data.courses.forEach((course) => {
-      if (course.technologies) {
-        course.technologies.forEach((tech: string) => {
-          techCount[tech] = (techCount[tech] || 0) + 1
-        })
-      }
-    })
-
-    data.hackathons.forEach((hackathon) => {
-      if (hackathon.technologies) {
-        hackathon.technologies.forEach((tech: string) => {
-          techCount[tech] = (techCount[tech] || 0) + 1
-        })
-      }
-    })
-
-    data.jobs.forEach((job) => {
-      if (job.technologies) {
-        job.technologies.forEach((tech: string) => {
-          techCount[tech] = (techCount[tech] || 0) + 1
-        })
-      }
-    })
-
-    const topTechnologies = Object.entries(techCount)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10)
-
-    // Users by role
-    const roleCount: { [key: string]: number } = {}
-    data.users.forEach((user) => {
-      roleCount[user.role] = (roleCount[user.role] || 0) + 1
-    })
-    const usersByRole = Object.entries(roleCount).map(([role, count]) => ({ role, count }))
-
-    return {
-      totals: {
-        totalUsers,
-        activeHackathons,
-        jobListings,
-        courses,
-      },
-      growth: {
-        userGrowth: Math.round(userGrowth * 10) / 10,
-        hackathonGrowth: Math.round(hackathonGrowth * 10) / 10,
-        jobGrowth: Math.round(jobGrowth * 10) / 10,
-        courseGrowth: Math.round(courseGrowth * 10) / 10,
-      },
-      topTechnologies,
-      usersByRole,
-      rawData: data,
-    }
-  } catch (error) {
-    console.error("Error fetching detailed analytics:", error)
-    return {
-      totals: { totalUsers: 0, activeHackathons: 0, jobListings: 0, courses: 0 },
-      growth: { userGrowth: 0, hackathonGrowth: 0, jobGrowth: 0, courseGrowth: 0 },
-      topTechnologies: [],
-      usersByRole: [],
-      rawData: { users: [], hackathons: [], jobs: [], courses: [], registrations: [] },
-    }
-  }
-}
-
-// Search functions
-export const searchCourses = async (query: string, category?: string) => {
-  let queryBuilder = supabase.from("courses").select("*").eq("status", "active")
-
-  if (query) {
-    queryBuilder = queryBuilder.or(`title.ilike.%${query}%,description.ilike.%${query}%,technologies.cs.{${query}}`)
-  }
-
-  if (category && category !== "All") {
-    queryBuilder = queryBuilder.eq("category", category)
-  }
-
-  const { data, error } = await queryBuilder.order("created_at", { ascending: false })
-  return { data, error }
-}
-
-export const searchHackathons = async (query: string, status?: string) => {
-  let queryBuilder = supabase.from("hackathons").select("*")
-
-  if (query) {
-    queryBuilder = queryBuilder.or(
-      `title.ilike.%${query}%,description.ilike.%${query}%,location.ilike.%${query}%,technologies.cs.{${query}}`,
-    )
-  }
-
-  if (status && status !== "all") {
-    queryBuilder = queryBuilder.eq("status", status)
-  }
-
-  const { data, error } = await queryBuilder.order("start_date", { ascending: true })
-  return { data, error }
-}
-
-export const searchJobs = async (query: string, type?: string, experience?: string) => {
-  let queryBuilder = supabase.from("jobs").select("*").eq("status", "active")
-
-  if (query) {
-    queryBuilder = queryBuilder.or(
-      `title.ilike.%${query}%,company.ilike.%${query}%,description.ilike.%${query}%,technologies.cs.{${query}}`,
-    )
-  }
-
-  if (type && type !== "All") {
-    queryBuilder = queryBuilder.eq("type", type)
-  }
-
-  if (experience && experience !== "All") {
-    queryBuilder = queryBuilder.eq("experience", experience)
-  }
-
-  const { data, error } = await queryBuilder.order("posted_date", { ascending: false })
-  return { data, error }
-}
-
-// Utility function to generate slug from title
-export const generateSlug = (title: string, id: string) => {
-  const slug = title
-    .toLowerCase()
-    .replace(/[^a-z0-9 -]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .trim()
-
-  return `${slug}-${id}`
-}
-
-// Function to extract ID from slug
-export const extractIdFromSlug = (slug: string) => {
-  const parts = slug.split("-")
-  return parts[parts.length - 1]
-}
-
-// Database functions for Partners (both community and hackathon)
-export const getPartnersByCategory = async (category: "community" | "hackathon") => {
-  const { data, error } = await supabase
-    .from("partners")
-    .select("*")
-    .eq("category", category)
-    .eq("status", "active")
-    .order("display_order", { ascending: true })
-    .order("created_at", { ascending: false })
-  return { data, error }
-}
-
-export const getAllPartners = async () => {
-  const { data, error } = await supabase
-    .from("partners")
-    .select("*")
-    .order("category", { ascending: true })
-    .order("display_order", { ascending: true })
-    .order("created_at", { ascending: false })
-  return { data, error }
-}
-
-export const createPartner = async (partner: Omit<Partner, "id" | "created_at" | "updated_at">) => {
-  const { data, error } = await supabase
-    .from("partners")
-    .insert([
-      {
-        ...partner,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ])
-    .select()
-  return { data, error }
-}
-
-export const updatePartner = async (id: string, updates: Partial<Partner>) => {
-  const { data, error } = await supabase
-    .from("partners")
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq("id", id)
-    .select()
-  return { data, error }
-}
-
-export const deletePartner = async (id: string) => {
-  const { data, error } = await supabase.from("partners").delete().eq("id", id)
-  return { data, error }
-}
-
-export const getPartnerById = async (id: string) => {
-  const { data, error } = await supabase.from("partners").select("*").eq("id", id).single()
-  return { data, error }
-}
-
-// Legacy community partners functions for backward compatibility
+// Community Partners functions
 export const getCommunityPartners = async () => {
-  return getPartnersByCategory("community")
+  try {
+    const { data, error } = await supabase
+      .from("community_partners")
+      .select("*")
+      .order("display_order", { ascending: true })
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error("Error fetching community partners:", error)
+    return { data: null, error }
+  }
 }
 
-export const getAllCommunityPartners = async () => {
-  const { data, error } = await supabase
-    .from("partners")
-    .select("*")
-    .eq("category", "community")
-    .order("display_order", { ascending: true })
-    .order("created_at", { ascending: false })
-  return { data, error }
+export const createCommunityPartner = async (partner: Omit<CommunityPartner, "id" | "created_at" | "updated_at">) => {
+  try {
+    const { data, error } = await supabase.from("community_partners").insert([partner]).select().single()
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error("Error creating community partner:", error)
+    return { data: null, error }
+  }
 }
 
-export const createCommunityPartner = async (
-  partner: Omit<Partner, "id" | "created_at" | "updated_at" | "category">,
-) => {
-  return createPartner({ ...partner, category: "community" })
-}
+export const updateCommunityPartner = async (id: string, updates: Partial<CommunityPartner>) => {
+  try {
+    const { data, error } = await supabase
+      .from("community_partners")
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single()
 
-export const updateCommunityPartner = async (id: string, updates: Partial<Partner>) => {
-  return updatePartner(id, updates)
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error("Error updating community partner:", error)
+    return { data: null, error }
+  }
 }
 
 export const deleteCommunityPartner = async (id: string) => {
-  return deletePartner(id)
+  try {
+    const { error } = await supabase.from("community_partners").delete().eq("id", id)
+
+    if (error) throw error
+
+    return { error: null }
+  } catch (error) {
+    console.error("Error deleting community partner:", error)
+    return { error }
+  }
 }
 
-export const getCommunityPartnerById = async (id: string) => {
-  return getPartnerById(id)
+// Public Profile functions
+export const getPublicProfile = async (username: string) => {
+  try {
+    const { data, error } = await supabase
+      .from("public_profiles")
+      .select(`
+        *,
+        user:users(full_name, email)
+      `)
+      .eq("username", username)
+      .eq("is_public", true)
+      .single()
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error("Error fetching public profile:", error)
+    return { data: null, error }
+  }
+}
+
+export const createPublicProfile = async (profile: Omit<PublicProfile, "id" | "created_at" | "updated_at">) => {
+  try {
+    const { data, error } = await supabase.from("public_profiles").insert([profile]).select().single()
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error("Error creating public profile:", error)
+    return { data: null, error }
+  }
+}
+
+export const updatePublicProfile = async (userId: string, updates: Partial<PublicProfile>) => {
+  try {
+    const { data, error } = await supabase
+      .from("public_profiles")
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("user_id", userId)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error("Error updating public profile:", error)
+    return { data: null, error }
+  }
+}
+
+export const getCurrentUserPublicProfile = async () => {
+  try {
+    const user = await getCurrentUser()
+    if (!user) return { data: null, error: null }
+
+    const { data, error } = await supabase.from("public_profiles").select("*").eq("user_id", user.id).single()
+
+    if (error && error.code !== "PGRST116") throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error("Error fetching current user public profile:", error)
+    return { data: null, error }
+  }
+}
+
+// Hackathon Comments functions
+export const getHackathonComments = async (hackathonId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from("hackathon_comments")
+      .select(`
+        *,
+        user:users(full_name, avatar_url)
+      `)
+      .eq("hackathon_id", hackathonId)
+      .order("created_at", { ascending: false })
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error("Error fetching hackathon comments:", error)
+    return { data: null, error }
+  }
+}
+
+export const createHackathonComment = async (hackathonId: string, content: string) => {
+  try {
+    const user = await getCurrentUser()
+    if (!user) throw new Error("User not authenticated")
+
+    const { data, error } = await supabase
+      .from("hackathon_comments")
+      .insert([
+        {
+          hackathon_id: hackathonId,
+          user_id: user.id,
+          content,
+        },
+      ])
+      .select(`
+        *,
+        user:users(full_name, avatar_url)
+      `)
+      .single()
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error("Error creating hackathon comment:", error)
+    return { data: null, error }
+  }
+}
+
+// Partners functions (new unified system)
+export const getPartners = async (category?: "community" | "hackathon") => {
+  try {
+    let query = supabase.from("partners").select("*").order("display_order", { ascending: true })
+
+    if (category) {
+      query = query.eq("category", category)
+    }
+
+    const { data, error } = await query
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error("Error fetching partners:", error)
+    return { data: null, error }
+  }
+}
+
+export const createPartner = async (partner: Omit<Partner, "id" | "created_at" | "updated_at">) => {
+  try {
+    const { data, error } = await supabase.from("partners").insert([partner]).select().single()
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error("Error creating partner:", error)
+    return { data: null, error }
+  }
+}
+
+export const updatePartner = async (id: string, updates: Partial<Partner>) => {
+  try {
+    const { data, error } = await supabase
+      .from("partners")
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error("Error updating partner:", error)
+    return { data: null, error }
+  }
+}
+
+export const deletePartner = async (id: string) => {
+  try {
+    const { error } = await supabase.from("partners").delete().eq("id", id)
+
+    if (error) throw error
+
+    return { error: null }
+  } catch (error) {
+    console.error("Error deleting partner:", error)
+    return { error }
+  }
+}
+
+export const updatePartnerOrder = async (id: string, newOrder: number) => {
+  try {
+    const { data, error } = await supabase
+      .from("partners")
+      .update({ display_order: newOrder, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    return { data, error: null }
+  } catch (error) {
+    console.error("Error updating partner order:", error)
+    return { data: null, error }
+  }
 }
