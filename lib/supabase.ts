@@ -735,21 +735,61 @@ export const getUserOrganizerStatus = async (userId: string) => {
   }
 }
 
-// Check if user has specific permission
-export const checkUserPermission = async (userId: string, permissionType: string, permissionLevel = "read") => {
+// Helper function to check if user is admin
+export async function isUserAdmin(userId: string, userEmail?: string): Promise<boolean> {
   try {
-    const { data, error } = await supabase.rpc("check_user_permission", {
-      user_id_param: userId,
-      permission_type_param: permissionType,
-      required_level: permissionLevel,
-    })
+    // Super admin check
+    if (userEmail === "sonishriyash@gmail.com") {
+      return true
+    }
+
+    // Database role check
+    const { data, error } = await supabase.from("user_profiles").select("role").eq("user_id", userId).single()
 
     if (error) {
-      console.error("Error checking permission:", error)
+      console.error("Error checking admin status:", error)
       return false
     }
 
-    return data
+    return data?.role === "admin"
+  } catch (error) {
+    console.error("Error in isUserAdmin:", error)
+    return false
+  }
+}
+
+// Helper function to check user permissions
+export async function checkUserPermission(
+  userId: string,
+  permissionType: string,
+  userEmail?: string,
+): Promise<boolean> {
+  try {
+    // Super admin always has access
+    if (userEmail === "sonishriyash@gmail.com") {
+      return true
+    }
+
+    // Check if user is admin
+    const adminCheck = await isUserAdmin(userId, userEmail)
+    if (adminCheck) {
+      return true
+    }
+
+    // Check specific permissions
+    const { data, error } = await supabase
+      .from("user_permissions")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("permission_type", permissionType)
+      .or("expires_at.is.null,expires_at.gt.now()")
+
+    if (error) {
+      console.error("Error checking permissions:", error)
+      return false
+    }
+
+    return data && data.length > 0
   } catch (error) {
     console.error("Error in checkUserPermission:", error)
     return false
