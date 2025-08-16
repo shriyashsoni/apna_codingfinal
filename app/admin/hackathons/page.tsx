@@ -8,8 +8,10 @@ import {
   getAllHackathons,
   deleteHackathon,
   updateHackathon,
+  getUserProfile,
   type Hackathon,
 } from "@/lib/supabase"
+import { checkUserPermission } from "@/lib/permissions"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -18,15 +20,16 @@ import { Calendar, MapPin, Users, Trophy, Edit, Trash2, Plus, Search, Shield, St
 
 export default function AdminHackathons() {
   const [user, setUser] = useState<any>(null)
+  const [userProfile, setUserProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [adminAccess, setAdminAccess] = useState(false)
+  const [hasAccess, setHasAccess] = useState(false)
   const [hackathons, setHackathons] = useState<Hackathon[]>([])
   const [filteredHackathons, setFilteredHackathons] = useState<Hackathon[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const router = useRouter()
 
   useEffect(() => {
-    checkAdminAccess()
+    checkAccess()
   }, [])
 
   useEffect(() => {
@@ -42,25 +45,35 @@ export default function AdminHackathons() {
     }
   }, [searchTerm, hackathons])
 
-  const checkAdminAccess = async () => {
+  const checkAccess = async () => {
     try {
       const currentUser = await getCurrentUser()
-      if (!currentUser || currentUser.email !== "sonishriyash@gmail.com") {
+      if (!currentUser) {
         router.push("/")
         return
       }
 
-      const hasAdminAccess = await isAdmin(currentUser.email)
-      if (!hasAdminAccess) {
+      const [profileResult, adminCheck, organizerCheck] = await Promise.all([
+        getUserProfile(currentUser.id),
+        isAdmin(currentUser.email),
+        checkUserPermission(currentUser.id, "hackathons", "write"),
+      ])
+
+      const profile = profileResult.data
+      const hasAdminAccess = adminCheck || currentUser.email === "sonishriyash@gmail.com"
+      const hasOrganizerAccess = organizerCheck
+
+      if (!hasAdminAccess && !hasOrganizerAccess) {
         router.push("/")
         return
       }
 
       setUser(currentUser)
-      setAdminAccess(true)
+      setUserProfile(profile)
+      setHasAccess(true)
       await loadHackathons()
     } catch (error) {
-      console.error("Error checking admin access:", error)
+      console.error("Error checking access:", error)
       router.push("/")
     } finally {
       setLoading(false)
@@ -148,7 +161,7 @@ export default function AdminHackathons() {
     )
   }
 
-  if (!adminAccess || user?.email !== "sonishriyash@gmail.com") {
+  if (!hasAccess) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
@@ -159,6 +172,8 @@ export default function AdminHackathons() {
       </div>
     )
   }
+
+  const isAdmin = userProfile?.role === "admin" || user?.email === "sonishriyash@gmail.com"
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -182,11 +197,11 @@ export default function AdminHackathons() {
                 New Hackathon
               </Button>
               <Button
-                onClick={() => router.push("/admin")}
+                onClick={() => router.push(isAdmin ? "/admin" : "/dashboard")}
                 variant="outline"
                 className="border-gray-700 text-white hover:bg-gray-800"
               >
-                Back to Dashboard
+                Back to {isAdmin ? "Dashboard" : "Profile"}
               </Button>
             </div>
           </div>
@@ -283,16 +298,18 @@ export default function AdminHackathons() {
                       <Edit className="w-4 h-4 mr-1" />
                       Edit
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className={`border-yellow-400 hover:bg-yellow-400 hover:text-black bg-transparent ${
-                        hackathon.featured ? "text-yellow-400" : "text-gray-400"
-                      }`}
-                      onClick={() => toggleFeatured(hackathon.id, hackathon.featured)}
-                    >
-                      <Star className="w-4 h-4" />
-                    </Button>
+                    {isAdmin && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className={`border-yellow-400 hover:bg-yellow-400 hover:text-black bg-transparent ${
+                          hackathon.featured ? "text-yellow-400" : "text-gray-400"
+                        }`}
+                        onClick={() => toggleFeatured(hackathon.id, hackathon.featured)}
+                      >
+                        <Star className="w-4 h-4" />
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="outline"
@@ -301,14 +318,16 @@ export default function AdminHackathons() {
                     >
                       View
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white bg-transparent"
-                      onClick={() => handleDelete(hackathon.id, hackathon.title)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    {isAdmin && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white bg-transparent"
+                        onClick={() => handleDelete(hackathon.id, hackathon.title)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>
