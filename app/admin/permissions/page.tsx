@@ -80,11 +80,21 @@ export default function AdminPermissions() {
   const checkAdminAccess = async () => {
     try {
       const currentUser = await getCurrentUser()
-      if (!currentUser || currentUser.email !== "sonishriyash@gmail.com") {
+      if (!currentUser) {
         router.push("/")
         return
       }
 
+      // Always allow sonishriyash@gmail.com as super admin
+      if (currentUser.email === "sonishriyash@gmail.com") {
+        setUser(currentUser)
+        setAdminAccess(true)
+        await loadData()
+        setLoading(false)
+        return
+      }
+
+      // Check database for other admin users
       const hasAdminAccess = await isAdmin(currentUser.email)
       if (!hasAdminAccess) {
         router.push("/")
@@ -263,7 +273,7 @@ export default function AdminPermissions() {
     )
   }
 
-  if (!adminAccess || user?.email !== "sonishriyash@gmail.com") {
+  if (!adminAccess || !user?.email || (user.email !== "sonishriyash@gmail.com" && user?.role !== "admin")) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">

@@ -254,7 +254,7 @@ export const isAdmin = async (email?: string) => {
     email = user.email
   }
 
-  // Check if the email is the main admin
+  // Check if the email is the main admin - always return true
   if (email === "sonishriyash@gmail.com") {
     return true
   }
