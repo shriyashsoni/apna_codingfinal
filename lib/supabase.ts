@@ -14,13 +14,13 @@ export const createServerClient = () => {
 export interface User {
   id: string
   email: string
-  full_name: string
+  full_name?: string
   avatar_url?: string
-  role: "user" | "admin"
+  bio?: string
   github_url?: string
   linkedin_url?: string
-  bio?: string
   skills?: string[]
+  role?: string
   created_at: string
   updated_at: string
 }
@@ -172,60 +172,10 @@ export const signOut = async () => {
 }
 
 export const getCurrentUser = async () => {
-  try {
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser()
-
-    if (error) {
-      console.error("Auth error:", error)
-      return null
-    }
-
-    if (!user) {
-      return null
-    }
-
-    // Get user profile from users table
-    const { data: profile, error: profileError } = await supabase.from("users").select("*").eq("id", user.id).single()
-
-    if (profileError && profileError.code !== "PGRST116") {
-      console.error("Profile fetch error:", profileError)
-      return null
-    }
-
-    // If no profile exists, create one
-    if (!profile) {
-      const newProfile = {
-        id: user.id,
-        email: user.email!,
-        full_name: user.user_metadata?.full_name || user.user_metadata?.name || "",
-        avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || "",
-        role: user.email === "sonishriyash@gmail.com" ? "admin" : "user",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }
-
-      const { data: createdProfile, error: createError } = await supabase
-        .from("users")
-        .insert([newProfile])
-        .select()
-        .single()
-
-      if (createError) {
-        console.error("Profile creation error:", createError)
-        return null
-      }
-
-      return createdProfile
-    }
-
-    return profile
-  } catch (error) {
-    console.error("Error getting current user:", error)
-    return null
-  }
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  return user
 }
 
 export const getSession = async () => {
@@ -271,60 +221,14 @@ export const createUserProfile = async (
 
 // Get user profile from database
 export const getUserProfile = async (userId: string) => {
-  try {
-    const { data, error } = await supabase.from("users").select("*").eq("id", userId).single()
+  const { data, error } = await supabase.from("users").select("*").eq("id", userId).single()
 
-    if (error && error.code === "PGRST116") {
-      // Profile doesn't exist, return null without error
-      return { data: null, error: null }
-    }
-
-    return { data, error }
-  } catch (error) {
-    console.error("Error in getUserProfile:", error)
-    return { data: null, error }
-  }
+  return { data, error }
 }
 
 // Update user profile with better error handling
 export const updateUserProfile = async (userId: string, updates: Partial<User>) => {
   try {
-    // First, check if user exists
-    const { data: existingUser, error: fetchError } = await supabase
-      .from("users")
-      .select("id")
-      .eq("id", userId)
-      .single()
-
-    if (fetchError && fetchError.code === "PGRST116") {
-      // User doesn't exist, create new profile
-      const { data: authData, error: authError } = await supabase.auth.getUser()
-      if (authError || !authData.user) {
-        throw new Error("User not authenticated to create profile.")
-      }
-
-      const { data, error } = await supabase
-        .from("users")
-        .insert({
-          id: userId,
-          email: authData.user.email,
-          full_name: updates.full_name || "",
-          bio: updates.bio || null,
-          github_url: updates.github_url || null,
-          linkedin_url: updates.linkedin_url || null,
-          skills: updates.skills || null,
-          role: authData.user.email === "sonishriyash@gmail.com" ? "admin" : "user",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .select()
-
-      return { data, error }
-    } else if (fetchError) {
-      return { data: null, error: fetchError }
-    }
-
-    // User exists, update profile
     const { data, error } = await supabase
       .from("users")
       .update({
@@ -333,6 +237,7 @@ export const updateUserProfile = async (userId: string, updates: Partial<User>) 
       })
       .eq("id", userId)
       .select()
+      .single()
 
     return { data, error }
   } catch (error) {
@@ -807,16 +712,23 @@ export const extractIdFromSlug = (slug: string) => {
 // Get user organizer status
 export const getUserOrganizerStatus = async (userId: string) => {
   try {
-    const { data, error } = await supabase.rpc("get_user_organizer_status", {
-      user_id_param: userId,
-    })
+    const { data: roles, error } = await supabase
+      .from("organizer_roles")
+      .select("role_name")
+      .eq("user_id", userId)
+      .eq("is_active", true)
 
     if (error) {
-      console.error("Error getting organizer status:", error)
+      console.error("Error fetching organizer status:", error)
       return { is_organizer: false, organizer_types: [] }
     }
 
-    return data?.[0] || { is_organizer: false, organizer_types: [] }
+    const organizer_types = roles?.map((role) => role.role_name) || []
+
+    return {
+      is_organizer: organizer_types.length > 0,
+      organizer_types,
+    }
   } catch (error) {
     console.error("Error in getUserOrganizerStatus:", error)
     return { is_organizer: false, organizer_types: [] }

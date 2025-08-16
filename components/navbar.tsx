@@ -4,7 +4,20 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
-import { Menu, X, ChevronDown, User, LogOut, Settings, Shield, BookOpen, Crown } from "lucide-react"
+import {
+  Menu,
+  X,
+  ChevronDown,
+  User,
+  LogOut,
+  Settings,
+  Shield,
+  BookOpen,
+  Crown,
+  Plus,
+  Calendar,
+  Briefcase,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import AuthModal from "@/components/auth/auth-modal"
@@ -109,6 +122,38 @@ export default function Navbar() {
       default:
         return roleName.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())
     }
+  }
+
+  const getOrganizerPostingOptions = () => {
+    return organizerRoles
+      .map((role) => {
+        switch (role.role_name) {
+          case "hackathon_organizer":
+            return {
+              label: "Post Hackathon",
+              href: "/admin/hackathons/new",
+              icon: <Calendar className="w-4 h-4 mr-2" />,
+              color: "text-purple-400",
+            }
+          case "course_instructor":
+            return {
+              label: "Post Course",
+              href: "/admin/courses/new",
+              icon: <BookOpen className="w-4 h-4 mr-2" />,
+              color: "text-blue-400",
+            }
+          case "job_poster":
+            return {
+              label: "Post Job/Internship",
+              href: "/admin/jobs/new",
+              icon: <Briefcase className="w-4 h-4 mr-2" />,
+              color: "text-green-400",
+            }
+          default:
+            return null
+        }
+      })
+      .filter(Boolean)
   }
 
   return (
@@ -223,12 +268,30 @@ export default function Navbar() {
                           Profile Settings
                         </Link>
 
-                        {/* Organizer Quick Access */}
+                        {/* Organizer Posting Options */}
                         {organizerStatus.is_organizer && (
                           <>
                             <hr className="border-gray-700 my-2" />
                             <div className="px-4 py-1">
-                              <div className="text-xs text-purple-400 font-semibold">Organizer Access</div>
+                              <div className="text-xs text-purple-400 font-semibold flex items-center">
+                                <Plus className="w-3 h-3 mr-1" />
+                                Create Content
+                              </div>
+                            </div>
+                            {getOrganizerPostingOptions().map((option, index) => (
+                              <Link
+                                key={index}
+                                href={option.href}
+                                className={`flex items-center px-4 py-2 ${option.color} hover:bg-gray-800`}
+                                onClick={() => setShowUserMenu(false)}
+                              >
+                                {option.icon}
+                                {option.label}
+                              </Link>
+                            ))}
+                            <hr className="border-gray-700 my-2" />
+                            <div className="px-4 py-1">
+                              <div className="text-xs text-purple-400 font-semibold">Manage Content</div>
                             </div>
                             {organizerRoles.map((role) => (
                               <Link
@@ -375,10 +438,25 @@ export default function Navbar() {
                           Profile Settings
                         </Link>
 
-                        {/* Mobile Organizer Access */}
+                        {/* Mobile Organizer Posting Options */}
                         {organizerStatus.is_organizer && (
                           <>
-                            <div className="text-xs text-purple-400 font-semibold mt-2">Organizer Access</div>
+                            <div className="text-xs text-purple-400 font-semibold mt-2 flex items-center">
+                              <Plus className="w-3 h-3 mr-1" />
+                              Create Content
+                            </div>
+                            {getOrganizerPostingOptions().map((option, index) => (
+                              <Link
+                                key={index}
+                                href={option.href}
+                                className={`flex items-center ${option.color}`}
+                                onClick={() => setIsOpen(false)}
+                              >
+                                {option.icon}
+                                {option.label}
+                              </Link>
+                            ))}
+                            <div className="text-xs text-purple-400 font-semibold mt-2">Manage Content</div>
                             {organizerRoles.map((role) => (
                               <Link
                                 key={role.id}
