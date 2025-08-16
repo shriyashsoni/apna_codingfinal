@@ -14,13 +14,13 @@ export const createServerClient = () => {
 export interface User {
   id: string
   email: string
-  full_name?: string
+  full_name: string
   avatar_url?: string
-  bio?: string
+  role: "user" | "admin"
   github_url?: string
   linkedin_url?: string
+  bio?: string
   skills?: string[]
-  role?: string
   created_at: string
   updated_at: string
 }
@@ -172,10 +172,60 @@ export const signOut = async () => {
 }
 
 export const getCurrentUser = async () => {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  return user
+  try {
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser()
+
+    if (error) {
+      console.error("Auth error:", error)
+      return null
+    }
+
+    if (!user) {
+      return null
+    }
+
+    // Get user profile from users table
+    const { data: profile, error: profileError } = await supabase.from("users").select("*").eq("id", user.id).single()
+
+    if (profileError && profileError.code !== "PGRST116") {
+      console.error("Profile fetch error:", profileError)
+      return null
+    }
+
+    // If no profile exists, create one
+    if (!profile) {
+      const newProfile = {
+        id: user.id,
+        email: user.email!,
+        full_name: user.user_metadata?.full_name || user.user_metadata?.name || "",
+        avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || "",
+        role: user.email === "sonishriyash@gmail.com" ? "admin" : "user",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+
+      const { data: createdProfile, error: createError } = await supabase
+        .from("users")
+        .insert([newProfile])
+        .select()
+        .single()
+
+      if (createError) {
+        console.error("Profile creation error:", createError)
+        return null
+      }
+
+      return createdProfile
+    }
+
+    return profile
+  } catch (error) {
+    console.error("Error getting current user:", error)
+    return null
+  }
 }
 
 export const getSession = async () => {
@@ -221,14 +271,60 @@ export const createUserProfile = async (
 
 // Get user profile from database
 export const getUserProfile = async (userId: string) => {
-  const { data, error } = await supabase.from("users").select("*").eq("id", userId).single()
+  try {
+    const { data, error } = await supabase.from("users").select("*").eq("id", userId).single()
 
-  return { data, error }
+    if (error && error.code === "PGRST116") {
+      // Profile doesn't exist, return null without error
+      return { data: null, error: null }
+    }
+
+    return { data, error }
+  } catch (error) {
+    console.error("Error in getUserProfile:", error)
+    return { data: null, error }
+  }
 }
 
 // Update user profile with better error handling
 export const updateUserProfile = async (userId: string, updates: Partial<User>) => {
   try {
+    // First, check if user exists
+    const { data: existingUser, error: fetchError } = await supabase
+      .from("users")
+      .select("id")
+      .eq("id", userId)
+      .single()
+
+    if (fetchError && fetchError.code === "PGRST116") {
+      // User doesn't exist, create new profile
+      const { data: authData, error: authError } = await supabase.auth.getUser()
+      if (authError || !authData.user) {
+        throw new Error("User not authenticated to create profile.")
+      }
+
+      const { data, error } = await supabase
+        .from("users")
+        .insert({
+          id: userId,
+          email: authData.user.email,
+          full_name: updates.full_name || "",
+          bio: updates.bio || null,
+          github_url: updates.github_url || null,
+          linkedin_url: updates.linkedin_url || null,
+          skills: updates.skills || null,
+          role: authData.user.email === "sonishriyash@gmail.com" ? "admin" : "user",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+
+      return { data, error }
+    } else if (fetchError) {
+      return { data: null, error: fetchError }
+    }
+
+    // User exists, update profile
     const { data, error } = await supabase
       .from("users")
       .update({
@@ -237,7 +333,6 @@ export const updateUserProfile = async (userId: string, updates: Partial<User>) 
       })
       .eq("id", userId)
       .select()
-      .single()
 
     return { data, error }
   } catch (error) {
@@ -254,7 +349,7 @@ export const isAdmin = async (email?: string) => {
     email = user.email
   }
 
-  // Check if the email is the main admin - always return true
+  // Check if the email is the main admin
   if (email === "sonishriyash@gmail.com") {
     return true
   }
@@ -707,91 +802,4 @@ export const generateSlug = (title: string, id: string) => {
 export const extractIdFromSlug = (slug: string) => {
   const parts = slug.split("-")
   return parts[parts.length - 1]
-}
-
-// Get user organizer status
-export const getUserOrganizerStatus = async (userId: string) => {
-  try {
-    const { data: roles, error } = await supabase
-      .from("organizer_roles")
-      .select("role_name")
-      .eq("user_id", userId)
-      .eq("is_active", true)
-
-    if (error) {
-      console.error("Error fetching organizer status:", error)
-      return { is_organizer: false, organizer_types: [] }
-    }
-
-    const organizer_types = roles?.map((role) => role.role_name) || []
-
-    return {
-      is_organizer: organizer_types.length > 0,
-      organizer_types,
-    }
-  } catch (error) {
-    console.error("Error in getUserOrganizerStatus:", error)
-    return { is_organizer: false, organizer_types: [] }
-  }
-}
-
-// Helper function to check if user is admin
-export async function isUserAdmin(userId: string, userEmail?: string): Promise<boolean> {
-  try {
-    // Super admin check
-    if (userEmail === "sonishriyash@gmail.com") {
-      return true
-    }
-
-    // Database role check
-    const { data, error } = await supabase.from("user_profiles").select("role").eq("user_id", userId).single()
-
-    if (error) {
-      console.error("Error checking admin status:", error)
-      return false
-    }
-
-    return data?.role === "admin"
-  } catch (error) {
-    console.error("Error in isUserAdmin:", error)
-    return false
-  }
-}
-
-// Helper function to check user permissions
-export async function checkUserPermission(
-  userId: string,
-  permissionType: string,
-  userEmail?: string,
-): Promise<boolean> {
-  try {
-    // Super admin always has access
-    if (userEmail === "sonishriyash@gmail.com") {
-      return true
-    }
-
-    // Check if user is admin
-    const adminCheck = await isUserAdmin(userId, userEmail)
-    if (adminCheck) {
-      return true
-    }
-
-    // Check specific permissions
-    const { data, error } = await supabase
-      .from("user_permissions")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("permission_type", permissionType)
-      .or("expires_at.is.null,expires_at.gt.now()")
-
-    if (error) {
-      console.error("Error checking permissions:", error)
-      return false
-    }
-
-    return data && data.length > 0
-  } catch (error) {
-    console.error("Error in checkUserPermission:", error)
-    return false
-  }
 }

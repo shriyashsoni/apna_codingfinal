@@ -4,14 +4,13 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { User, Mail, Github, Linkedin, Save, Loader2, CheckCircle, AlertCircle, Crown, Shield } from "lucide-react"
+import { User, Mail, Github, Linkedin, Save, Loader2, CheckCircle, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { getCurrentUser, getUserProfile, updateUserProfile, getUserOrganizerStatus } from "@/lib/supabase"
-import { getOrganizerRoles } from "@/lib/permissions"
+import { getCurrentUser, getUserProfile, updateUserProfile } from "@/lib/supabase"
 import type { User as UserType } from "@/lib/supabase"
 
 export default function ProfilePage() {
@@ -20,11 +19,6 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
-  const [organizerStatus, setOrganizerStatus] = useState<{ is_organizer: boolean; organizer_types: string[] }>({
-    is_organizer: false,
-    organizer_types: [],
-  })
-  const [organizerRoles, setOrganizerRoles] = useState<any[]>([])
   const [formData, setFormData] = useState({
     full_name: "",
     bio: "",
@@ -72,14 +66,6 @@ export default function ProfilePage() {
           skills: [],
         })
       }
-
-      // Load organizer status
-      const orgStatus = await getUserOrganizerStatus(currentUser.id)
-      setOrganizerStatus(orgStatus)
-
-      // Load organizer roles for detailed display
-      const { data: roles } = await getOrganizerRoles(currentUser.id)
-      setOrganizerRoles(roles || [])
     } catch (error) {
       console.error("Error:", error)
       setMessage({ type: "error", text: "An unexpected error occurred" })
@@ -154,32 +140,6 @@ export default function ProfilePage() {
     return Math.round((completedFields / fields.length) * 100)
   }
 
-  const getRoleDisplayName = (roleName: string) => {
-    switch (roleName) {
-      case "hackathon_organizer":
-        return "Hackathon Organizer"
-      case "course_instructor":
-        return "Course Instructor"
-      case "job_poster":
-        return "Job Poster"
-      default:
-        return roleName.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())
-    }
-  }
-
-  const getRoleIcon = (roleName: string) => {
-    switch (roleName) {
-      case "hackathon_organizer":
-        return "🏆"
-      case "course_instructor":
-        return "📚"
-      case "job_poster":
-        return "💼"
-      default:
-        return "👑"
-    }
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen pt-20 bg-black flex items-center justify-center">
@@ -204,79 +164,6 @@ export default function ProfilePage() {
               </h1>
               <p className="text-gray-300">Manage your account information and preferences</p>
             </div>
-
-            {/* User Status & Organizer Badge */}
-            <Card className="bg-gray-900 border-gray-800 mb-8">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-16 h-16 bg-purple-400 rounded-full flex items-center justify-center">
-                      <User className="w-8 h-8 text-black" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                        {formData.full_name || user?.email?.split("@")[0]}
-                        {user?.role === "admin" && (
-                          <Badge className="bg-yellow-400 text-black">
-                            <Shield className="w-3 h-3 mr-1" />
-                            Admin
-                          </Badge>
-                        )}
-                        {organizerStatus.is_organizer && (
-                          <Badge className="bg-gradient-to-r from-purple-500 to-blue-500 text-white">
-                            <Crown className="w-3 h-3 mr-1" />
-                            Organizer
-                          </Badge>
-                        )}
-                      </h3>
-                      <p className="text-gray-400">{user?.email}</p>
-                      {organizerStatus.is_organizer && (
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {organizerRoles.map((role) => (
-                            <Badge
-                              key={role.id}
-                              variant="outline"
-                              className="border-purple-400 text-purple-400 text-xs"
-                            >
-                              {getRoleIcon(role.role_name)} {getRoleDisplayName(role.role_name)}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-purple-400">{profileCompletion}%</div>
-                    <div className="text-sm text-gray-400">Complete</div>
-                  </div>
-                </div>
-
-                {/* Organizer Privileges Display */}
-                {organizerStatus.is_organizer && (
-                  <div className="bg-purple-900/20 border border-purple-500/50 rounded-lg p-4 mt-4">
-                    <h4 className="text-purple-400 font-semibold mb-2 flex items-center">
-                      <Crown className="w-4 h-4 mr-2" />🎉 Organizer Privileges
-                    </h4>
-                    <div className="text-sm text-gray-300 space-y-1">
-                      {organizerRoles.map((role) => (
-                        <div key={role.id} className="flex items-center gap-2">
-                          <span>{getRoleIcon(role.role_name)}</span>
-                          <span>
-                            You can manage{" "}
-                            {role.role_name === "hackathon_organizer"
-                              ? "Hackathons"
-                              : role.role_name === "course_instructor"
-                                ? "Courses"
-                                : "Job Listings"}
-                          </span>
-                        </div>
-                      ))}
-                      <p className="text-xs text-purple-300 mt-2">✨ These privileges were granted by an Admin</p>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
 
             {/* Profile Completion */}
             <Card className="bg-gray-900 border-gray-800 mb-8">

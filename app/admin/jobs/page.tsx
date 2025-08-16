@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { getCurrentUser, isAdmin, getAllJobs, deleteJob, getUserProfile, type Job } from "@/lib/supabase"
-import { checkUserPermission } from "@/lib/permissions"
+import { getCurrentUser, isAdmin, getAllJobs, deleteJob, type Job } from "@/lib/supabase"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -12,16 +11,15 @@ import { Briefcase, Search, Shield, Edit, Trash2, Plus, MapPin, DollarSign, Cloc
 
 export default function AdminJobs() {
   const [user, setUser] = useState<any>(null)
-  const [userProfile, setUserProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [hasAccess, setHasAccess] = useState(false)
+  const [adminAccess, setAdminAccess] = useState(false)
   const [jobs, setJobs] = useState<Job[]>([])
   const [filteredJobs, setFilteredJobs] = useState<Job[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const router = useRouter()
 
   useEffect(() => {
-    checkAccess()
+    checkAdminAccess()
   }, [])
 
   useEffect(() => {
@@ -38,35 +36,25 @@ export default function AdminJobs() {
     }
   }, [searchTerm, jobs])
 
-  const checkAccess = async () => {
+  const checkAdminAccess = async () => {
     try {
       const currentUser = await getCurrentUser()
-      if (!currentUser) {
+      if (!currentUser || currentUser.email !== "sonishriyash@gmail.com") {
         router.push("/")
         return
       }
 
-      const [profileResult, adminCheck, organizerCheck] = await Promise.all([
-        getUserProfile(currentUser.id),
-        isAdmin(currentUser.email),
-        checkUserPermission(currentUser.id, "jobs", "write"),
-      ])
-
-      const profile = profileResult.data
-      const hasAdminAccess = adminCheck || currentUser.email === "sonishriyash@gmail.com"
-      const hasOrganizerAccess = organizerCheck
-
-      if (!hasAdminAccess && !hasOrganizerAccess) {
+      const hasAdminAccess = await isAdmin(currentUser.email)
+      if (!hasAdminAccess) {
         router.push("/")
         return
       }
 
       setUser(currentUser)
-      setUserProfile(profile)
-      setHasAccess(true)
+      setAdminAccess(true)
       await loadJobs()
     } catch (error) {
-      console.error("Error checking access:", error)
+      console.error("Error checking admin access:", error)
       router.push("/")
     } finally {
       setLoading(false)
@@ -145,7 +133,7 @@ export default function AdminJobs() {
     )
   }
 
-  if (!hasAccess) {
+  if (!adminAccess || user?.email !== "sonishriyash@gmail.com") {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
@@ -157,7 +145,6 @@ export default function AdminJobs() {
     )
   }
 
-  const isAdminUser = userProfile?.role === "admin" || user?.email === "sonishriyash@gmail.com"
   const activeJobs = jobs.filter((job) => job.status === "active").length
   const filledJobs = jobs.filter((job) => job.status === "filled").length
   const internships = jobs.filter((job) => job.type === "Internship").length
@@ -184,11 +171,11 @@ export default function AdminJobs() {
                 New Job
               </Button>
               <Button
-                onClick={() => router.push(isAdminUser ? "/admin" : "/dashboard")}
+                onClick={() => router.push("/admin")}
                 variant="outline"
                 className="border-gray-700 text-white hover:bg-gray-800"
               >
-                Back to {isAdminUser ? "Dashboard" : "Profile"}
+                Back to Dashboard
               </Button>
             </div>
           </div>
@@ -313,16 +300,14 @@ export default function AdminJobs() {
                       <Edit className="w-4 h-4 mr-1" />
                       Edit
                     </Button>
-                    {isAdminUser && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white bg-transparent"
-                        onClick={() => handleDelete(job.id, job.title)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white bg-transparent"
+                      onClick={() => handleDelete(job.id, job.title)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
               </CardContent>

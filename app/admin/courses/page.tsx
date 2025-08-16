@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { getCurrentUser, isAdmin, getAllCourses, deleteCourse, getUserProfile, type Course } from "@/lib/supabase"
-import { checkUserPermission } from "@/lib/permissions"
+import { getCurrentUser, isAdmin, getAllCourses, deleteCourse, type Course } from "@/lib/supabase"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -12,16 +11,15 @@ import { BookOpen, Search, Shield, Edit, Trash2, Plus, Star, Users, Clock, Dolla
 
 export default function AdminCourses() {
   const [user, setUser] = useState<any>(null)
-  const [userProfile, setUserProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [hasAccess, setHasAccess] = useState(false)
+  const [adminAccess, setAdminAccess] = useState(false)
   const [courses, setCourses] = useState<Course[]>([])
   const [filteredCourses, setFilteredCourses] = useState<Course[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const router = useRouter()
 
   useEffect(() => {
-    checkAccess()
+    checkAdminAccess()
   }, [])
 
   useEffect(() => {
@@ -38,35 +36,25 @@ export default function AdminCourses() {
     }
   }, [searchTerm, courses])
 
-  const checkAccess = async () => {
+  const checkAdminAccess = async () => {
     try {
       const currentUser = await getCurrentUser()
-      if (!currentUser) {
+      if (!currentUser || currentUser.email !== "sonishriyash@gmail.com") {
         router.push("/")
         return
       }
 
-      const [profileResult, adminCheck, organizerCheck] = await Promise.all([
-        getUserProfile(currentUser.id),
-        isAdmin(currentUser.email),
-        checkUserPermission(currentUser.id, "courses", "write"),
-      ])
-
-      const profile = profileResult.data
-      const hasAdminAccess = adminCheck || currentUser.email === "sonishriyash@gmail.com"
-      const hasOrganizerAccess = organizerCheck
-
-      if (!hasAdminAccess && !hasOrganizerAccess) {
+      const hasAdminAccess = await isAdmin(currentUser.email)
+      if (!hasAdminAccess) {
         router.push("/")
         return
       }
 
       setUser(currentUser)
-      setUserProfile(profile)
-      setHasAccess(true)
+      setAdminAccess(true)
       await loadCourses()
     } catch (error) {
-      console.error("Error checking access:", error)
+      console.error("Error checking admin access:", error)
       router.push("/")
     } finally {
       setLoading(false)
@@ -143,7 +131,7 @@ export default function AdminCourses() {
     )
   }
 
-  if (!hasAccess) {
+  if (!adminAccess || user?.email !== "sonishriyash@gmail.com") {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
@@ -155,7 +143,6 @@ export default function AdminCourses() {
     )
   }
 
-  const isAdminUser = userProfile?.role === "admin" || user?.email === "sonishriyash@gmail.com"
   const activeCourses = courses.filter((course) => course.status === "active").length
   const totalStudents = courses.reduce((sum, course) => sum + course.students_count, 0)
   const averageRating =
@@ -183,11 +170,11 @@ export default function AdminCourses() {
                 New Course
               </Button>
               <Button
-                onClick={() => router.push(isAdminUser ? "/admin" : "/dashboard")}
+                onClick={() => router.push("/admin")}
                 variant="outline"
                 className="border-gray-700 text-white hover:bg-gray-800"
               >
-                Back to {isAdminUser ? "Dashboard" : "Profile"}
+                Back to Dashboard
               </Button>
             </div>
           </div>
@@ -311,16 +298,14 @@ export default function AdminCourses() {
                       <Edit className="w-4 h-4 mr-1" />
                       Edit
                     </Button>
-                    {isAdminUser && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white bg-transparent"
-                        onClick={() => handleDelete(course.id, course.title)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white bg-transparent"
+                      onClick={() => handleDelete(course.id, course.title)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
               </CardContent>
