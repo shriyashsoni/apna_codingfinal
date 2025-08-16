@@ -4,10 +4,25 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
-import { Menu, X, ChevronDown, User, LogOut, Settings, Shield, BookOpen } from "lucide-react"
+import {
+  Menu,
+  X,
+  ChevronDown,
+  User,
+  LogOut,
+  Settings,
+  Shield,
+  BookOpen,
+  Crown,
+  Plus,
+  Calendar,
+  Briefcase,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import AuthModal from "@/components/auth/auth-modal"
-import { getCurrentUser, signOut, getUserProfile, type User as UserType } from "@/lib/supabase"
+import { getCurrentUser, signOut, getUserProfile, getUserOrganizerStatus, type User as UserType } from "@/lib/supabase"
+import { getOrganizerRoles } from "@/lib/permissions"
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
@@ -15,6 +30,11 @@ export default function Navbar() {
   const [authMode, setAuthMode] = useState<"login" | "signup">("login")
   const [user, setUser] = useState<any>(null)
   const [userProfile, setUserProfile] = useState<UserType | null>(null)
+  const [organizerStatus, setOrganizerStatus] = useState<{ is_organizer: boolean; organizer_types: string[] }>({
+    is_organizer: false,
+    organizer_types: [],
+  })
+  const [organizerRoles, setOrganizerRoles] = useState<any[]>([])
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -36,8 +56,15 @@ export default function Navbar() {
       setUser(currentUser)
 
       if (currentUser) {
-        const { data: profile } = await getUserProfile(currentUser.id)
-        setUserProfile(profile)
+        const [profileResult, orgStatusResult, rolesResult] = await Promise.all([
+          getUserProfile(currentUser.id),
+          getUserOrganizerStatus(currentUser.id),
+          getOrganizerRoles(currentUser.id),
+        ])
+
+        setUserProfile(profileResult.data)
+        setOrganizerStatus(orgStatusResult)
+        setOrganizerRoles(rolesResult.data || [])
       }
     } catch (error) {
       console.error("Error checking user:", error)
@@ -60,6 +87,8 @@ export default function Navbar() {
       await signOut()
       setUser(null)
       setUserProfile(null)
+      setOrganizerStatus({ is_organizer: false, organizer_types: [] })
+      setOrganizerRoles([])
       setShowUserMenu(false)
     } catch (error) {
       console.error("Error signing out:", error)
@@ -81,6 +110,51 @@ export default function Navbar() {
     { name: "About", href: "/about" },
     { name: "Contact", href: "/contact" },
   ]
+
+  const getRoleDisplayName = (roleName: string) => {
+    switch (roleName) {
+      case "hackathon_organizer":
+        return "Hackathon Organizer"
+      case "course_instructor":
+        return "Course Instructor"
+      case "job_poster":
+        return "Job Poster"
+      default:
+        return roleName.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())
+    }
+  }
+
+  const getOrganizerPostingOptions = () => {
+    return organizerRoles
+      .map((role) => {
+        switch (role.role_name) {
+          case "hackathon_organizer":
+            return {
+              label: "Post Hackathon",
+              href: "/admin/hackathons/new",
+              icon: <Calendar className="w-4 h-4 mr-2" />,
+              color: "text-purple-400",
+            }
+          case "course_instructor":
+            return {
+              label: "Post Course",
+              href: "/admin/courses/new",
+              icon: <BookOpen className="w-4 h-4 mr-2" />,
+              color: "text-blue-400",
+            }
+          case "job_poster":
+            return {
+              label: "Post Job/Internship",
+              href: "/admin/jobs/new",
+              icon: <Briefcase className="w-4 h-4 mr-2" />,
+              color: "text-green-400",
+            }
+          default:
+            return null
+        }
+      })
+      .filter(Boolean)
+  }
 
   return (
     <>
@@ -130,11 +204,19 @@ export default function Navbar() {
                       </div>
                     )}
                     <div className="text-left">
-                      <div className="text-white text-sm font-medium flex items-center">
+                      <div className="text-white text-sm font-medium flex items-center gap-1">
                         {userProfile?.full_name || user.email?.split("@")[0]}
-                        {userProfile?.role === "admin" && <Shield className="w-3 h-3 text-yellow-400 ml-1" />}
+                        {userProfile?.role === "admin" && <Shield className="w-3 h-3 text-yellow-400" />}
+                        {organizerStatus.is_organizer && <Crown className="w-3 h-3 text-purple-400" />}
                       </div>
-                      {userProfile?.role === "admin" && <div className="text-yellow-400 text-xs">Admin</div>}
+                      <div className="flex items-center gap-1">
+                        {userProfile?.role === "admin" && (
+                          <Badge className="bg-yellow-400 text-black text-xs px-1 py-0">Admin</Badge>
+                        )}
+                        {organizerStatus.is_organizer && (
+                          <Badge className="bg-purple-400 text-black text-xs px-1 py-0">Organizer</Badge>
+                        )}
+                      </div>
                     </div>
                     <ChevronDown className="w-4 h-4 text-gray-400" />
                   </button>
@@ -145,8 +227,30 @@ export default function Navbar() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 10 }}
-                        className="absolute right-0 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-lg py-2"
+                        className="absolute right-0 mt-2 w-64 bg-gray-900 border border-gray-700 rounded-lg shadow-lg py-2"
                       >
+                        {/* User Info Header */}
+                        <div className="px-4 py-2 border-b border-gray-700">
+                          <div className="text-white font-medium">
+                            {userProfile?.full_name || user.email?.split("@")[0]}
+                          </div>
+                          <div className="text-gray-400 text-sm">{user.email}</div>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {userProfile?.role === "admin" && (
+                              <Badge className="bg-yellow-400 text-black text-xs">
+                                <Shield className="w-2 h-2 mr-1" />
+                                Admin
+                              </Badge>
+                            )}
+                            {organizerRoles.map((role) => (
+                              <Badge key={role.id} className="bg-purple-400 text-black text-xs">
+                                <Crown className="w-2 h-2 mr-1" />
+                                {getRoleDisplayName(role.role_name)}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+
                         <Link
                           href="/dashboard"
                           className="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-800 hover:text-white"
@@ -163,15 +267,64 @@ export default function Navbar() {
                           <Settings className="w-4 h-4 mr-2" />
                           Profile Settings
                         </Link>
+
+                        {/* Organizer Posting Options */}
+                        {organizerStatus.is_organizer && (
+                          <>
+                            <hr className="border-gray-700 my-2" />
+                            <div className="px-4 py-1">
+                              <div className="text-xs text-purple-400 font-semibold flex items-center">
+                                <Plus className="w-3 h-3 mr-1" />
+                                Create Content
+                              </div>
+                            </div>
+                            {getOrganizerPostingOptions().map((option, index) => (
+                              <Link
+                                key={index}
+                                href={option.href}
+                                className={`flex items-center px-4 py-2 ${option.color} hover:bg-gray-800`}
+                                onClick={() => setShowUserMenu(false)}
+                              >
+                                {option.icon}
+                                {option.label}
+                              </Link>
+                            ))}
+                            <hr className="border-gray-700 my-2" />
+                            <div className="px-4 py-1">
+                              <div className="text-xs text-purple-400 font-semibold">Manage Content</div>
+                            </div>
+                            {organizerRoles.map((role) => (
+                              <Link
+                                key={role.id}
+                                href={
+                                  role.role_name === "hackathon_organizer"
+                                    ? "/admin/hackathons"
+                                    : role.role_name === "course_instructor"
+                                      ? "/admin/courses"
+                                      : "/admin/jobs"
+                                }
+                                className="flex items-center px-4 py-2 text-purple-400 hover:bg-gray-800"
+                                onClick={() => setShowUserMenu(false)}
+                              >
+                                <Crown className="w-4 h-4 mr-2" />
+                                Manage {getRoleDisplayName(role.role_name).split(" ")[1]}
+                              </Link>
+                            ))}
+                          </>
+                        )}
+
                         {userProfile?.role === "admin" && (
-                          <Link
-                            href="/admin"
-                            className="flex items-center px-4 py-2 text-yellow-400 hover:bg-gray-800"
-                            onClick={() => setShowUserMenu(false)}
-                          >
-                            <Shield className="w-4 h-4 mr-2" />
-                            Admin Panel
-                          </Link>
+                          <>
+                            <hr className="border-gray-700 my-2" />
+                            <Link
+                              href="/admin"
+                              className="flex items-center px-4 py-2 text-yellow-400 hover:bg-gray-800"
+                              onClick={() => setShowUserMenu(false)}
+                            >
+                              <Shield className="w-4 h-4 mr-2" />
+                              Admin Panel
+                            </Link>
+                          </>
                         )}
                         <hr className="border-gray-700 my-2" />
                         <button
@@ -252,11 +405,19 @@ export default function Navbar() {
                           </div>
                         )}
                         <div>
-                          <div className="text-white text-sm font-medium flex items-center">
+                          <div className="text-white text-sm font-medium flex items-center gap-1">
                             {userProfile?.full_name || user.email?.split("@")[0]}
-                            {userProfile?.role === "admin" && <Shield className="w-3 h-3 text-yellow-400 ml-1" />}
+                            {userProfile?.role === "admin" && <Shield className="w-3 h-3 text-yellow-400" />}
+                            {organizerStatus.is_organizer && <Crown className="w-3 h-3 text-purple-400" />}
                           </div>
-                          {userProfile?.role === "admin" && <div className="text-yellow-400 text-xs">Admin</div>}
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {userProfile?.role === "admin" && (
+                              <Badge className="bg-yellow-400 text-black text-xs">Admin</Badge>
+                            )}
+                            {organizerStatus.is_organizer && (
+                              <Badge className="bg-purple-400 text-black text-xs">Organizer</Badge>
+                            )}
+                          </div>
                         </div>
                       </div>
                       <div className="flex flex-col space-y-2">
@@ -276,6 +437,46 @@ export default function Navbar() {
                           <Settings className="w-4 h-4 mr-2" />
                           Profile Settings
                         </Link>
+
+                        {/* Mobile Organizer Posting Options */}
+                        {organizerStatus.is_organizer && (
+                          <>
+                            <div className="text-xs text-purple-400 font-semibold mt-2 flex items-center">
+                              <Plus className="w-3 h-3 mr-1" />
+                              Create Content
+                            </div>
+                            {getOrganizerPostingOptions().map((option, index) => (
+                              <Link
+                                key={index}
+                                href={option.href}
+                                className={`flex items-center ${option.color}`}
+                                onClick={() => setIsOpen(false)}
+                              >
+                                {option.icon}
+                                {option.label}
+                              </Link>
+                            ))}
+                            <div className="text-xs text-purple-400 font-semibold mt-2">Manage Content</div>
+                            {organizerRoles.map((role) => (
+                              <Link
+                                key={role.id}
+                                href={
+                                  role.role_name === "hackathon_organizer"
+                                    ? "/admin/hackathons"
+                                    : role.role_name === "course_instructor"
+                                      ? "/admin/courses"
+                                      : "/admin/jobs"
+                                }
+                                className="flex items-center text-purple-400"
+                                onClick={() => setIsOpen(false)}
+                              >
+                                <Crown className="w-4 h-4 mr-2" />
+                                Manage {getRoleDisplayName(role.role_name).split(" ")[1]}
+                              </Link>
+                            ))}
+                          </>
+                        )}
+
                         {userProfile?.role === "admin" && (
                           <Link
                             href="/admin"

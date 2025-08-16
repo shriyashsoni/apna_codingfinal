@@ -375,6 +375,32 @@ export async function checkUserAuth() {
   }
 }
 
+// Get user organizer status
+export const getUserOrganizerStatus = async (userId: string) => {
+  try {
+    const { data: roles, error } = await supabase
+      .from("organizer_roles")
+      .select("role_name")
+      .eq("user_id", userId)
+      .eq("is_active", true)
+
+    if (error) {
+      console.error("Error fetching organizer status:", error)
+      return { is_organizer: false, organizer_types: [] }
+    }
+
+    const organizer_types = roles?.map((role) => role.role_name) || []
+
+    return {
+      is_organizer: organizer_types.length > 0,
+      organizer_types,
+    }
+  } catch (error) {
+    console.error("Error in getUserOrganizerStatus:", error)
+    return { is_organizer: false, organizer_types: [] }
+  }
+}
+
 // Database functions for Courses
 export const getCourses = async () => {
   const { data, error } = await supabase
