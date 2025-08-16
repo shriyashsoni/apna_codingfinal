@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/router"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -270,7 +270,10 @@ export default function HackathonsPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleShare(hackathon)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleShare(hackathon)
+                        }}
                         className="text-gray-400 hover:text-yellow-400"
                       >
                         <Share2 className="w-4 h-4" />
@@ -339,7 +342,10 @@ export default function HackathonsPage() {
 
                     <div className="flex gap-2 pt-4">
                       <Button
-                        onClick={() => handleRegistration(hackathon)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleRegistration(hackathon)
+                        }}
                         disabled={!user}
                         className={`flex-1 ${
                           !user
@@ -362,7 +368,10 @@ export default function HackathonsPage() {
 
                       {hackathon.whatsapp_link && (
                         <Button
-                          onClick={() => handleWhatsAppJoin(hackathon)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleWhatsAppJoin(hackathon)
+                          }}
                           disabled={!user}
                           variant="outline"
                           className={`${
@@ -412,7 +421,10 @@ export default function HackathonsPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleShare(hackathon)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleShare(hackathon)
+                        }}
                         className="text-gray-400 hover:text-yellow-400"
                       >
                         <Share2 className="w-4 h-4" />
@@ -481,7 +493,10 @@ export default function HackathonsPage() {
 
                     <div className="flex gap-2 pt-4">
                       <Button
-                        onClick={() => handleRegistration(hackathon)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleRegistration(hackathon)
+                        }}
                         disabled={!user}
                         className={`flex-1 ${
                           !user
@@ -504,7 +519,10 @@ export default function HackathonsPage() {
 
                       {hackathon.whatsapp_link && (
                         <Button
-                          onClick={() => handleWhatsAppJoin(hackathon)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleWhatsAppJoin(hackathon)
+                          }}
                           disabled={!user}
                           variant="outline"
                           className={`${

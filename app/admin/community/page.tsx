@@ -1,490 +1,564 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Save, Plus, Trash2, Edit } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
+import { Users, Settings, Save, Plus, X, Edit, Trash2, Globe, Heart, Star } from "lucide-react"
 
-interface CommunityPlatform {
-  id: string
-  name: string
-  members: string
-  description: string
-  link: string
-  color: string
-  features: string[]
+interface CommunityData {
+  stats: {
+    activeMembers: number
+    dailyDiscussions: number
+    successStories: number
+    countries: number
+  }
+  platforms: Array<{
+    id: string
+    name: string
+    memberCount: number
+    description: string
+    link: string
+    features: string[]
+  }>
+  testimonials: Array<{
+    id: string
+    name: string
+    role: string
+    content: string
+    rating: number
+  }>
 }
 
-interface CommunityStat {
-  id: string
-  value: string
-  label: string
-  description: string
-}
+export default function AdminCommunityPage() {
+  const [loading, setLoading] = useState(false)
+  const [communityData, setCommunityData] = useState<CommunityData>({
+    stats: {
+      activeMembers: 50000,
+      dailyDiscussions: 1200,
+      successStories: 2500,
+      countries: 85,
+    },
+    platforms: [
+      {
+        id: "1",
+        name: "WhatsApp Community",
+        memberCount: 25000,
+        description: "Join our active WhatsApp community for daily coding discussions and instant help",
+        link: "https://chat.whatsapp.com/apnacoding",
+        features: ["Instant Help", "Daily Challenges", "Job Updates", "Project Sharing"],
+      },
+      {
+        id: "2",
+        name: "Telegram Channel",
+        memberCount: 15000,
+        description: "Get latest updates, resources, and announcements on our Telegram channel",
+        link: "https://t.me/apnacoding",
+        features: ["Latest Updates", "Resources", "Announcements", "Tech News"],
+      },
+      {
+        id: "3",
+        name: "Discord Server",
+        memberCount: 8000,
+        description: "Voice chats, screen sharing, and collaborative coding sessions",
+        link: "https://discord.gg/apnacoding",
+        features: ["Voice Chats", "Screen Sharing", "Code Reviews", "Study Groups"],
+      },
+      {
+        id: "4",
+        name: "GitHub Community",
+        memberCount: 12000,
+        description: "Contribute to open source projects and showcase your coding skills",
+        link: "https://github.com/apnacoding",
+        features: ["Open Source", "Code Collaboration", "Project Showcase", "Mentorship"],
+      },
+    ],
+    testimonials: [
+      {
+        id: "1",
+        name: "Rahul Sharma",
+        role: "Software Engineer at Google",
+        content:
+          "Apna Coding community helped me land my dream job at Google. The support and resources are incredible!",
+        rating: 5,
+      },
+      {
+        id: "2",
+        name: "Priya Patel",
+        role: "Full Stack Developer",
+        content: "The daily coding challenges and peer support made learning so much easier. Highly recommend!",
+        rating: 5,
+      },
+      {
+        id: "3",
+        name: "Arjun Singh",
+        role: "Startup Founder",
+        content: "Found my co-founder and initial team members through this amazing community. Thank you!",
+        rating: 5,
+      },
+    ],
+  })
 
-interface Testimonial {
-  id: string
-  name: string
-  role: string
-  content: string
-  avatar: string
-}
+  const [editingPlatform, setEditingPlatform] = useState<string | null>(null)
+  const [editingTestimonial, setEditingTestimonial] = useState<string | null>(null)
+  const [newPlatform, setNewPlatform] = useState({
+    name: "",
+    memberCount: "",
+    description: "",
+    link: "",
+    features: [] as string[],
+  })
+  const [newTestimonial, setNewTestimonial] = useState({
+    name: "",
+    role: "",
+    content: "",
+    rating: 5,
+  })
+  const [newFeature, setNewFeature] = useState("")
 
-const AdminCommunityPage = () => {
-  const [platforms, setPlatforms] = useState<CommunityPlatform[]>([
-    {
-      id: "1",
-      name: "WhatsApp",
-      members: "5,000+",
-      description: "Get instant updates, announcements, and quick community interactions",
-      link: "https://chat.whatsapp.com/HqVg4ctR6QKJnfvemsEQ8H?mode=ac_t",
-      color: "bg-green-500",
-      features: ["Instant Updates", "Quick Help", "Announcements", "Community Chat"],
-    },
-    {
-      id: "2",
-      name: "Telegram",
-      members: "500+",
-      description: "Join our growing Telegram community for coding discussions and updates",
-      link: "https://t.me/apnacodingtech",
-      color: "bg-blue-500",
-      features: ["Coding Discussions", "Tech Updates", "File Sharing", "Group Chat"],
-    },
-    {
-      id: "3",
-      name: "Discord",
-      members: "200+",
-      description: "Join our main community hub for real-time discussions, coding help, and networking",
-      link: "https://discord.gg/krffBfBF",
-      color: "bg-indigo-500",
-      features: ["Voice Channels", "Screen Sharing", "Study Groups", "Live Events"],
-    },
-    {
-      id: "4",
-      name: "GitHub",
-      members: "100+",
-      description: "Collaborate on open-source projects, share code, and contribute to the community",
-      link: "https://github.com/APNA-CODING-BY-APNA-COUNSELLOR",
-      color: "bg-gray-800",
-      features: ["Open Source", "Code Reviews", "Project Collaboration", "Portfolio Building"],
-    },
-  ])
+  useEffect(() => {
+    loadCommunityData()
+  }, [])
 
-  const [stats, setStats] = useState<CommunityStat[]>([
-    {
-      id: "1",
-      value: "5,800+",
-      label: "Active Members",
-      description: "Growing community of developers",
-    },
-    {
-      id: "2",
-      value: "50+",
-      label: "Daily Discussions",
-      description: "Active conversations every day",
-    },
-    {
-      id: "3",
-      value: "100+",
-      label: "Success Stories",
-      description: "Members who got placed",
-    },
-    {
-      id: "4",
-      value: "25+",
-      label: "Countries",
-      description: "Global community reach",
-    },
-  ])
-
-  const [testimonials, setTestimonials] = useState<Testimonial[]>([
-    {
-      id: "1",
-      name: "Rahul Sharma",
-      role: "Software Engineer at Google",
-      content:
-        "The Apna Coding community helped me land my dream job. The support and guidance I received was incredible!",
-      avatar: "/placeholder-user.jpg",
-    },
-    {
-      id: "2",
-      name: "Priya Patel",
-      role: "Full Stack Developer",
-      content:
-        "Amazing community with helpful mentors. The coding challenges and discussions really improved my skills.",
-      avatar: "/placeholder-user.jpg",
-    },
-    {
-      id: "3",
-      name: "Arjun Kumar",
-      role: "Data Scientist at Microsoft",
-      content: "From beginner to professional - this community supported me throughout my journey. Highly recommended!",
-      avatar: "/placeholder-user.jpg",
-    },
-  ])
-
-  const [editingPlatform, setEditingPlatform] = useState<CommunityPlatform | null>(null)
-  const [editingStat, setEditingStat] = useState<CommunityStat | null>(null)
-  const [editingTestimonial, setEditingTestimonial] = useState<Testimonial | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-
-  const savePlatform = (platform: CommunityPlatform) => {
-    if (platform.id === "new") {
-      const newPlatform = { ...platform, id: Date.now().toString() }
-      setPlatforms([...platforms, newPlatform])
-    } else {
-      setPlatforms(platforms.map((p) => (p.id === platform.id ? platform : p)))
+  const loadCommunityData = () => {
+    const savedData = localStorage.getItem("communityData")
+    if (savedData) {
+      setCommunityData(JSON.parse(savedData))
     }
+  }
+
+  const saveCommunityData = () => {
+    setLoading(true)
+    try {
+      localStorage.setItem("communityData", JSON.stringify(communityData))
+      alert("Community data saved successfully!")
+    } catch (error) {
+      alert("Error saving data: " + error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const updateStats = (field: keyof CommunityData["stats"], value: number) => {
+    setCommunityData((prev) => ({
+      ...prev,
+      stats: {
+        ...prev.stats,
+        [field]: value,
+      },
+    }))
+  }
+
+  const addPlatform = () => {
+    if (!newPlatform.name || !newPlatform.description) return
+
+    const platform = {
+      id: Date.now().toString(),
+      ...newPlatform,
+      memberCount: Number.parseInt(newPlatform.memberCount) || 0,
+    }
+
+    setCommunityData((prev) => ({
+      ...prev,
+      platforms: [...prev.platforms, platform],
+    }))
+
+    setNewPlatform({
+      name: "",
+      memberCount: "",
+      description: "",
+      link: "",
+      features: [],
+    })
+  }
+
+  const updatePlatform = (id: string, updatedPlatform: any) => {
+    setCommunityData((prev) => ({
+      ...prev,
+      platforms: prev.platforms.map((p) => (p.id === id ? { ...p, ...updatedPlatform } : p)),
+    }))
     setEditingPlatform(null)
   }
 
   const deletePlatform = (id: string) => {
-    setPlatforms(platforms.filter((p) => p.id !== id))
-  }
-
-  const saveStat = (stat: CommunityStat) => {
-    setStats(stats.map((s) => (s.id === stat.id ? stat : s)))
-    setEditingStat(null)
-  }
-
-  const saveTestimonial = (testimonial: Testimonial) => {
-    if (testimonial.id === "new") {
-      const newTestimonial = { ...testimonial, id: Date.now().toString() }
-      setTestimonials([...testimonials, newTestimonial])
-    } else {
-      setTestimonials(testimonials.map((t) => (t.id === testimonial.id ? testimonial : t)))
+    if (confirm("Are you sure you want to delete this platform?")) {
+      setCommunityData((prev) => ({
+        ...prev,
+        platforms: prev.platforms.filter((p) => p.id !== id),
+      }))
     }
+  }
+
+  const addTestimonial = () => {
+    if (!newTestimonial.name || !newTestimonial.content) return
+
+    const testimonial = {
+      id: Date.now().toString(),
+      ...newTestimonial,
+    }
+
+    setCommunityData((prev) => ({
+      ...prev,
+      testimonials: [...prev.testimonials, testimonial],
+    }))
+
+    setNewTestimonial({
+      name: "",
+      role: "",
+      content: "",
+      rating: 5,
+    })
+  }
+
+  const updateTestimonial = (id: string, updatedTestimonial: any) => {
+    setCommunityData((prev) => ({
+      ...prev,
+      testimonials: prev.testimonials.map((t) => (t.id === id ? { ...t, ...updatedTestimonial } : t)),
+    }))
     setEditingTestimonial(null)
   }
 
   const deleteTestimonial = (id: string) => {
-    setTestimonials(testimonials.filter((t) => t.id !== id))
-  }
-
-  const saveAllChanges = async () => {
-    setIsLoading(true)
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    // In a real app, you would save to your database here
-    localStorage.setItem(
-      "communityData",
-      JSON.stringify({
-        platforms,
-        stats,
-        testimonials,
-      }),
-    )
-
-    setIsLoading(false)
-    alert("Community data saved successfully!")
-  }
-
-  useEffect(() => {
-    // Load saved data on component mount
-    const savedData = localStorage.getItem("communityData")
-    if (savedData) {
-      const { platforms: savedPlatforms, stats: savedStats, testimonials: savedTestimonials } = JSON.parse(savedData)
-      setPlatforms(savedPlatforms)
-      setStats(savedStats)
-      setTestimonials(savedTestimonials)
+    if (confirm("Are you sure you want to delete this testimonial?")) {
+      setCommunityData((prev) => ({
+        ...prev,
+        testimonials: prev.testimonials.filter((t) => t.id !== id),
+      }))
     }
-  }, [])
+  }
+
+  const addFeatureToNewPlatform = () => {
+    if (newFeature.trim() && !newPlatform.features.includes(newFeature.trim())) {
+      setNewPlatform((prev) => ({
+        ...prev,
+        features: [...prev.features, newFeature.trim()],
+      }))
+      setNewFeature("")
+    }
+  }
+
+  const removeFeatureFromNewPlatform = (feature: string) => {
+    setNewPlatform((prev) => ({
+      ...prev,
+      features: prev.features.filter((f) => f !== feature),
+    }))
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+    <div className="min-h-screen bg-black text-white pt-20">
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Community Management</h1>
-            <p className="text-gray-600 mt-2">Manage community platforms, statistics, and testimonials</p>
+            <h1 className="text-3xl font-bold text-white flex items-center gap-2">
+              <Users className="w-8 h-8 text-yellow-400" />
+              Community Management
+            </h1>
+            <p className="text-gray-400 mt-2">Manage community statistics, platforms, and testimonials</p>
           </div>
-          <Button onClick={saveAllChanges} disabled={isLoading} className="bg-green-600 hover:bg-green-700">
+          <Button
+            onClick={saveCommunityData}
+            disabled={loading}
+            className="bg-yellow-400 hover:bg-yellow-500 text-black"
+          >
             <Save className="w-4 h-4 mr-2" />
-            {isLoading ? "Saving..." : "Save All Changes"}
+            {loading ? "Saving..." : "Save Changes"}
           </Button>
         </div>
 
         {/* Community Statistics */}
-        <Card className="mb-8">
+        <Card className="bg-gray-900 border-gray-800 mb-8">
           <CardHeader>
-            <CardTitle>Community Statistics</CardTitle>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Settings className="w-5 h-5 text-yellow-400" />
+              Community Statistics
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {stats.map((stat) => (
-                <div key={stat.id} className="border rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="text-2xl font-bold">{stat.value}</div>
-                    <Button variant="ghost" size="sm" onClick={() => setEditingStat(stat)}>
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <div className="font-medium">{stat.label}</div>
-                  <div className="text-sm text-gray-600">{stat.description}</div>
-                </div>
-              ))}
+              <div>
+                <Label className="text-gray-300">Active Members</Label>
+                <Input
+                  type="number"
+                  value={communityData.stats.activeMembers}
+                  onChange={(e) => updateStats("activeMembers", Number.parseInt(e.target.value) || 0)}
+                  className="bg-gray-800 border-gray-700 text-white"
+                />
+              </div>
+              <div>
+                <Label className="text-gray-300">Daily Discussions</Label>
+                <Input
+                  type="number"
+                  value={communityData.stats.dailyDiscussions}
+                  onChange={(e) => updateStats("dailyDiscussions", Number.parseInt(e.target.value) || 0)}
+                  className="bg-gray-800 border-gray-700 text-white"
+                />
+              </div>
+              <div>
+                <Label className="text-gray-300">Success Stories</Label>
+                <Input
+                  type="number"
+                  value={communityData.stats.successStories}
+                  onChange={(e) => updateStats("successStories", Number.parseInt(e.target.value) || 0)}
+                  className="bg-gray-800 border-gray-700 text-white"
+                />
+              </div>
+              <div>
+                <Label className="text-gray-300">Countries</Label>
+                <Input
+                  type="number"
+                  value={communityData.stats.countries}
+                  onChange={(e) => updateStats("countries", Number.parseInt(e.target.value) || 0)}
+                  className="bg-gray-800 border-gray-700 text-white"
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Community Platforms */}
-        <Card className="mb-8">
+        <Card className="bg-gray-900 border-gray-800 mb-8">
           <CardHeader>
-            <div className="flex justify-between items-center">
-              <CardTitle>Community Platforms</CardTitle>
-              <Button
-                onClick={() =>
-                  setEditingPlatform({
-                    id: "new",
-                    name: "",
-                    members: "",
-                    description: "",
-                    link: "",
-                    color: "bg-blue-500",
-                    features: [],
-                  })
-                }
-              >
+            <CardTitle className="text-white flex items-center gap-2">
+              <Globe className="w-5 h-5 text-yellow-400" />
+              Community Platforms
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Add New Platform */}
+            <div className="p-4 bg-gray-800 rounded-lg">
+              <h3 className="text-lg font-semibold text-white mb-4">Add New Platform</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <Label className="text-gray-300">Platform Name</Label>
+                  <Input
+                    value={newPlatform.name}
+                    onChange={(e) => setNewPlatform((prev) => ({ ...prev, name: e.target.value }))}
+                    className="bg-gray-700 border-gray-600 text-white"
+                    placeholder="e.g., WhatsApp Community"
+                  />
+                </div>
+                <div>
+                  <Label className="text-gray-300">Member Count</Label>
+                  <Input
+                    type="number"
+                    value={newPlatform.memberCount}
+                    onChange={(e) => setNewPlatform((prev) => ({ ...prev, memberCount: e.target.value }))}
+                    className="bg-gray-700 border-gray-600 text-white"
+                    placeholder="e.g., 25000"
+                  />
+                </div>
+              </div>
+              <div className="mb-4">
+                <Label className="text-gray-300">Description</Label>
+                <Textarea
+                  value={newPlatform.description}
+                  onChange={(e) => setNewPlatform((prev) => ({ ...prev, description: e.target.value }))}
+                  className="bg-gray-700 border-gray-600 text-white"
+                  placeholder="Platform description"
+                />
+              </div>
+              <div className="mb-4">
+                <Label className="text-gray-300">Link</Label>
+                <Input
+                  value={newPlatform.link}
+                  onChange={(e) => setNewPlatform((prev) => ({ ...prev, link: e.target.value }))}
+                  className="bg-gray-700 border-gray-600 text-white"
+                  placeholder="https://..."
+                />
+              </div>
+              <div className="mb-4">
+                <Label className="text-gray-300">Features</Label>
+                <div className="flex gap-2 mb-2">
+                  <Input
+                    value={newFeature}
+                    onChange={(e) => setNewFeature(e.target.value)}
+                    className="bg-gray-700 border-gray-600 text-white"
+                    placeholder="Add feature"
+                    onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addFeatureToNewPlatform())}
+                  />
+                  <Button
+                    type="button"
+                    onClick={addFeatureToNewPlatform}
+                    className="bg-yellow-400 hover:bg-yellow-500 text-black"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {newPlatform.features.map((feature, index) => (
+                    <Badge key={index} variant="outline" className="border-yellow-400 text-yellow-400">
+                      {feature}
+                      <button
+                        type="button"
+                        onClick={() => removeFeatureFromNewPlatform(feature)}
+                        className="ml-2 text-red-400 hover:text-red-300"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+              <Button onClick={addPlatform} className="bg-green-500 hover:bg-green-600 text-white">
                 <Plus className="w-4 h-4 mr-2" />
                 Add Platform
               </Button>
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {platforms.map((platform) => (
-                <div key={platform.id} className="border rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-bold text-lg">{platform.name}</h3>
+
+            {/* Existing Platforms */}
+            <div className="space-y-4">
+              {communityData.platforms.map((platform) => (
+                <div key={platform.id} className="p-4 bg-gray-800 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-lg font-semibold text-white">{platform.name}</h3>
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => setEditingPlatform(platform)}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setEditingPlatform(platform.id)}
+                        className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black"
+                      >
                         <Edit className="w-4 h-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => deletePlatform(platform.id)}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => deletePlatform(platform.id)}
+                        className="border-red-400 text-red-400 hover:bg-red-400 hover:text-white"
+                      >
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
-                  <Badge className="mb-2">{platform.members} Members</Badge>
-                  <p className="text-sm text-gray-600 mb-2">{platform.description}</p>
-                  <div className="flex flex-wrap gap-1">
+                  <p className="text-gray-300 mb-2">{platform.description}</p>
+                  <p className="text-sm text-gray-400 mb-2">Members: {platform.memberCount.toLocaleString()}</p>
+                  <div className="flex flex-wrap gap-1 mb-2">
                     {platform.features.map((feature, index) => (
-                      <Badge key={index} variant="outline" className="text-xs">
+                      <Badge key={index} variant="outline" className="border-gray-600 text-gray-300 text-xs">
                         {feature}
                       </Badge>
                     ))}
                   </div>
+                  <a
+                    href={platform.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-yellow-400 hover:text-yellow-300 text-sm"
+                  >
+                    {platform.link}
+                  </a>
                 </div>
               ))}
             </div>
           </CardContent>
         </Card>
 
-        {/* Testimonials */}
-        <Card>
+        {/* Community Testimonials */}
+        <Card className="bg-gray-900 border-gray-800">
           <CardHeader>
-            <div className="flex justify-between items-center">
-              <CardTitle>Community Testimonials</CardTitle>
-              <Button
-                onClick={() =>
-                  setEditingTestimonial({
-                    id: "new",
-                    name: "",
-                    role: "",
-                    content: "",
-                    avatar: "/placeholder-user.jpg",
-                  })
-                }
-              >
+            <CardTitle className="text-white flex items-center gap-2">
+              <Heart className="w-5 h-5 text-yellow-400" />
+              Community Testimonials
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Add New Testimonial */}
+            <div className="p-4 bg-gray-800 rounded-lg">
+              <h3 className="text-lg font-semibold text-white mb-4">Add New Testimonial</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <Label className="text-gray-300">Name</Label>
+                  <Input
+                    value={newTestimonial.name}
+                    onChange={(e) => setNewTestimonial((prev) => ({ ...prev, name: e.target.value }))}
+                    className="bg-gray-700 border-gray-600 text-white"
+                    placeholder="Full name"
+                  />
+                </div>
+                <div>
+                  <Label className="text-gray-300">Role</Label>
+                  <Input
+                    value={newTestimonial.role}
+                    onChange={(e) => setNewTestimonial((prev) => ({ ...prev, role: e.target.value }))}
+                    className="bg-gray-700 border-gray-600 text-white"
+                    placeholder="Job title or role"
+                  />
+                </div>
+              </div>
+              <div className="mb-4">
+                <Label className="text-gray-300">Testimonial Content</Label>
+                <Textarea
+                  value={newTestimonial.content}
+                  onChange={(e) => setNewTestimonial((prev) => ({ ...prev, content: e.target.value }))}
+                  className="bg-gray-700 border-gray-600 text-white"
+                  placeholder="Testimonial content"
+                  rows={3}
+                />
+              </div>
+              <div className="mb-4">
+                <Label className="text-gray-300">Rating</Label>
+                <select
+                  value={newTestimonial.rating}
+                  onChange={(e) => setNewTestimonial((prev) => ({ ...prev, rating: Number.parseInt(e.target.value) }))}
+                  className="w-full bg-gray-700 border border-gray-600 text-white rounded-md px-3 py-2"
+                >
+                  <option value={5}>5 Stars</option>
+                  <option value={4}>4 Stars</option>
+                  <option value={3}>3 Stars</option>
+                  <option value={2}>2 Stars</option>
+                  <option value={1}>1 Star</option>
+                </select>
+              </div>
+              <Button onClick={addTestimonial} className="bg-green-500 hover:bg-green-600 text-white">
                 <Plus className="w-4 h-4 mr-2" />
                 Add Testimonial
               </Button>
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {testimonials.map((testimonial) => (
-                <div key={testimonial.id} className="border rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center">
-                      <img
-                        src={testimonial.avatar || "/placeholder.svg"}
-                        alt={testimonial.name}
-                        className="w-8 h-8 rounded-full mr-2"
-                      />
-                      <div>
-                        <div className="font-medium">{testimonial.name}</div>
-                        <div className="text-sm text-gray-600">{testimonial.role}</div>
-                      </div>
+
+            {/* Existing Testimonials */}
+            <div className="space-y-4">
+              {communityData.testimonials.map((testimonial) => (
+                <div key={testimonial.id} className="p-4 bg-gray-800 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">{testimonial.name}</h3>
+                      <p className="text-sm text-gray-400">{testimonial.role}</p>
                     </div>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => setEditingTestimonial(testimonial)}>
+                    <div className="flex items-center gap-2">
+                      <div className="flex">
+                        {[...Array(testimonial.rating)].map((_, i) => (
+                          <Star key={i} className="w-4 h-4 text-yellow-400 fill-current" />
+                        ))}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setEditingTestimonial(testimonial.id)}
+                        className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black"
+                      >
                         <Edit className="w-4 h-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => deleteTestimonial(testimonial.id)}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => deleteTestimonial(testimonial.id)}
+                        className="border-red-400 text-red-400 hover:bg-red-400 hover:text-white"
+                      >
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
-                  <p className="text-sm italic">"{testimonial.content}"</p>
+                  <p className="text-gray-300">{testimonial.content}</p>
                 </div>
               ))}
             </div>
           </CardContent>
         </Card>
-
-        {/* Edit Platform Modal */}
-        {editingPlatform && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <Card className="w-full max-w-md">
-              <CardHeader>
-                <CardTitle>{editingPlatform.id === "new" ? "Add Platform" : "Edit Platform"}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Platform Name</Label>
-                  <Input
-                    id="name"
-                    value={editingPlatform.name}
-                    onChange={(e) => setEditingPlatform({ ...editingPlatform, name: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="members">Member Count</Label>
-                  <Input
-                    id="members"
-                    value={editingPlatform.members}
-                    onChange={(e) => setEditingPlatform({ ...editingPlatform, members: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={editingPlatform.description}
-                    onChange={(e) => setEditingPlatform({ ...editingPlatform, description: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="link">Platform Link</Label>
-                  <Input
-                    id="link"
-                    value={editingPlatform.link}
-                    onChange={(e) => setEditingPlatform({ ...editingPlatform, link: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="features">Features (comma separated)</Label>
-                  <Input
-                    id="features"
-                    value={editingPlatform.features.join(", ")}
-                    onChange={(e) => setEditingPlatform({ ...editingPlatform, features: e.target.value.split(", ") })}
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={() => savePlatform(editingPlatform)}>Save</Button>
-                  <Button variant="outline" onClick={() => setEditingPlatform(null)}>
-                    Cancel
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Edit Stat Modal */}
-        {editingStat && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <Card className="w-full max-w-md">
-              <CardHeader>
-                <CardTitle>Edit Statistic</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="value">Value</Label>
-                  <Input
-                    id="value"
-                    value={editingStat.value}
-                    onChange={(e) => setEditingStat({ ...editingStat, value: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="label">Label</Label>
-                  <Input
-                    id="label"
-                    value={editingStat.label}
-                    onChange={(e) => setEditingStat({ ...editingStat, label: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="description">Description</Label>
-                  <Input
-                    id="description"
-                    value={editingStat.description}
-                    onChange={(e) => setEditingStat({ ...editingStat, description: e.target.value })}
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={() => saveStat(editingStat)}>Save</Button>
-                  <Button variant="outline" onClick={() => setEditingStat(null)}>
-                    Cancel
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Edit Testimonial Modal */}
-        {editingTestimonial && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <Card className="w-full max-w-md">
-              <CardHeader>
-                <CardTitle>{editingTestimonial.id === "new" ? "Add Testimonial" : "Edit Testimonial"}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Name</Label>
-                  <Input
-                    id="name"
-                    value={editingTestimonial.name}
-                    onChange={(e) => setEditingTestimonial({ ...editingTestimonial, name: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="role">Role</Label>
-                  <Input
-                    id="role"
-                    value={editingTestimonial.role}
-                    onChange={(e) => setEditingTestimonial({ ...editingTestimonial, role: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="content">Testimonial Content</Label>
-                  <Textarea
-                    id="content"
-                    value={editingTestimonial.content}
-                    onChange={(e) => setEditingTestimonial({ ...editingTestimonial, content: e.target.value })}
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={() => saveTestimonial(editingTestimonial)}>Save</Button>
-                  <Button variant="outline" onClick={() => setEditingTestimonial(null)}>
-                    Cancel
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
       </div>
     </div>
   )
 }
-
-export default AdminCommunityPage

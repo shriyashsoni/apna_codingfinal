@@ -1,388 +1,363 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { motion } from "framer-motion"
-import { MessageCircle, Github, Send, Users, TrendingUp, Award, Globe } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Users, MessageCircle, Globe, Github, Star, ArrowRight, Heart, Zap, Target, Award } from "lucide-react"
 
-interface CommunityPlatform {
-  id: string
-  name: string
-  members: string
-  description: string
-  link: string
-  color: string
-  features: string[]
+interface CommunityData {
+  stats: {
+    activeMembers: number
+    dailyDiscussions: number
+    successStories: number
+    countries: number
+  }
+  platforms: Array<{
+    id: string
+    name: string
+    memberCount: number
+    description: string
+    link: string
+    features: string[]
+  }>
+  testimonials: Array<{
+    id: string
+    name: string
+    role: string
+    content: string
+    rating: number
+  }>
 }
 
-interface CommunityStat {
-  id: string
-  value: string
-  label: string
-  description: string
-}
-
-interface Testimonial {
-  id: string
-  name: string
-  role: string
-  content: string
-  avatar: string
-}
-
-const CommunityPage = () => {
-  const [platforms, setPlatforms] = useState<CommunityPlatform[]>([
-    {
-      id: "1",
-      name: "WhatsApp",
-      members: "5,000+",
-      description: "Get instant updates, announcements, and quick community interactions",
-      link: "https://chat.whatsapp.com/HqVg4ctR6QKJnfvemsEQ8H?mode=ac_t",
-      color: "bg-green-500",
-      features: ["Instant Updates", "Quick Help", "Announcements", "Community Chat"],
+export default function CommunityPage() {
+  const [communityData, setCommunityData] = useState<CommunityData>({
+    stats: {
+      activeMembers: 50000,
+      dailyDiscussions: 1200,
+      successStories: 2500,
+      countries: 85,
     },
-    {
-      id: "2",
-      name: "Telegram",
-      members: "500+",
-      description: "Join our growing Telegram community for coding discussions and updates",
-      link: "https://t.me/apnacodingtech",
-      color: "bg-blue-500",
-      features: ["Coding Discussions", "Tech Updates", "File Sharing", "Group Chat"],
-    },
-    {
-      id: "3",
-      name: "Discord",
-      members: "200+",
-      description: "Join our main community hub for real-time discussions, coding help, and networking",
-      link: "https://discord.gg/krffBfBF",
-      color: "bg-indigo-500",
-      features: ["Voice Channels", "Screen Sharing", "Study Groups", "Live Events"],
-    },
-    {
-      id: "4",
-      name: "GitHub",
-      members: "100+",
-      description: "Collaborate on open-source projects, share code, and contribute to the community",
-      link: "https://github.com/APNA-CODING-BY-APNA-COUNSELLOR",
-      color: "bg-gray-800",
-      features: ["Open Source", "Code Reviews", "Project Collaboration", "Portfolio Building"],
-    },
-  ])
-
-  const [stats, setStats] = useState<CommunityStat[]>([
-    {
-      id: "1",
-      value: "5,800+",
-      label: "Active Members",
-      description: "Growing community of developers",
-    },
-    {
-      id: "2",
-      value: "50+",
-      label: "Daily Discussions",
-      description: "Active conversations every day",
-    },
-    {
-      id: "3",
-      value: "100+",
-      label: "Success Stories",
-      description: "Members who got placed",
-    },
-    {
-      id: "4",
-      value: "25+",
-      label: "Countries",
-      description: "Global community reach",
-    },
-  ])
-
-  const [testimonials, setTestimonials] = useState<Testimonial[]>([
-    {
-      id: "1",
-      name: "Rahul Sharma",
-      role: "Software Engineer at Google",
-      content:
-        "The Apna Coding community helped me land my dream job. The support and guidance I received was incredible!",
-      avatar: "/placeholder-user.jpg",
-    },
-    {
-      id: "2",
-      name: "Priya Patel",
-      role: "Full Stack Developer",
-      content:
-        "Amazing community with helpful mentors. The coding challenges and discussions really improved my skills.",
-      avatar: "/placeholder-user.jpg",
-    },
-    {
-      id: "3",
-      name: "Arjun Kumar",
-      role: "Data Scientist at Microsoft",
-      content: "From beginner to professional - this community supported me throughout my journey. Highly recommended!",
-      avatar: "/placeholder-user.jpg",
-    },
-  ])
+    platforms: [
+      {
+        id: "1",
+        name: "WhatsApp Community",
+        memberCount: 25000,
+        description: "Join our active WhatsApp community for daily coding discussions and instant help",
+        link: "https://chat.whatsapp.com/apnacoding",
+        features: ["Instant Help", "Daily Challenges", "Job Updates", "Project Sharing"],
+      },
+      {
+        id: "2",
+        name: "Telegram Channel",
+        memberCount: 15000,
+        description: "Get latest updates, resources, and announcements on our Telegram channel",
+        link: "https://t.me/apnacoding",
+        features: ["Latest Updates", "Resources", "Announcements", "Tech News"],
+      },
+      {
+        id: "3",
+        name: "Discord Server",
+        memberCount: 8000,
+        description: "Voice chats, screen sharing, and collaborative coding sessions",
+        link: "https://discord.gg/apnacoding",
+        features: ["Voice Chats", "Screen Sharing", "Code Reviews", "Study Groups"],
+      },
+      {
+        id: "4",
+        name: "GitHub Community",
+        memberCount: 12000,
+        description: "Contribute to open source projects and showcase your coding skills",
+        link: "https://github.com/apnacoding",
+        features: ["Open Source", "Code Collaboration", "Project Showcase", "Mentorship"],
+      },
+    ],
+    testimonials: [
+      {
+        id: "1",
+        name: "Rahul Sharma",
+        role: "Software Engineer at Google",
+        content:
+          "Apna Coding community helped me land my dream job at Google. The support and resources are incredible!",
+        rating: 5,
+      },
+      {
+        id: "2",
+        name: "Priya Patel",
+        role: "Full Stack Developer",
+        content: "The daily coding challenges and peer support made learning so much easier. Highly recommend!",
+        rating: 5,
+      },
+      {
+        id: "3",
+        name: "Arjun Singh",
+        role: "Startup Founder",
+        content: "Found my co-founder and initial team members through this amazing community. Thank you!",
+        rating: 5,
+      },
+    ],
+  })
 
   useEffect(() => {
-    // Load real-time data from localStorage (in a real app, this would be from an API)
-    const savedData = localStorage.getItem("communityData")
-    if (savedData) {
-      const { platforms: savedPlatforms, stats: savedStats, testimonials: savedTestimonials } = JSON.parse(savedData)
-      setPlatforms(savedPlatforms)
-      setStats(savedStats)
-      setTestimonials(savedTestimonials)
-    }
+    loadCommunityData()
   }, [])
 
-  const getIcon = (platformName: string) => {
-    switch (platformName.toLowerCase()) {
-      case "whatsapp":
-        return <MessageCircle key="whatsapp-icon" className="w-8 h-8" />
-      case "telegram":
-        return <Send key="telegram-icon" className="w-8 h-8" />
-      case "discord":
-        return <MessageCircle key="discord-icon" className="w-8 h-8" />
-      case "github":
-        return <Github key="github-icon" className="w-8 h-8" />
-      default:
-        return <MessageCircle key="default-icon" className="w-8 h-8" />
+  const loadCommunityData = () => {
+    const savedData = localStorage.getItem("communityData")
+    if (savedData) {
+      setCommunityData(JSON.parse(savedData))
     }
   }
 
-  const getStatIcon = (index: number) => {
-    const icons = [
-      <Users key="users-icon" className="w-6 h-6" />,
-      <TrendingUp key="trending-up-icon" className="w-6 h-6" />,
-      <Award key="award-icon" className="w-6 h-6" />,
-      <Globe key="globe-icon" className="w-6 h-6" />,
-    ]
-    return icons[index] || <Users key="default-stat-icon" className="w-6 h-6" />
+  const getPlatformIcon = (name: string) => {
+    if (name.toLowerCase().includes("whatsapp")) return MessageCircle
+    if (name.toLowerCase().includes("telegram")) return MessageCircle
+    if (name.toLowerCase().includes("discord")) return MessageCircle
+    if (name.toLowerCase().includes("github")) return Github
+    return Globe
   }
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-black text-white">
       {/* Hero Section */}
-      <section className="relative py-20 px-4">
-        <div className="container mx-auto text-center">
-          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
-            <Badge className="mb-4 bg-white/20 text-white border-white/30">
-              {stats[0]?.value || "5,800+"} Active Members
-            </Badge>
-            <h1 className="text-4xl md:text-6xl font-bold text-white mb-6">
-              Join Our <span className="text-white">Coding Community</span>
-            </h1>
-            <p className="text-xl text-white mb-8 max-w-3xl mx-auto">
-              Connect with like-minded developers, get coding help, participate in discussions, and grow your career
-              with our supportive community across multiple platforms.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button asChild size="lg" className="bg-white text-black hover:bg-gray-100">
-                <a
-                  href={platforms[0]?.link || "https://chat.whatsapp.com/HqVg4ctR6QKJnfvemsEQ8H?mode=ac_t"}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Join {platforms[0]?.name || "WhatsApp"} Community
-                </a>
-              </Button>
-              <Button
-                asChild
-                variant="outline"
-                size="lg"
-                className="border-white text-white hover:bg-white hover:text-black bg-transparent"
-              >
-                <a href={platforms[1]?.link || "https://t.me/apnacodingtech"} target="_blank" rel="noopener noreferrer">
-                  Join {platforms[1]?.name || "Telegram"}
-                </a>
-              </Button>
+      <div className="relative py-20 px-4 text-center">
+        <div className="absolute inset-0 bg-gradient-to-b from-black/50 to-transparent" />
+        <div className="relative max-w-4xl mx-auto">
+          <h1 className="text-5xl md:text-6xl font-bold mb-6 text-white">
+            Join Our <span className="text-white">Community</span>
+          </h1>
+          <p className="text-xl text-white mb-8 max-w-2xl mx-auto">
+            Connect with thousands of developers, share knowledge, get help, and grow together in our vibrant coding
+            community.
+          </p>
+          <div className="flex flex-wrap justify-center gap-6 text-sm text-white">
+            <div className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-white" />
+              <span>{communityData.stats.activeMembers.toLocaleString()}+ Active Members</span>
             </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Community Stats */}
-      <section className="py-16 px-4">
-        <div className="container mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {stats.map((stat, index) => (
-              <motion.div
-                key={stat.id}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-                viewport={{ once: true }}
-              >
-                <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-center">
-                  <CardContent className="p-6">
-                    <div className="flex justify-center mb-3 text-white">{getStatIcon(index)}</div>
-                    <div className="text-2xl font-bold text-white mb-1">{stat.value}</div>
-                    <div className="text-sm font-medium text-white mb-1">{stat.label}</div>
-                    <div className="text-xs text-white/80">{stat.description}</div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
+            <div className="flex items-center gap-2">
+              <MessageCircle className="w-5 h-5 text-white" />
+              <span>{communityData.stats.dailyDiscussions.toLocaleString()}+ Daily Discussions</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Award className="w-5 h-5 text-white" />
+              <span>{communityData.stats.successStories.toLocaleString()}+ Success Stories</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Globe className="w-5 h-5 text-white" />
+              <span>{communityData.stats.countries}+ Countries</span>
+            </div>
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* Community Platforms */}
-      <section className="py-16 px-4">
-        <div className="container mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="text-center mb-12"
-          >
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-              Choose Your <span className="text-white">Platform</span>
-            </h2>
-            <p className="text-white text-lg max-w-2xl mx-auto">
-              Join us on your preferred platform and become part of our growing community of developers and tech
-              enthusiasts.
+      <div className="max-w-7xl mx-auto px-4 pb-20">
+        {/* Community Stats */}
+        <div className="mb-16">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <Card className="bg-black border-white hover:border-white transition-all duration-300 group">
+              <CardContent className="p-6 text-center">
+                <Users className="w-12 h-12 text-white mx-auto mb-4 group-hover:scale-110 transition-transform" />
+                <h3 className="text-3xl font-bold text-white mb-2">
+                  {communityData.stats.activeMembers.toLocaleString()}+
+                </h3>
+                <p className="text-white">Active Members</p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-black border-white hover:border-white transition-all duration-300 group">
+              <CardContent className="p-6 text-center">
+                <MessageCircle className="w-12 h-12 text-white mx-auto mb-4 group-hover:scale-110 transition-transform" />
+                <h3 className="text-3xl font-bold text-white mb-2">
+                  {communityData.stats.dailyDiscussions.toLocaleString()}+
+                </h3>
+                <p className="text-white">Daily Discussions</p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-black border-white hover:border-white transition-all duration-300 group">
+              <CardContent className="p-6 text-center">
+                <Award className="w-12 h-12 text-white mx-auto mb-4 group-hover:scale-110 transition-transform" />
+                <h3 className="text-3xl font-bold text-white mb-2">
+                  {communityData.stats.successStories.toLocaleString()}+
+                </h3>
+                <p className="text-white">Success Stories</p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-black border-white hover:border-white transition-all duration-300 group">
+              <CardContent className="p-6 text-center">
+                <Globe className="w-12 h-12 text-white mx-auto mb-4 group-hover:scale-110 transition-transform" />
+                <h3 className="text-3xl font-bold text-white mb-2">{communityData.stats.countries}+</h3>
+                <p className="text-white">Countries</p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Community Platforms */}
+        <div className="mb-16">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold text-white mb-4">Join Our Platforms</h2>
+            <p className="text-xl text-white max-w-2xl mx-auto">
+              Choose your preferred platform and start connecting with fellow developers today
             </p>
-          </motion.div>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {platforms.map((platform, index) => (
-              <motion.div
-                key={platform.id}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-                viewport={{ once: true }}
-              >
-                <Card className="bg-white/10 backdrop-blur-sm border-white/20 hover:bg-white/15 transition-all duration-300 h-full">
-                  <CardContent className="p-8">
-                    <div className="flex items-start justify-between mb-6">
-                      <div className={`p-3 rounded-lg ${platform.color} text-white`}>{getIcon(platform.name)}</div>
-                      <Badge className="bg-white/20 text-white border-white/30">{platform.members} Members</Badge>
+            {communityData.platforms.map((platform) => {
+              const IconComponent = getPlatformIcon(platform.name)
+              return (
+                <Card
+                  key={platform.id}
+                  className="bg-black border-white hover:border-white transition-all duration-300 group"
+                >
+                  <CardHeader className="pb-4">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="p-3 bg-white rounded-lg">
+                        <IconComponent className="w-8 h-8 text-black" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-white text-xl group-hover:text-white transition-colors">
+                          {platform.name}
+                        </CardTitle>
+                        <p className="text-white text-sm">{platform.memberCount.toLocaleString()} members</p>
+                      </div>
                     </div>
+                  </CardHeader>
 
-                    <h3 className="text-2xl font-bold text-white mb-3">{platform.name}</h3>
-                    <p className="text-white mb-6">{platform.description}</p>
+                  <CardContent className="space-y-4">
+                    <p className="text-white leading-relaxed">{platform.description}</p>
 
-                    <div className="grid grid-cols-2 gap-2 mb-6">
-                      {platform.features.map((feature, featureIndex) => (
-                        <div key={featureIndex} className="flex items-center text-sm text-white">
-                          <div className="w-1.5 h-1.5 bg-white rounded-full mr-2"></div>
+                    <div className="flex flex-wrap gap-2">
+                      {platform.features.map((feature, index) => (
+                        <Badge
+                          key={index}
+                          variant="outline"
+                          className="border-white text-white hover:bg-white hover:text-black transition-colors"
+                        >
                           {feature}
-                        </div>
+                        </Badge>
                       ))}
                     </div>
 
-                    <Button asChild className="w-full bg-white text-black hover:bg-gray-100">
-                      <a href={platform.link} target="_blank" rel="noopener noreferrer">
-                        Join {platform.name}
-                      </a>
+                    <Button
+                      onClick={() => window.open(platform.link, "_blank")}
+                      className="w-full bg-white hover:bg-white text-black group-hover:scale-105 transition-transform"
+                    >
+                      Join {platform.name}
+                      <ArrowRight className="w-4 h-4 ml-2" />
                     </Button>
                   </CardContent>
                 </Card>
-              </motion.div>
-            ))}
+              )
+            })}
           </div>
         </div>
-      </section>
 
-      {/* Testimonials */}
-      <section className="py-16 px-4">
-        <div className="container mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="text-center mb-12"
-          >
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-              What Our <span className="text-white">Community Says</span>
-            </h2>
-            <p className="text-white text-lg">Real stories from our community members who achieved their goals</p>
-          </motion.div>
+        {/* Community Benefits */}
+        <div className="mb-16">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold text-white mb-4">Why Join Our Community?</h2>
+            <p className="text-xl text-white max-w-2xl mx-auto">
+              Discover the benefits of being part of our thriving developer community
+            </p>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <motion.div
+            <Card className="bg-black border-white hover:border-white transition-all duration-300 group">
+              <CardContent className="p-6 text-center">
+                <Zap className="w-12 h-12 text-white mx-auto mb-4 group-hover:scale-110 transition-transform" />
+                <h3 className="text-xl font-bold text-white mb-3">Instant Help</h3>
+                <p className="text-white">
+                  Get quick answers to your coding questions from experienced developers 24/7
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-black border-white hover:border-white transition-all duration-300 group">
+              <CardContent className="p-6 text-center">
+                <Target className="w-12 h-12 text-white mx-auto mb-4 group-hover:scale-110 transition-transform" />
+                <h3 className="text-xl font-bold text-white mb-3">Career Growth</h3>
+                <p className="text-white">
+                  Access job opportunities, interview tips, and career guidance from industry experts
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-black border-white hover:border-white transition-all duration-300 group">
+              <CardContent className="p-6 text-center">
+                <Heart className="w-12 h-12 text-white mx-auto mb-4 group-hover:scale-110 transition-transform" />
+                <h3 className="text-xl font-bold text-white mb-3">Networking</h3>
+                <p className="text-white">
+                  Connect with like-minded developers, find collaborators, and build lasting relationships
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Community Testimonials */}
+        <div className="mb-16">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold text-white mb-4">What Our Members Say</h2>
+            <p className="text-xl text-white max-w-2xl mx-auto">
+              Hear from developers who have transformed their careers through our community
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {communityData.testimonials.map((testimonial) => (
+              <Card
                 key={testimonial.id}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-                viewport={{ once: true }}
+                className="bg-black border-white hover:border-white transition-all duration-300 group"
               >
-                <Card className="bg-white/10 backdrop-blur-sm border-white/20">
-                  <CardContent className="p-6">
-                    <p className="text-white mb-4 italic">"{testimonial.content}"</p>
-                    <div className="flex items-center">
-                      <img
-                        src={testimonial.avatar || "/placeholder.svg"}
-                        alt={testimonial.name}
-                        className="w-10 h-10 rounded-full mr-3"
-                      />
-                      <div>
-                        <div className="text-white font-medium">{testimonial.name}</div>
-                        <div className="text-white/80 text-sm">{testimonial.role}</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
+                <CardContent className="p-6">
+                  <div className="flex mb-4">
+                    {[...Array(testimonial.rating)].map((_, i) => (
+                      <Star key={i} className="w-5 h-5 text-white fill-current" />
+                    ))}
+                  </div>
+                  <p className="text-white mb-4 leading-relaxed">"{testimonial.content}"</p>
+                  <div>
+                    <p className="font-semibold text-white">{testimonial.name}</p>
+                    <p className="text-sm text-white">{testimonial.role}</p>
+                  </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
         </div>
-      </section>
 
-      {/* CTA Section */}
-      <section className="py-16 px-4">
-        <div className="container mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="text-center"
-          >
-            <Card className="bg-white/20 backdrop-blur-sm border-white/30">
-              <CardContent className="p-12">
-                <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">Ready to Join Our Community?</h2>
-                <p className="text-white text-lg mb-8 max-w-2xl mx-auto">
-                  Start your journey with thousands of developers who are learning, growing, and succeeding together.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Button asChild size="lg" className="bg-white text-black hover:bg-gray-100">
-                    <a
-                      href={platforms[0]?.link || "https://chat.whatsapp.com/HqVg4ctR6QKJnfvemsEQ8H?mode=ac_t"}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Join {platforms[0]?.name || "WhatsApp"} ({platforms[0]?.members || "5,000+"} Members)
-                    </a>
-                  </Button>
-                  <Button
-                    asChild
-                    variant="outline"
-                    size="lg"
-                    className="border-white text-white hover:bg-white hover:text-black bg-transparent"
-                  >
-                    <a
-                      href={platforms[1]?.link || "https://t.me/apnacodingtech"}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Join {platforms[1]?.name || "Telegram"} ({platforms[1]?.members || "500+"} Members)
-                    </a>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+        {/* Call to Action */}
+        <div className="text-center">
+          <Card className="bg-black border-white">
+            <CardContent className="p-12">
+              <h2 className="text-4xl font-bold text-white mb-4">Ready to Join?</h2>
+              <p className="text-xl text-white mb-8 max-w-2xl mx-auto">
+                Start your journey with thousands of developers who are already growing their careers with us
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button
+                  onClick={() => window.open(communityData.platforms[0]?.link, "_blank")}
+                  className="bg-white hover:bg-white text-black px-8 py-3 text-lg"
+                >
+                  Join WhatsApp Community
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+                <Button
+                  onClick={() => window.open(communityData.platforms[1]?.link, "_blank")}
+                  variant="outline"
+                  className="border-white text-white hover:bg-white hover:text-black px-8 py-3 text-lg"
+                >
+                  Join Telegram Channel
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      </section>
+      </div>
     </div>
   )
 }
-
-export default CommunityPage
