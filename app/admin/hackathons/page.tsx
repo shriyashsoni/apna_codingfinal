@@ -131,14 +131,9 @@ export default function AdminHackathons() {
     }
   }
 
-  const createSlug = (title: string, id: string) => {
+  const createSlug = (hackathon: Hackathon) => {
     return (
-      title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "") +
-      "-" +
-      id
+      hackathon.slug || `${hackathon.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${hackathon.id.substring(0, 8)}`
     )
   }
 
@@ -302,7 +297,7 @@ export default function AdminHackathons() {
                       size="sm"
                       variant="outline"
                       className="border-blue-400 text-blue-400 hover:bg-blue-400 hover:text-black bg-transparent"
-                      onClick={() => window.open(`/hackathons/${createSlug(hackathon.title, hackathon.id)}`, "_blank")}
+                      onClick={() => window.open(`/hackathons/${createSlug(hackathon)}`, "_blank")}
                     >
                       View
                     </Button>

@@ -70,6 +70,7 @@ export interface Hackathon {
   max_team_size?: number
   created_at: string
   updated_at: string
+  slug?: string
 }
 
 export interface Job {
@@ -463,6 +464,12 @@ export const deleteHackathon = async (id: string) => {
 
 export const getHackathonById = async (id: string) => {
   const { data, error } = await supabase.from("hackathons").select("*").eq("id", id).single()
+  return { data, error }
+}
+
+// Get hackathon by slug
+export const getHackathonBySlug = async (slug: string) => {
+  const { data, error } = await supabase.from("hackathons").select("*").eq("slug", slug).single()
   return { data, error }
 }
 

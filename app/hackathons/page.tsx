@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/router"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -22,6 +23,7 @@ import {
 import { getCurrentUser, getHackathons, searchHackathons, type Hackathon } from "@/lib/supabase"
 
 export default function HackathonsPage() {
+  const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
   const [filteredHackathons, setFilteredHackathons] = useState<Hackathon[]>([])
   const [selectedStatus, setSelectedStatus] = useState<string>("all")
@@ -118,6 +120,17 @@ export default function HackathonsPage() {
     if (hackathon.whatsapp_link) {
       window.open(hackathon.whatsapp_link, "_blank")
     }
+  }
+
+  const createSlug = (hackathon: Hackathon) => {
+    return (
+      hackathon.slug || `${hackathon.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${hackathon.id.substring(0, 8)}`
+    )
+  }
+
+  const handleHackathonClick = (hackathon: Hackathon) => {
+    const slug = createSlug(hackathon)
+    router.push(`/hackathons/${slug}`)
   }
 
   const getStatusColor = (status: string) => {
@@ -229,7 +242,8 @@ export default function HackathonsPage() {
               .map((hackathon) => (
                 <Card
                   key={hackathon.id}
-                  className="bg-black border-yellow-400 hover:border-yellow-300 transition-all duration-300 group ring-2 ring-yellow-400/50"
+                  className="bg-black border-yellow-400 hover:border-yellow-300 transition-all duration-300 group ring-2 ring-yellow-400/50 cursor-pointer"
+                  onClick={() => handleHackathonClick(hackathon)}
                 >
                   <CardHeader className="pb-4">
                     <div className="relative">
@@ -376,7 +390,8 @@ export default function HackathonsPage() {
               .map((hackathon) => (
                 <Card
                   key={hackathon.id}
-                  className="bg-black border-gray-800 hover:border-yellow-400 transition-all duration-300 group"
+                  className="bg-black border-gray-800 hover:border-yellow-400 transition-all duration-300 group cursor-pointer"
+                  onClick={() => handleHackathonClick(hackathon)}
                 >
                   <CardHeader className="pb-4">
                     <div className="relative">
