@@ -145,9 +145,9 @@ export const removeOrganizerRole = async (roleId: string) => {
 // Permission checking functions
 export const checkUserPermission = async (userId: string, permissionType: string, permissionLevel = "read") => {
   const { data, error } = await supabase.rpc("check_user_permission", {
-    user_id: userId,
-    permission_type: permissionType,
-    permission_level: permissionLevel,
+    user_id_param: userId,
+    permission_type_param: permissionType,
+    required_level: permissionLevel,
   })
 
   if (error) {
@@ -165,6 +165,43 @@ export const hasPermission = async (permissionType: string, permissionLevel = "r
   }
 
   return await checkUserPermission(currentUser.data.user.id, permissionType, permissionLevel)
+}
+
+// Get permission statistics for admin dashboard
+export const getPermissionStats = async () => {
+  try {
+    const [permissionsResult, rolesResult] = await Promise.all([
+      supabase.from("user_permissions").select("*").eq("is_active", true),
+      supabase.from("organizer_roles").select("*").eq("is_active", true),
+    ])
+
+    const permissions = permissionsResult.data || []
+    const roles = rolesResult.data || []
+
+    return {
+      total_permissions: permissions.length,
+      active_organizers: roles.length,
+      permission_types: {
+        hackathons: permissions.filter((p) => p.permission_type === "hackathons").length,
+        courses: permissions.filter((p) => p.permission_type === "courses").length,
+        jobs: permissions.filter((p) => p.permission_type === "jobs").length,
+        all: permissions.filter((p) => p.permission_type === "all").length,
+      },
+      organizer_types: {
+        hackathon_organizer: roles.filter((r) => r.role_name === "hackathon_organizer").length,
+        course_instructor: roles.filter((r) => r.role_name === "course_instructor").length,
+        job_poster: roles.filter((r) => r.role_name === "job_poster").length,
+      },
+    }
+  } catch (error) {
+    console.error("Error getting permission stats:", error)
+    return {
+      total_permissions: 0,
+      active_organizers: 0,
+      permission_types: { hackathons: 0, courses: 0, jobs: 0, all: 0 },
+      organizer_types: { hackathon_organizer: 0, course_instructor: 0, job_poster: 0 },
+    }
+  }
 }
 
 // Get all permissions for a user (including from roles)

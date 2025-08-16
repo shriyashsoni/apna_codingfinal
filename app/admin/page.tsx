@@ -7,11 +7,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { getCurrentUser, getDetailedAnalytics, type User } from "@/lib/supabase"
-import { Users, BookOpen, Trophy, Briefcase, TrendingUp, TrendingDown, BarChart3, Settings, Plus } from "lucide-react"
+import { getPermissionStats } from "@/lib/permissions"
+import {
+  Users,
+  BookOpen,
+  Trophy,
+  Briefcase,
+  TrendingUp,
+  TrendingDown,
+  BarChart3,
+  Settings,
+  Plus,
+  Shield,
+  AlertTriangle,
+} from "lucide-react"
 
 export default function AdminDashboard() {
   const [user, setUser] = useState<User | null>(null)
   const [analytics, setAnalytics] = useState<any>(null)
+  const [permissionStats, setPermissionStats] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
@@ -34,9 +48,11 @@ export default function AdminDashboard() {
 
       setUser(currentUser)
 
-      // Load analytics data
-      const analyticsData = await getDetailedAnalytics()
+      // Load analytics and permission data
+      const [analyticsData, permissionsData] = await Promise.all([getDetailedAnalytics(), getPermissionStats()])
+
       setAnalytics(analyticsData)
+      setPermissionStats(permissionsData)
     } catch (error) {
       console.error("Error loading admin data:", error)
     } finally {
@@ -66,10 +82,35 @@ export default function AdminDashboard() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-white mb-2">
-            Admin <span className="text-yellow-400">Dashboard</span> 🛠️
+            🔒 Admin <span className="text-yellow-400">Dashboard</span> 🛠️
           </h1>
           <p className="text-gray-300 text-lg">Manage your platform and monitor performance</p>
         </div>
+
+        {/* Permission System Alert */}
+        <Card className="bg-yellow-900/20 border-yellow-500/50 mb-8">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <AlertTriangle className="w-6 h-6 text-yellow-400 flex-shrink-0 mt-1" />
+              <div>
+                <h3 className="text-yellow-400 font-bold text-lg mb-2">🔒 PERMISSION SYSTEM ACTIVE</h3>
+                <p className="text-gray-300 mb-3">
+                  Database and Admin Portal are now connected. Only Admins can grant permissions to users and create
+                  Organizers.
+                </p>
+                <div className="flex gap-4">
+                  <Link href="/admin/permissions">
+                    <Button className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold">
+                      <Shield className="w-4 h-4 mr-2" />
+                      Manage Permissions
+                    </Button>
+                  </Link>
+                  <Badge className="bg-green-500 text-white px-3 py-1">System Protected ✅</Badge>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -209,6 +250,25 @@ export default function AdminDashboard() {
                 </Link>
               </div>
 
+              {/* NEW: Permissions Management */}
+              <div className="pt-4 border-t border-gray-700">
+                <h4 className="text-white font-semibold mb-3 flex items-center">
+                  <Shield className="w-4 h-4 mr-2 text-yellow-400" />🔒 Permissions & Roles
+                </h4>
+                <Link href="/admin/permissions">
+                  <Button className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold mb-3">
+                    <Shield className="w-4 h-4 mr-2" />
+                    Manage Permissions
+                  </Button>
+                </Link>
+                <div className="text-xs text-gray-400 space-y-1">
+                  <p>• Assign organizer roles to users</p>
+                  <p>• Grant specific content permissions</p>
+                  <p>• Set time-limited access</p>
+                  <p>• Manage user access levels</p>
+                </div>
+              </div>
+
               <div className="pt-4 border-t border-gray-700">
                 <h4 className="text-white font-semibold mb-3">Quick Add</h4>
                 <div className="grid grid-cols-1 gap-2">
@@ -288,6 +348,69 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
+        {/* NEW: Permissions Overview Card */}
+        <Card className="bg-gray-900/50 border-gray-700 mb-8">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center">
+              <Shield className="w-5 h-5 mr-2 text-yellow-400" />🔒 Permissions Overview
+            </CardTitle>
+            <CardDescription className="text-gray-400">Current user permissions and organizer roles</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-gray-800/50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-white font-medium">Active Organizers</span>
+                  <Badge className="bg-blue-500 text-white">{permissionStats?.active_organizers || 0}</Badge>
+                </div>
+                <div className="text-xs text-gray-400">Users with organizer roles assigned</div>
+              </div>
+
+              <div className="bg-gray-800/50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-white font-medium">Custom Permissions</span>
+                  <Badge className="bg-green-500 text-white">{permissionStats?.total_permissions || 0}</Badge>
+                </div>
+                <div className="text-xs text-gray-400">Individual permissions granted</div>
+              </div>
+
+              <div className="bg-gray-800/50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-white font-medium">Permission Types</span>
+                  <div className="flex gap-1">
+                    <Badge variant="outline" className="border-blue-400 text-blue-400 text-xs">
+                      H: {permissionStats?.permission_types?.hackathons || 0}
+                    </Badge>
+                    <Badge variant="outline" className="border-green-400 text-green-400 text-xs">
+                      C: {permissionStats?.permission_types?.courses || 0}
+                    </Badge>
+                    <Badge variant="outline" className="border-orange-400 text-orange-400 text-xs">
+                      J: {permissionStats?.permission_types?.jobs || 0}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="text-xs text-gray-400">H: Hackathons, C: Courses, J: Jobs</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Link href="/admin/permissions">
+                <Button className="w-full bg-yellow-400 hover:bg-yellow-500 text-black">
+                  <Shield className="w-4 h-4 mr-2" />
+                  Manage All Permissions
+                </Button>
+              </Link>
+              <div className="bg-green-900/20 border border-green-500/50 rounded-lg p-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  <span className="text-green-400 font-semibold text-sm">Permission System Active</span>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">All content posting is now protected</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Recent Activity */}
         <Card className="bg-gray-900/50 border-gray-700">
           <CardHeader>
@@ -299,7 +422,7 @@ export default function AdminDashboard() {
               <div className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg">
                 <div className="flex items-center space-x-3">
                   <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                  <span className="text-white">System is running smoothly</span>
+                  <span className="text-white">🔒 Permission system activated</span>
                 </div>
                 <span className="text-gray-400 text-sm">Just now</span>
               </div>
@@ -318,6 +441,16 @@ export default function AdminDashboard() {
                   <span className="text-white">New user registrations: +{analytics?.growth?.userGrowth || 0}%</span>
                 </div>
                 <span className="text-gray-400 text-sm">Today</span>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                  <span className="text-white">
+                    Organizer roles assigned: {permissionStats?.active_organizers || 0}
+                  </span>
+                </div>
+                <span className="text-gray-400 text-sm">This week</span>
               </div>
             </div>
           </CardContent>

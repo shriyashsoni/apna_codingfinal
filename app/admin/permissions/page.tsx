@@ -12,6 +12,7 @@ import {
   assignOrganizerRole,
   removeOrganizerRole,
   getOrganizerRoles,
+  getPermissionStats,
   type UserPermission,
   type OrganizerRole,
 } from "@/lib/permissions"
@@ -20,7 +21,20 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Users, Search, Shield, Plus, Trash2, Calendar, BookOpen, Briefcase, Crown, Clock } from "lucide-react"
+import {
+  Users,
+  Search,
+  Shield,
+  Plus,
+  Trash2,
+  Calendar,
+  BookOpen,
+  Briefcase,
+  Crown,
+  Clock,
+  UserPlus,
+  AlertTriangle,
+} from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -43,6 +57,7 @@ export default function AdminPermissions() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [showPermissionDialog, setShowPermissionDialog] = useState(false)
   const [showRoleDialog, setShowRoleDialog] = useState(false)
+  const [stats, setStats] = useState<any>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -89,14 +104,16 @@ export default function AdminPermissions() {
 
   const loadData = async () => {
     try {
-      const { data: usersData, error: usersError } = await getAllUsers()
-      if (usersError) {
-        console.error("Error loading users:", usersError)
+      const [usersResult, statsResult] = await Promise.all([getAllUsers(), getPermissionStats()])
+
+      if (usersResult.error) {
+        console.error("Error loading users:", usersResult.error)
         return
       }
 
-      const allUsers = usersData || []
+      const allUsers = usersResult.data || []
       setUsers(allUsers)
+      setStats(statsResult)
 
       // Load permissions and roles for each user
       const permissionsMap: { [key: string]: UserPermission[] } = {}
@@ -266,8 +283,7 @@ export default function AdminPermissions() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-white flex items-center gap-2">
-                <Shield className="w-8 h-8 text-yellow-400" />
-                User Permissions & Roles
+                <Shield className="w-8 h-8 text-yellow-400" />🔒 Admin & Permission Control
               </h1>
               <p className="text-gray-400 mt-1">Manage user permissions and organizer roles</p>
             </div>
@@ -283,6 +299,83 @@ export default function AdminPermissions() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Permission Rules Warning */}
+        <Card className="bg-red-900/20 border-red-500/50 mb-6">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <AlertTriangle className="w-6 h-6 text-red-400 flex-shrink-0 mt-1" />
+              <div>
+                <h3 className="text-red-400 font-bold text-lg mb-2">🔒 STRICT PERMISSION RULES</h3>
+                <div className="text-gray-300 space-y-2">
+                  <p>
+                    <strong>✅ Only Admins can:</strong>
+                  </p>
+                  <ul className="list-disc list-inside ml-4 space-y-1">
+                    <li>Grant permissions to users</li>
+                    <li>Create and manage Organizers</li>
+                    <li>Access this admin portal</li>
+                  </ul>
+                  <p>
+                    <strong>✅ Organizers can only:</strong>
+                  </p>
+                  <ul className="list-disc list-inside ml-4 space-y-1">
+                    <li>Post content in their assigned category (Hackathons/Courses/Jobs)</li>
+                    <li>Only after explicit Admin approval</li>
+                  </ul>
+                  <p>
+                    <strong>❌ Regular users:</strong> Cannot post any content without permissions
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+          <Card className="bg-gray-900 border-gray-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-400">Total Permissions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-white">{stats?.total_permissions || 0}</div>
+              <p className="text-xs text-gray-500">Custom permissions granted</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gray-900 border-gray-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-400">Active Organizers</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-yellow-400">{stats?.active_organizers || 0}</div>
+              <p className="text-xs text-gray-500">Users with organizer roles</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gray-900 border-gray-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-400">Hackathon Organizers</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-400">
+                {stats?.organizer_types?.hackathon_organizer || 0}
+              </div>
+              <p className="text-xs text-gray-500">Can manage hackathons</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gray-900 border-gray-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-400">Course Instructors</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-400">{stats?.organizer_types?.course_instructor || 0}</div>
+              <p className="text-xs text-gray-500">Can manage courses</p>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Search */}
         <Card className="bg-gray-900 border-gray-800 mb-6">
           <CardHeader>
@@ -349,7 +442,7 @@ export default function AdminPermissions() {
                           disabled={userData.email === "sonishriyash@gmail.com"}
                         >
                           <Plus className="w-4 h-4 mr-1" />
-                          Permission
+                          Grant Permission
                         </Button>
                       </DialogTrigger>
                       <DialogContent className="bg-gray-900 border-gray-700">
@@ -375,8 +468,8 @@ export default function AdminPermissions() {
                           onClick={() => setSelectedUser(userData)}
                           disabled={userData.email === "sonishriyash@gmail.com"}
                         >
-                          <Crown className="w-4 h-4 mr-1" />
-                          Role
+                          <UserPlus className="w-4 h-4 mr-1" />
+                          Make Organizer
                         </Button>
                       </DialogTrigger>
                       <DialogContent className="bg-gray-900 border-gray-700">
@@ -582,6 +675,33 @@ function RoleForm({
             <SelectItem value="job_poster">Job Poster</SelectItem>
           </SelectContent>
         </Select>
+      </div>
+
+      <div className="bg-blue-900/20 border border-blue-500/50 rounded-lg p-4">
+        <h4 className="text-blue-400 font-semibold mb-2">Role Permissions:</h4>
+        <ul className="text-sm text-gray-300 space-y-1">
+          {roleName === "hackathon_organizer" && (
+            <>
+              <li>✅ Can post and manage hackathon events</li>
+              <li>✅ Can edit hackathon details</li>
+              <li>❌ Cannot access courses or jobs</li>
+            </>
+          )}
+          {roleName === "course_instructor" && (
+            <>
+              <li>✅ Can post and manage courses</li>
+              <li>✅ Can edit course content</li>
+              <li>❌ Cannot access hackathons or jobs</li>
+            </>
+          )}
+          {roleName === "job_poster" && (
+            <>
+              <li>✅ Can post and manage job listings</li>
+              <li>✅ Can edit job details</li>
+              <li>❌ Cannot access hackathons or courses</li>
+            </>
+          )}
+        </ul>
       </div>
 
       <div className="flex justify-end gap-2">
