@@ -803,3 +803,43 @@ export const extractIdFromSlug = (slug: string) => {
   const parts = slug.split("-")
   return parts[parts.length - 1]
 }
+
+// Get user organizer status
+export const getUserOrganizerStatus = async (userId: string) => {
+  try {
+    const { data, error } = await supabase.rpc("get_user_organizer_status", {
+      user_id_param: userId,
+    })
+
+    if (error) {
+      console.error("Error getting organizer status:", error)
+      return { is_organizer: false, organizer_types: [] }
+    }
+
+    return data?.[0] || { is_organizer: false, organizer_types: [] }
+  } catch (error) {
+    console.error("Error in getUserOrganizerStatus:", error)
+    return { is_organizer: false, organizer_types: [] }
+  }
+}
+
+// Check if user has specific permission
+export const checkUserPermission = async (userId: string, permissionType: string, permissionLevel = "read") => {
+  try {
+    const { data, error } = await supabase.rpc("check_user_permission", {
+      user_id_param: userId,
+      permission_type_param: permissionType,
+      required_level: permissionLevel,
+    })
+
+    if (error) {
+      console.error("Error checking permission:", error)
+      return false
+    }
+
+    return data
+  } catch (error) {
+    console.error("Error in checkUserPermission:", error)
+    return false
+  }
+}
