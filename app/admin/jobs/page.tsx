@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { getCurrentUser, isAdmin, getAllJobs, deleteJob, type Job } from "@/lib/supabase"
+import { getCurrentUser, isAdmin, getAllJobs, deleteJob, getUserOrganizerStatus, type Job } from "@/lib/supabase"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -13,13 +13,14 @@ export default function AdminJobs() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [adminAccess, setAdminAccess] = useState(false)
+  const [organizerStatus, setOrganizerStatus] = useState({ is_organizer: false, organizer_types: [] })
   const [jobs, setJobs] = useState<Job[]>([])
   const [filteredJobs, setFilteredJobs] = useState<Job[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const router = useRouter()
 
   useEffect(() => {
-    checkAdminAccess()
+    checkAccess()
   }, [])
 
   useEffect(() => {
@@ -36,25 +37,29 @@ export default function AdminJobs() {
     }
   }, [searchTerm, jobs])
 
-  const checkAdminAccess = async () => {
+  const checkAccess = async () => {
     try {
       const currentUser = await getCurrentUser()
-      if (!currentUser || currentUser.email !== "sonishriyash@gmail.com") {
+      if (!currentUser) {
         router.push("/")
         return
       }
 
       const hasAdminAccess = await isAdmin(currentUser.email)
-      if (!hasAdminAccess) {
+      const orgStatus = await getUserOrganizerStatus(currentUser.id)
+
+      // Check if user has admin access or job poster permission
+      if (!hasAdminAccess && !orgStatus.organizer_types.includes("job_poster")) {
         router.push("/")
         return
       }
 
       setUser(currentUser)
-      setAdminAccess(true)
+      setAdminAccess(hasAdminAccess)
+      setOrganizerStatus(orgStatus)
       await loadJobs()
     } catch (error) {
-      console.error("Error checking admin access:", error)
+      console.error("Error checking access:", error)
       router.push("/")
     } finally {
       setLoading(false)
@@ -74,7 +79,20 @@ export default function AdminJobs() {
     }
   }
 
-  const handleDelete = async (id: string, title: string) => {
+  const canDeleteJob = (job: Job) => {
+    // Admin can delete any job
+    if (adminAccess) return true
+
+    // Organizer can only delete their own jobs
+    return job.created_by === user?.id
+  }
+
+  const handleDelete = async (id: string, title: string, job: Job) => {
+    if (!canDeleteJob(job)) {
+      alert("You don't have permission to delete this job.")
+      return
+    }
+
     if (!confirm(`Are you sure you want to delete "${title}"? This action cannot be undone.`)) {
       return
     }
@@ -133,7 +151,7 @@ export default function AdminJobs() {
     )
   }
 
-  if (!adminAccess || user?.email !== "sonishriyash@gmail.com") {
+  if (!adminAccess && !organizerStatus.organizer_types.includes("job_poster")) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
@@ -253,6 +271,9 @@ export default function AdminJobs() {
                         {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
                       </Badge>
                       <Badge className={`${getTypeColor(job.type)} text-white`}>{job.type}</Badge>
+                      {job.created_by === user?.id && (
+                        <Badge className="bg-green-500 text-white text-xs">Your Post</Badge>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -300,14 +321,16 @@ export default function AdminJobs() {
                       <Edit className="w-4 h-4 mr-1" />
                       Edit
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white bg-transparent"
-                      onClick={() => handleDelete(job.id, job.title)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    {canDeleteJob(job) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white bg-transparent"
+                        onClick={() => handleDelete(job.id, job.title, job)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>

@@ -42,6 +42,7 @@ export interface Course {
   category: string
   original_price?: string
   tags?: string[]
+  created_by?: string
   created_at: string
   updated_at: string
 }
@@ -68,6 +69,7 @@ export interface Hackathon {
   mode: "online" | "offline" | "hybrid"
   difficulty: "beginner" | "intermediate" | "advanced"
   max_team_size?: number
+  created_by?: string
   created_at: string
   updated_at: string
   slug?: string
@@ -89,6 +91,7 @@ export interface Job {
   application_deadline?: string
   apply_link?: string
   requirements?: string[]
+  created_by?: string
   created_at: string
   updated_at: string
 }
@@ -142,7 +145,7 @@ export const signUp = async (email: string, password: string, fullName: string) 
   return { data, error }
 }
 
-// Primary signIn function
+// Primary signIn function - EXPORTED
 export const signIn = async (email: string, password: string) => {
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
@@ -418,11 +421,13 @@ export const getAllCourses = async () => {
 }
 
 export const createCourse = async (course: Omit<Course, "id" | "created_at" | "updated_at">) => {
+  const currentUser = await getCurrentUser()
   const { data, error } = await supabase
     .from("courses")
     .insert([
       {
         ...course,
+        created_by: currentUser?.id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -462,11 +467,13 @@ export const getAllHackathons = async () => {
 }
 
 export const createHackathon = async (hackathon: Omit<Hackathon, "id" | "created_at" | "updated_at">) => {
+  const currentUser = await getCurrentUser()
   const { data, error } = await supabase
     .from("hackathons")
     .insert([
       {
         ...hackathon,
+        created_by: currentUser?.id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -516,11 +523,13 @@ export const getAllJobs = async () => {
 }
 
 export const createJob = async (job: Omit<Job, "id" | "created_at" | "updated_at">) => {
+  const currentUser = await getCurrentUser()
   const { data, error } = await supabase
     .from("jobs")
     .insert([
       {
         ...job,
+        created_by: currentUser?.id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },

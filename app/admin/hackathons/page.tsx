@@ -8,6 +8,7 @@ import {
   getAllHackathons,
   deleteHackathon,
   updateHackathon,
+  getUserOrganizerStatus,
   type Hackathon,
 } from "@/lib/supabase"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -20,13 +21,14 @@ export default function AdminHackathons() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [adminAccess, setAdminAccess] = useState(false)
+  const [organizerStatus, setOrganizerStatus] = useState({ is_organizer: false, organizer_types: [] })
   const [hackathons, setHackathons] = useState<Hackathon[]>([])
   const [filteredHackathons, setFilteredHackathons] = useState<Hackathon[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const router = useRouter()
 
   useEffect(() => {
-    checkAdminAccess()
+    checkAccess()
   }, [])
 
   useEffect(() => {
@@ -42,25 +44,29 @@ export default function AdminHackathons() {
     }
   }, [searchTerm, hackathons])
 
-  const checkAdminAccess = async () => {
+  const checkAccess = async () => {
     try {
       const currentUser = await getCurrentUser()
-      if (!currentUser || currentUser.email !== "sonishriyash@gmail.com") {
+      if (!currentUser) {
         router.push("/")
         return
       }
 
       const hasAdminAccess = await isAdmin(currentUser.email)
-      if (!hasAdminAccess) {
+      const orgStatus = await getUserOrganizerStatus(currentUser.id)
+
+      // Check if user has admin access or hackathon organizer permission
+      if (!hasAdminAccess && !orgStatus.organizer_types.includes("hackathon_organizer")) {
         router.push("/")
         return
       }
 
       setUser(currentUser)
-      setAdminAccess(true)
+      setAdminAccess(hasAdminAccess)
+      setOrganizerStatus(orgStatus)
       await loadHackathons()
     } catch (error) {
-      console.error("Error checking admin access:", error)
+      console.error("Error checking access:", error)
       router.push("/")
     } finally {
       setLoading(false)
@@ -80,7 +86,20 @@ export default function AdminHackathons() {
     }
   }
 
-  const handleDelete = async (id: string, title: string) => {
+  const canDeleteHackathon = (hackathon: Hackathon) => {
+    // Admin can delete any hackathon
+    if (adminAccess) return true
+
+    // Organizer can only delete their own hackathons
+    return hackathon.created_by === user?.id
+  }
+
+  const handleDelete = async (id: string, title: string, hackathon: Hackathon) => {
+    if (!canDeleteHackathon(hackathon)) {
+      alert("You don't have permission to delete this hackathon.")
+      return
+    }
+
     if (!confirm(`Are you sure you want to delete "${title}"? This action cannot be undone.`)) {
       return
     }
@@ -101,6 +120,12 @@ export default function AdminHackathons() {
   }
 
   const toggleFeatured = async (id: string, currentFeatured: boolean) => {
+    // Only admins can feature/unfeature hackathons
+    if (!adminAccess) {
+      alert("Only admins can feature hackathons.")
+      return
+    }
+
     try {
       const { error } = await updateHackathon(id, { featured: !currentFeatured })
       if (error) {
@@ -148,7 +173,7 @@ export default function AdminHackathons() {
     )
   }
 
-  if (!adminAccess || user?.email !== "sonishriyash@gmail.com") {
+  if (!adminAccess && !organizerStatus.organizer_types.includes("hackathon_organizer")) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
@@ -235,6 +260,9 @@ export default function AdminHackathons() {
                           Featured
                         </Badge>
                       )}
+                      {hackathon.created_by === user?.id && (
+                        <Badge className="bg-green-500 text-white text-xs">Your Post</Badge>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -283,16 +311,18 @@ export default function AdminHackathons() {
                       <Edit className="w-4 h-4 mr-1" />
                       Edit
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className={`border-yellow-400 hover:bg-yellow-400 hover:text-black bg-transparent ${
-                        hackathon.featured ? "text-yellow-400" : "text-gray-400"
-                      }`}
-                      onClick={() => toggleFeatured(hackathon.id, hackathon.featured)}
-                    >
-                      <Star className="w-4 h-4" />
-                    </Button>
+                    {adminAccess && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className={`border-yellow-400 hover:bg-yellow-400 hover:text-black bg-transparent ${
+                          hackathon.featured ? "text-yellow-400" : "text-gray-400"
+                        }`}
+                        onClick={() => toggleFeatured(hackathon.id, hackathon.featured)}
+                      >
+                        <Star className="w-4 h-4" />
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="outline"
@@ -301,14 +331,16 @@ export default function AdminHackathons() {
                     >
                       View
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white bg-transparent"
-                      onClick={() => handleDelete(hackathon.id, hackathon.title)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    {canDeleteHackathon(hackathon) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white bg-transparent"
+                        onClick={() => handleDelete(hackathon.id, hackathon.title, hackathon)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>

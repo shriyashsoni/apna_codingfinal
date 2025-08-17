@@ -80,3 +80,6 @@ export default function AuthModal({ isOpen, onClose, onSuccess, mode = "login" }
     </div>
   )
 }
+
+// Export both named and default exports to fix import issues
+export { AuthModal }

@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { getCurrentUser, isAdmin, getAllCourses, deleteCourse, type Course } from "@/lib/supabase"
+import {
+  getCurrentUser,
+  isAdmin,
+  getAllCourses,
+  deleteCourse,
+  getUserOrganizerStatus,
+  type Course,
+} from "@/lib/supabase"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -13,13 +20,14 @@ export default function AdminCourses() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [adminAccess, setAdminAccess] = useState(false)
+  const [organizerStatus, setOrganizerStatus] = useState({ is_organizer: false, organizer_types: [] })
   const [courses, setCourses] = useState<Course[]>([])
   const [filteredCourses, setFilteredCourses] = useState<Course[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const router = useRouter()
 
   useEffect(() => {
-    checkAdminAccess()
+    checkAccess()
   }, [])
 
   useEffect(() => {
@@ -36,25 +44,29 @@ export default function AdminCourses() {
     }
   }, [searchTerm, courses])
 
-  const checkAdminAccess = async () => {
+  const checkAccess = async () => {
     try {
       const currentUser = await getCurrentUser()
-      if (!currentUser || currentUser.email !== "sonishriyash@gmail.com") {
+      if (!currentUser) {
         router.push("/")
         return
       }
 
       const hasAdminAccess = await isAdmin(currentUser.email)
-      if (!hasAdminAccess) {
+      const orgStatus = await getUserOrganizerStatus(currentUser.id)
+
+      // Check if user has admin access or course instructor permission
+      if (!hasAdminAccess && !orgStatus.organizer_types.includes("course_instructor")) {
         router.push("/")
         return
       }
 
       setUser(currentUser)
-      setAdminAccess(true)
+      setAdminAccess(hasAdminAccess)
+      setOrganizerStatus(orgStatus)
       await loadCourses()
     } catch (error) {
-      console.error("Error checking admin access:", error)
+      console.error("Error checking access:", error)
       router.push("/")
     } finally {
       setLoading(false)
@@ -74,7 +86,20 @@ export default function AdminCourses() {
     }
   }
 
-  const handleDelete = async (id: string, title: string) => {
+  const canDeleteCourse = (course: Course) => {
+    // Admin can delete any course
+    if (adminAccess) return true
+
+    // Organizer can only delete their own courses
+    return course.created_by === user?.id
+  }
+
+  const handleDelete = async (id: string, title: string, course: Course) => {
+    if (!canDeleteCourse(course)) {
+      alert("You don't have permission to delete this course.")
+      return
+    }
+
     if (!confirm(`Are you sure you want to delete "${title}"? This action cannot be undone.`)) {
       return
     }
@@ -131,7 +156,7 @@ export default function AdminCourses() {
     )
   }
 
-  if (!adminAccess || user?.email !== "sonishriyash@gmail.com") {
+  if (!adminAccess && !organizerStatus.organizer_types.includes("course_instructor")) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
@@ -252,6 +277,9 @@ export default function AdminCourses() {
                         {course.status.charAt(0).toUpperCase() + course.status.slice(1)}
                       </Badge>
                       <Badge className={`${getLevelColor(course.level)} text-white`}>{course.level}</Badge>
+                      {course.created_by === user?.id && (
+                        <Badge className="bg-green-500 text-white text-xs">Your Post</Badge>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -298,14 +326,16 @@ export default function AdminCourses() {
                       <Edit className="w-4 h-4 mr-1" />
                       Edit
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white bg-transparent"
-                      onClick={() => handleDelete(course.id, course.title)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    {canDeleteCourse(course) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white bg-transparent"
+                        onClick={() => handleDelete(course.id, course.title, course)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>
