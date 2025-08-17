@@ -24,7 +24,7 @@ import AuthModal from "@/components/auth/auth-modal"
 import { getCurrentUser, signOut, getUserProfile, getUserOrganizerStatus, type User as UserType } from "@/lib/supabase"
 import { getOrganizerRoles } from "@/lib/permissions"
 
-export default function Navbar() {
+function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authMode, setAuthMode] = useState<"login" | "signup">("login")
@@ -539,3 +539,5 @@ export default function Navbar() {
     </>
   )
 }
+
+export default Navbar

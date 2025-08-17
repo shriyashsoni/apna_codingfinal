@@ -142,6 +142,7 @@ export const signUp = async (email: string, password: string, fullName: string) 
   return { data, error }
 }
 
+// Primary signIn function
 export const signIn = async (email: string, password: string) => {
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
