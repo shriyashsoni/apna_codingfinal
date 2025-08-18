@@ -6,25 +6,30 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
-  Handshake,
   Plus,
   Edit,
   Trash2,
-  Save,
-  X,
   Star,
   Calendar,
   Building,
   GraduationCap,
   Briefcase,
   Heart,
+  Users,
+  Search,
+  Filter,
+  Upload,
   ExternalLink,
-  Tag,
+  Save,
+  X,
+  ImageIcon,
 } from "lucide-react"
+import { getCurrentUser, isAdmin } from "@/lib/supabase"
+import { toast } from "sonner"
 
 interface Partnership {
   id: string
@@ -42,27 +47,41 @@ interface Partnership {
   contact_person?: string
   start_date?: string
   end_date?: string
+  partnership_date?: string
+  partnership_photo?: string
   social_links: { [key: string]: string }
   tags: string[]
   priority: number
+  created_by?: string
   created_at: string
   updated_at: string
 }
 
 const partnershipTypes = [
-  { value: "general", label: "General", icon: Handshake },
+  { value: "general", label: "General", icon: Building },
   { value: "educational", label: "Educational", icon: GraduationCap },
   { value: "corporate", label: "Corporate", icon: Building },
   { value: "startup", label: "Startup", icon: Briefcase },
   { value: "nonprofit", label: "Non-Profit", icon: Heart },
 ]
 
+const statusOptions = [
+  { value: "active", label: "Active", color: "bg-green-500" },
+  { value: "inactive", label: "Inactive", color: "bg-red-500" },
+  { value: "draft", label: "Draft", color: "bg-yellow-500" },
+]
+
 export default function AdminPartnershipsPage() {
   const [partnerships, setPartnerships] = useState<Partnership[]>([])
-  const [loading, setLoading] = useState(false)
+  const [filteredPartnerships, setFilteredPartnerships] = useState<Partnership[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedType, setSelectedType] = useState("all")
+  const [selectedStatus, setSelectedStatus] = useState("all")
+  const [loading, setLoading] = useState(true)
+  const [isAuthorized, setIsAuthorized] = useState(false)
+  const [showAddDialog, setShowAddDialog] = useState(false)
   const [editingPartnership, setEditingPartnership] = useState<Partnership | null>(null)
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [newPartnership, setNewPartnership] = useState<Partial<Partnership>>({
+  const [formData, setFormData] = useState<Partial<Partnership>>({
     title: "",
     description: "",
     partner_name: "",
@@ -73,45 +92,86 @@ export default function AdminPartnershipsPage() {
     benefits: [],
     contact_email: "",
     contact_person: "",
-    social_links: {},
+    partnership_date: new Date().toISOString().split("T")[0],
     tags: [],
     priority: 0,
+    social_links: {},
   })
   const [newBenefit, setNewBenefit] = useState("")
   const [newTag, setNewTag] = useState("")
-  const [newSocialPlatform, setNewSocialPlatform] = useState("")
-  const [newSocialUrl, setNewSocialUrl] = useState("")
+  const [logoPreview, setLogoPreview] = useState<string | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
 
   useEffect(() => {
-    loadPartnerships()
+    checkAdminAccess()
   }, [])
 
+  useEffect(() => {
+    if (isAuthorized) {
+      loadPartnerships()
+    }
+  }, [isAuthorized])
+
+  useEffect(() => {
+    filterPartnerships()
+  }, [partnerships, searchQuery, selectedType, selectedStatus])
+
+  const checkAdminAccess = async () => {
+    try {
+      const user = await getCurrentUser()
+      if (!user) {
+        toast.error("Please log in to access this page")
+        return
+      }
+
+      const adminStatus = await isAdmin(user.email)
+      if (!adminStatus) {
+        toast.error("You don't have permission to access this page")
+        return
+      }
+
+      setIsAuthorized(true)
+    } catch (error) {
+      console.error("Error checking admin access:", error)
+      toast.error("Error checking permissions")
+    }
+  }
+
   const loadPartnerships = () => {
-    // Load from localStorage for demo
+    // Load from localStorage for demo (in production, this would be from Supabase)
     const savedPartnerships = localStorage.getItem("communityPartnerships")
     if (savedPartnerships) {
       setPartnerships(JSON.parse(savedPartnerships))
     } else {
-      // Default partnerships
+      // Default partnerships with brand photos
       const defaultPartnerships: Partnership[] = [
         {
           id: "1",
           title: "AWS Cloud Credits Program",
           description:
-            "Get up to $10,000 in AWS credits for your startup or project. Perfect for students and developers looking to build scalable applications.",
+            "Get up to $10,000 in AWS credits for your startup or project. Perfect for students and developers looking to build scalable applications in the cloud.",
           partner_name: "Amazon Web Services",
-          partner_website: "https://aws.amazon.com",
+          partner_logo: "/images/partners/aws-new.webp",
+          partner_website: "https://aws.amazon.com/activate",
           partnership_type: "corporate",
           status: "active",
           featured: true,
-          benefits: ["Free AWS Credits", "Technical Support", "Training Resources", "Startup Mentorship"],
+          benefits: [
+            "Up to $10,000 AWS Credits",
+            "24/7 Technical Support",
+            "Training Resources",
+            "Startup Mentorship",
+            "Architecture Reviews",
+          ],
           contact_email: "partnerships@aws.com",
           contact_person: "AWS Startup Team",
+          partnership_date: "2024-01-15",
+          partnership_photo: "/images/partners/aws-new.webp",
           social_links: {
             twitter: "https://twitter.com/awscloud",
             linkedin: "https://linkedin.com/company/amazon-web-services",
           },
-          tags: ["cloud", "startup", "credits", "aws"],
+          tags: ["cloud", "startup", "credits", "aws", "infrastructure"],
           priority: 10,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -120,20 +180,29 @@ export default function AdminPartnershipsPage() {
           id: "2",
           title: "GitHub Student Developer Pack",
           description:
-            "Access to premium developer tools and services worth over $200k. Includes free GitHub Pro, domain names, and cloud hosting.",
+            "Access to premium developer tools and services worth over $200k. Includes free GitHub Pro, domain names, cloud hosting, and much more.",
           partner_name: "GitHub",
+          partner_logo: "/images/partners/github.png",
           partner_website: "https://education.github.com/pack",
           partnership_type: "educational",
           status: "active",
           featured: true,
-          benefits: ["Free GitHub Pro", "Developer Tools", "Cloud Hosting", "Domain Names"],
+          benefits: [
+            "Free GitHub Pro",
+            "Premium Developer Tools",
+            "Cloud Hosting Credits",
+            "Free Domain Names",
+            "Design Software",
+          ],
           contact_email: "education@github.com",
           contact_person: "GitHub Education Team",
+          partnership_date: "2024-01-10",
+          partnership_photo: "/images/partners/github.png",
           social_links: {
             twitter: "https://twitter.com/github",
             linkedin: "https://linkedin.com/company/github",
           },
-          tags: ["education", "student", "developer", "tools"],
+          tags: ["education", "student", "developer", "tools", "github"],
           priority: 9,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -142,64 +211,116 @@ export default function AdminPartnershipsPage() {
       setPartnerships(defaultPartnerships)
       localStorage.setItem("communityPartnerships", JSON.stringify(defaultPartnerships))
     }
+    setLoading(false)
   }
 
-  const savePartnerships = (updatedPartnerships: Partnership[]) => {
-    localStorage.setItem("communityPartnerships", JSON.stringify(updatedPartnerships))
-    setPartnerships(updatedPartnerships)
-  }
+  const filterPartnerships = () => {
+    let filtered = partnerships
 
-  const addPartnership = () => {
-    if (!newPartnership.title || !newPartnership.partner_name) return
-
-    const partnership: Partnership = {
-      id: Date.now().toString(),
-      title: newPartnership.title!,
-      description: newPartnership.description!,
-      image_url: newPartnership.image_url,
-      partner_logo: newPartnership.partner_logo,
-      partner_name: newPartnership.partner_name!,
-      partner_website: newPartnership.partner_website,
-      partnership_type: newPartnership.partnership_type!,
-      status: newPartnership.status!,
-      featured: newPartnership.featured!,
-      benefits: newPartnership.benefits!,
-      contact_email: newPartnership.contact_email,
-      contact_person: newPartnership.contact_person,
-      start_date: newPartnership.start_date,
-      end_date: newPartnership.end_date,
-      social_links: newPartnership.social_links!,
-      tags: newPartnership.tags!,
-      priority: newPartnership.priority!,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+    // Filter by search query
+    if (searchQuery) {
+      filtered = filtered.filter(
+        (partnership) =>
+          partnership.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          partnership.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          partnership.partner_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          partnership.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase())),
+      )
     }
 
-    const updatedPartnerships = [...partnerships, partnership]
-    savePartnerships(updatedPartnerships)
-    resetForm()
-    setIsDialogOpen(false)
+    // Filter by type
+    if (selectedType !== "all") {
+      filtered = filtered.filter((partnership) => partnership.partnership_type === selectedType)
+    }
+
+    // Filter by status
+    if (selectedStatus !== "all") {
+      filtered = filtered.filter((partnership) => partnership.status === selectedStatus)
+    }
+
+    // Sort by priority and featured status
+    filtered.sort((a, b) => {
+      if (a.featured && !b.featured) return -1
+      if (!a.featured && b.featured) return 1
+      return b.priority - a.priority
+    })
+
+    setFilteredPartnerships(filtered)
   }
 
-  const updatePartnership = () => {
-    if (!editingPartnership) return
-
-    const updatedPartnerships = partnerships.map((p) =>
-      p.id === editingPartnership.id ? { ...editingPartnership, updated_at: new Date().toISOString() } : p,
-    )
-    savePartnerships(updatedPartnerships)
-    setEditingPartnership(null)
+  const handleFileUpload = (file: File, type: "logo" | "photo") => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const result = e.target?.result as string
+      if (type === "logo") {
+        setLogoPreview(result)
+        setFormData({ ...formData, partner_logo: result })
+      } else {
+        setPhotoPreview(result)
+        setFormData({ ...formData, partnership_photo: result })
+      }
+    }
+    reader.readAsDataURL(file)
   }
 
-  const deletePartnership = (id: string) => {
-    if (confirm("Are you sure you want to delete this partnership?")) {
+  const handleSavePartnership = () => {
+    try {
+      if (!formData.title || !formData.partner_name) {
+        toast.error("Please fill in required fields")
+        return
+      }
+
+      const now = new Date().toISOString()
+      let updatedPartnerships
+
+      if (editingPartnership) {
+        // Update existing partnership
+        updatedPartnerships = partnerships.map((p) =>
+          p.id === editingPartnership.id
+            ? {
+                ...p,
+                ...formData,
+                updated_at: now,
+              }
+            : p,
+        )
+        toast.success("Partnership updated successfully!")
+      } else {
+        // Add new partnership
+        const newPartnership: Partnership = {
+          id: Date.now().toString(),
+          ...formData,
+          created_at: now,
+          updated_at: now,
+        } as Partnership
+
+        updatedPartnerships = [newPartnership, ...partnerships]
+        toast.success("Partnership created successfully!")
+      }
+
+      setPartnerships(updatedPartnerships)
+      localStorage.setItem("communityPartnerships", JSON.stringify(updatedPartnerships))
+      resetForm()
+    } catch (error) {
+      console.error("Error saving partnership:", error)
+      toast.error("Error saving partnership")
+    }
+  }
+
+  const handleDeletePartnership = (id: string) => {
+    try {
       const updatedPartnerships = partnerships.filter((p) => p.id !== id)
-      savePartnerships(updatedPartnerships)
+      setPartnerships(updatedPartnerships)
+      localStorage.setItem("communityPartnerships", JSON.stringify(updatedPartnerships))
+      toast.success("Partnership deleted successfully!")
+    } catch (error) {
+      console.error("Error deleting partnership:", error)
+      toast.error("Error deleting partnership")
     }
   }
 
   const resetForm = () => {
-    setNewPartnership({
+    setFormData({
       title: "",
       description: "",
       partner_name: "",
@@ -210,833 +331,653 @@ export default function AdminPartnershipsPage() {
       benefits: [],
       contact_email: "",
       contact_person: "",
-      social_links: {},
+      partnership_date: new Date().toISOString().split("T")[0],
       tags: [],
       priority: 0,
+      social_links: {},
     })
+    setEditingPartnership(null)
+    setShowAddDialog(false)
     setNewBenefit("")
     setNewTag("")
-    setNewSocialPlatform("")
-    setNewSocialUrl("")
+    setLogoPreview(null)
+    setPhotoPreview(null)
   }
 
-  const addBenefit = (isEditing = false) => {
-    const benefit = newBenefit.trim()
-    if (!benefit) return
-
-    if (isEditing && editingPartnership) {
-      if (!editingPartnership.benefits.includes(benefit)) {
-        setEditingPartnership({
-          ...editingPartnership,
-          benefits: [...editingPartnership.benefits, benefit],
-        })
-      }
-    } else {
-      if (!newPartnership.benefits?.includes(benefit)) {
-        setNewPartnership((prev) => ({
-          ...prev,
-          benefits: [...(prev.benefits || []), benefit],
-        }))
-      }
-    }
-    setNewBenefit("")
+  const handleEditPartnership = (partnership: Partnership) => {
+    setFormData(partnership)
+    setEditingPartnership(partnership)
+    setLogoPreview(partnership.partner_logo || null)
+    setPhotoPreview(partnership.partnership_photo || null)
+    setShowAddDialog(true)
   }
 
-  const removeBenefit = (benefit: string, isEditing = false) => {
-    if (isEditing && editingPartnership) {
-      setEditingPartnership({
-        ...editingPartnership,
-        benefits: editingPartnership.benefits.filter((b) => b !== benefit),
+  const addBenefit = () => {
+    if (newBenefit.trim()) {
+      setFormData({
+        ...formData,
+        benefits: [...(formData.benefits || []), newBenefit.trim()],
       })
-    } else {
-      setNewPartnership((prev) => ({
-        ...prev,
-        benefits: prev.benefits?.filter((b) => b !== benefit) || [],
-      }))
+      setNewBenefit("")
     }
   }
 
-  const addTag = (isEditing = false) => {
-    const tag = newTag.trim()
-    if (!tag) return
-
-    if (isEditing && editingPartnership) {
-      if (!editingPartnership.tags.includes(tag)) {
-        setEditingPartnership({
-          ...editingPartnership,
-          tags: [...editingPartnership.tags, tag],
-        })
-      }
-    } else {
-      if (!newPartnership.tags?.includes(tag)) {
-        setNewPartnership((prev) => ({
-          ...prev,
-          tags: [...(prev.tags || []), tag],
-        }))
-      }
-    }
-    setNewTag("")
+  const removeBenefit = (index: number) => {
+    setFormData({
+      ...formData,
+      benefits: formData.benefits?.filter((_, i) => i !== index) || [],
+    })
   }
 
-  const removeTag = (tag: string, isEditing = false) => {
-    if (isEditing && editingPartnership) {
-      setEditingPartnership({
-        ...editingPartnership,
-        tags: editingPartnership.tags.filter((t) => t !== tag),
+  const addTag = () => {
+    if (newTag.trim()) {
+      setFormData({
+        ...formData,
+        tags: [...(formData.tags || []), newTag.trim()],
       })
-    } else {
-      setNewPartnership((prev) => ({
-        ...prev,
-        tags: prev.tags?.filter((t) => t !== tag) || [],
-      }))
+      setNewTag("")
     }
   }
 
-  const addSocialLink = (isEditing = false) => {
-    const platform = newSocialPlatform.trim()
-    const url = newSocialUrl.trim()
-    if (!platform || !url) return
-
-    if (isEditing && editingPartnership) {
-      setEditingPartnership({
-        ...editingPartnership,
-        social_links: {
-          ...editingPartnership.social_links,
-          [platform]: url,
-        },
-      })
-    } else {
-      setNewPartnership((prev) => ({
-        ...prev,
-        social_links: {
-          ...prev.social_links,
-          [platform]: url,
-        },
-      }))
-    }
-    setNewSocialPlatform("")
-    setNewSocialUrl("")
-  }
-
-  const removeSocialLink = (platform: string, isEditing = false) => {
-    if (isEditing && editingPartnership) {
-      const { [platform]: removed, ...rest } = editingPartnership.social_links
-      setEditingPartnership({
-        ...editingPartnership,
-        social_links: rest,
-      })
-    } else {
-      const { [platform]: removed, ...rest } = newPartnership.social_links || {}
-      setNewPartnership((prev) => ({
-        ...prev,
-        social_links: rest,
-      }))
-    }
+  const removeTag = (index: number) => {
+    setFormData({
+      ...formData,
+      tags: formData.tags?.filter((_, i) => i !== index) || [],
+    })
   }
 
   const getTypeIcon = (type: string) => {
     const typeConfig = partnershipTypes.find((t) => t.value === type)
-    return typeConfig?.icon || Handshake
+    return typeConfig?.icon || Building
   }
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case "active":
-        return "bg-green-500"
-      case "inactive":
-        return "bg-red-500"
-      case "draft":
-        return "bg-yellow-500"
-      default:
-        return "bg-gray-500"
-    }
+    const statusConfig = statusOptions.find((s) => s.value === status)
+    return statusConfig?.color || "bg-gray-500"
+  }
+
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
+          <p className="text-gray-400">You don't have permission to access this page.</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black text-white pt-20">
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-800 rounded w-64 mb-8"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="bg-gray-900 border border-gray-800 rounded-lg p-6 h-64"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="min-h-screen bg-black text-white pt-20">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-white flex items-center gap-2">
-              <Handshake className="w-8 h-8 text-yellow-400" />
-              Community Partnerships
-            </h1>
-            <p className="text-gray-400 mt-2">Manage community partnerships and collaborations</p>
+            <h1 className="text-3xl font-bold text-white mb-2">Community Partnerships</h1>
+            <p className="text-gray-400">Manage community partnerships and collaborations</p>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
             <DialogTrigger asChild>
-              <Button className="bg-yellow-400 hover:bg-yellow-500 text-black">
+              <Button className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold">
                 <Plus className="w-4 h-4 mr-2" />
                 Add Partnership
               </Button>
             </DialogTrigger>
             <DialogContent className="bg-gray-900 border-gray-800 text-white max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle className="text-white">Add New Partnership</DialogTitle>
+                <DialogTitle className="text-xl font-bold">
+                  {editingPartnership ? "Edit Partnership" : "Add New Partnership"}
+                </DialogTitle>
               </DialogHeader>
-              <div className="space-y-6">
-                {/* Basic Information */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Left Column */}
+                <div className="space-y-4">
                   <div>
-                    <Label className="text-gray-300">Partnership Title *</Label>
+                    <Label htmlFor="title">Title *</Label>
                     <Input
-                      value={newPartnership.title}
-                      onChange={(e) => setNewPartnership((prev) => ({ ...prev, title: e.target.value }))}
+                      id="title"
+                      value={formData.title || ""}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                       className="bg-gray-800 border-gray-700 text-white"
-                      placeholder="e.g., AWS Cloud Credits Program"
+                      placeholder="Partnership title"
                     />
                   </div>
+
                   <div>
-                    <Label className="text-gray-300">Partner Name *</Label>
+                    <Label htmlFor="partner_name">Partner Name *</Label>
                     <Input
-                      value={newPartnership.partner_name}
-                      onChange={(e) => setNewPartnership((prev) => ({ ...prev, partner_name: e.target.value }))}
+                      id="partner_name"
+                      value={formData.partner_name || ""}
+                      onChange={(e) => setFormData({ ...formData, partner_name: e.target.value })}
                       className="bg-gray-800 border-gray-700 text-white"
-                      placeholder="e.g., Amazon Web Services"
+                      placeholder="Partner organization name"
                     />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea
+                      id="description"
+                      value={formData.description || ""}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      className="bg-gray-800 border-gray-700 text-white"
+                      placeholder="Partnership description"
+                      rows={4}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="partnership_type">Type</Label>
+                      <Select
+                        value={formData.partnership_type || "general"}
+                        onValueChange={(value) =>
+                          setFormData({ ...formData, partnership_type: value as Partnership["partnership_type"] })
+                        }
+                      >
+                        <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-gray-800 border-gray-700">
+                          {partnershipTypes.map((type) => (
+                            <SelectItem key={type.value} value={type.value} className="text-white">
+                              {type.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="status">Status</Label>
+                      <Select
+                        value={formData.status || "active"}
+                        onValueChange={(value) => setFormData({ ...formData, status: value as Partnership["status"] })}
+                      >
+                        <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-gray-800 border-gray-700">
+                          {statusOptions.map((status) => (
+                            <SelectItem key={status.value} value={status.value} className="text-white">
+                              {status.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="partnership_date">Partnership Date</Label>
+                      <Input
+                        id="partnership_date"
+                        type="date"
+                        value={formData.partnership_date || ""}
+                        onChange={(e) => setFormData({ ...formData, partnership_date: e.target.value })}
+                        className="bg-gray-800 border-gray-700 text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="priority">Priority (0-10)</Label>
+                      <Input
+                        id="priority"
+                        type="number"
+                        min="0"
+                        max="10"
+                        value={formData.priority || 0}
+                        onChange={(e) => setFormData({ ...formData, priority: Number.parseInt(e.target.value) || 0 })}
+                        className="bg-gray-800 border-gray-700 text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="featured"
+                      checked={formData.featured || false}
+                      onChange={(e) => setFormData({ ...formData, featured: e.target.checked })}
+                      className="rounded"
+                    />
+                    <Label htmlFor="featured">Featured Partnership</Label>
                   </div>
                 </div>
 
-                <div>
-                  <Label className="text-gray-300">Description *</Label>
-                  <Textarea
-                    value={newPartnership.description}
-                    onChange={(e) => setNewPartnership((prev) => ({ ...prev, description: e.target.value }))}
-                    className="bg-gray-800 border-gray-700 text-white"
-                    placeholder="Describe the partnership and its benefits..."
-                    rows={3}
-                  />
-                </div>
-
-                {/* Partnership Details */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Right Column */}
+                <div className="space-y-4">
                   <div>
-                    <Label className="text-gray-300">Partnership Type</Label>
-                    <Select
-                      value={newPartnership.partnership_type}
-                      onValueChange={(value) =>
-                        setNewPartnership((prev) => ({ ...prev, partnership_type: value as any }))
-                      }
-                    >
-                      <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-gray-800 border-gray-700">
-                        {partnershipTypes.map((type) => (
-                          <SelectItem key={type.value} value={type.value} className="text-white">
-                            {type.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-gray-300">Status</Label>
-                    <Select
-                      value={newPartnership.status}
-                      onValueChange={(value) => setNewPartnership((prev) => ({ ...prev, status: value as any }))}
-                    >
-                      <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-gray-800 border-gray-700">
-                        <SelectItem value="active" className="text-white">
-                          Active
-                        </SelectItem>
-                        <SelectItem value="inactive" className="text-white">
-                          Inactive
-                        </SelectItem>
-                        <SelectItem value="draft" className="text-white">
-                          Draft
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-gray-300">Priority (0-10)</Label>
+                    <Label htmlFor="partner_website">Website</Label>
                     <Input
-                      type="number"
-                      min="0"
-                      max="10"
-                      value={newPartnership.priority}
-                      onChange={(e) =>
-                        setNewPartnership((prev) => ({ ...prev, priority: Number.parseInt(e.target.value) || 0 }))
-                      }
-                      className="bg-gray-800 border-gray-700 text-white"
-                    />
-                  </div>
-                </div>
-
-                {/* Contact Information */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-gray-300">Partner Website</Label>
-                    <Input
-                      value={newPartnership.partner_website}
-                      onChange={(e) => setNewPartnership((prev) => ({ ...prev, partner_website: e.target.value }))}
+                      id="partner_website"
+                      type="url"
+                      value={formData.partner_website || ""}
+                      onChange={(e) => setFormData({ ...formData, partner_website: e.target.value })}
                       className="bg-gray-800 border-gray-700 text-white"
                       placeholder="https://partner-website.com"
                     />
                   </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="contact_email">Contact Email</Label>
+                      <Input
+                        id="contact_email"
+                        type="email"
+                        value={formData.contact_email || ""}
+                        onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
+                        className="bg-gray-800 border-gray-700 text-white"
+                        placeholder="contact@partner.com"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="contact_person">Contact Person</Label>
+                      <Input
+                        id="contact_person"
+                        value={formData.contact_person || ""}
+                        onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
+                        className="bg-gray-800 border-gray-700 text-white"
+                        placeholder="John Doe"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Partner Logo Upload */}
                   <div>
-                    <Label className="text-gray-300">Contact Email</Label>
-                    <Input
-                      value={newPartnership.contact_email}
-                      onChange={(e) => setNewPartnership((prev) => ({ ...prev, contact_email: e.target.value }))}
-                      className="bg-gray-800 border-gray-700 text-white"
-                      placeholder="contact@partner.com"
-                    />
+                    <Label>Partner Logo</Label>
+                    <div className="border-2 border-dashed border-gray-700 rounded-lg p-4 text-center">
+                      {logoPreview ? (
+                        <div className="relative">
+                          <img
+                            src={logoPreview || "/placeholder.svg"}
+                            alt="Logo preview"
+                            className="max-w-32 max-h-32 mx-auto object-contain"
+                          />
+                          <Button
+                            onClick={() => {
+                              setLogoPreview(null)
+                              setFormData({ ...formData, partner_logo: undefined })
+                            }}
+                            size="sm"
+                            variant="outline"
+                            className="mt-2"
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <ImageIcon className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                          <p className="text-sm text-gray-400">Upload partner logo</p>
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            id="logo-upload"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (file) handleFileUpload(file, "logo")
+                            }}
+                          />
+                          <Button
+                            onClick={() => document.getElementById("logo-upload")?.click()}
+                            size="sm"
+                            variant="outline"
+                            className="mt-2"
+                          >
+                            Choose File
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                <div>
-                  <Label className="text-gray-300">Contact Person</Label>
-                  <Input
-                    value={newPartnership.contact_person}
-                    onChange={(e) => setNewPartnership((prev) => ({ ...prev, contact_person: e.target.value }))}
-                    className="bg-gray-800 border-gray-700 text-white"
-                    placeholder="John Doe, Partnership Manager"
-                  />
-                </div>
+                  {/* Partnership Photo Upload */}
+                  <div>
+                    <Label>Partnership Photo</Label>
+                    <div className="border-2 border-dashed border-gray-700 rounded-lg p-4 text-center">
+                      {photoPreview ? (
+                        <div className="relative">
+                          <img
+                            src={photoPreview || "/placeholder.svg"}
+                            alt="Photo preview"
+                            className="max-w-full max-h-32 mx-auto object-contain"
+                          />
+                          <Button
+                            onClick={() => {
+                              setPhotoPreview(null)
+                              setFormData({ ...formData, partnership_photo: undefined })
+                            }}
+                            size="sm"
+                            variant="outline"
+                            className="mt-2"
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                          <p className="text-sm text-gray-400">Upload partnership photo</p>
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            id="photo-upload"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (file) handleFileUpload(file, "photo")
+                            }}
+                          />
+                          <Button
+                            onClick={() => document.getElementById("photo-upload")?.click()}
+                            size="sm"
+                            variant="outline"
+                            className="mt-2"
+                          >
+                            Choose File
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
 
-                {/* Benefits */}
-                <div>
-                  <Label className="text-gray-300">Benefits</Label>
-                  <div className="flex gap-2 mb-2">
-                    <Input
-                      value={newBenefit}
-                      onChange={(e) => setNewBenefit(e.target.value)}
-                      className="bg-gray-800 border-gray-700 text-white"
-                      placeholder="Add benefit"
-                      onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addBenefit())}
-                    />
-                    <Button
-                      type="button"
-                      onClick={() => addBenefit()}
-                      className="bg-yellow-400 hover:bg-yellow-500 text-black"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
+                  {/* Benefits */}
+                  <div>
+                    <Label>Benefits</Label>
+                    <div className="flex gap-2 mb-2">
+                      <Input
+                        value={newBenefit}
+                        onChange={(e) => setNewBenefit(e.target.value)}
+                        className="bg-gray-800 border-gray-700 text-white"
+                        placeholder="Add a benefit"
+                        onKeyPress={(e) => e.key === "Enter" && addBenefit()}
+                      />
+                      <Button onClick={addBenefit} size="sm" className="bg-yellow-400 hover:bg-yellow-500 text-black">
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {formData.benefits?.map((benefit, index) => (
+                        <Badge key={index} variant="outline" className="border-yellow-400 text-yellow-400">
+                          {benefit}
+                          <X className="w-3 h-3 ml-1 cursor-pointer" onClick={() => removeBenefit(index)} />
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {newPartnership.benefits?.map((benefit, index) => (
-                      <Badge key={index} variant="outline" className="border-yellow-400 text-yellow-400">
-                        {benefit}
-                        <button
-                          type="button"
-                          onClick={() => removeBenefit(benefit)}
-                          className="ml-2 text-red-400 hover:text-red-300"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
 
-                {/* Tags */}
-                <div>
-                  <Label className="text-gray-300">Tags</Label>
-                  <div className="flex gap-2 mb-2">
-                    <Input
-                      value={newTag}
-                      onChange={(e) => setNewTag(e.target.value)}
-                      className="bg-gray-800 border-gray-700 text-white"
-                      placeholder="Add tag"
-                      onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
-                    />
-                    <Button
-                      type="button"
-                      onClick={() => addTag()}
-                      className="bg-yellow-400 hover:bg-yellow-500 text-black"
-                    >
-                      <Tag className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {newPartnership.tags?.map((tag, index) => (
-                      <Badge key={index} variant="outline" className="border-gray-600 text-gray-300">
-                        {tag}
-                        <button
-                          type="button"
-                          onClick={() => removeTag(tag)}
-                          className="ml-2 text-red-400 hover:text-red-300"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </Badge>
-                    ))}
+                  {/* Tags */}
+                  <div>
+                    <Label>Tags</Label>
+                    <div className="flex gap-2 mb-2">
+                      <Input
+                        value={newTag}
+                        onChange={(e) => setNewTag(e.target.value)}
+                        className="bg-gray-800 border-gray-700 text-white"
+                        placeholder="Add a tag"
+                        onKeyPress={(e) => e.key === "Enter" && addTag()}
+                      />
+                      <Button onClick={addTag} size="sm" className="bg-yellow-400 hover:bg-yellow-500 text-black">
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {formData.tags?.map((tag, index) => (
+                        <Badge key={index} variant="outline" className="border-gray-600 text-gray-400">
+                          #{tag}
+                          <X className="w-3 h-3 ml-1 cursor-pointer" onClick={() => removeTag(index)} />
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
                 </div>
+              </div>
 
-                {/* Social Links */}
-                <div>
-                  <Label className="text-gray-300">Social Links</Label>
-                  <div className="flex gap-2 mb-2">
-                    <Input
-                      value={newSocialPlatform}
-                      onChange={(e) => setNewSocialPlatform(e.target.value)}
-                      className="bg-gray-800 border-gray-700 text-white"
-                      placeholder="Platform (e.g., twitter)"
-                    />
-                    <Input
-                      value={newSocialUrl}
-                      onChange={(e) => setNewSocialUrl(e.target.value)}
-                      className="bg-gray-800 border-gray-700 text-white"
-                      placeholder="URL"
-                    />
-                    <Button
-                      type="button"
-                      onClick={() => addSocialLink()}
-                      className="bg-yellow-400 hover:bg-yellow-500 text-black"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <div className="space-y-2">
-                    {Object.entries(newPartnership.social_links || {}).map(([platform, url]) => (
-                      <div key={platform} className="flex items-center gap-2 p-2 bg-gray-800 rounded">
-                        <span className="text-yellow-400 capitalize">{platform}:</span>
-                        <span className="text-gray-300 flex-1">{url}</span>
-                        <button
-                          type="button"
-                          onClick={() => removeSocialLink(platform)}
-                          className="text-red-400 hover:text-red-300"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Featured Toggle */}
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="featured"
-                    checked={newPartnership.featured}
-                    onChange={(e) => setNewPartnership((prev) => ({ ...prev, featured: e.target.checked }))}
-                    className="w-4 h-4"
-                  />
-                  <Label htmlFor="featured" className="text-gray-300">
-                    Featured Partnership
-                  </Label>
-                </div>
-
-                <div className="flex gap-2 pt-4">
-                  <Button onClick={addPartnership} className="bg-green-500 hover:bg-green-600 text-white">
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Partnership
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      resetForm()
-                      setIsDialogOpen(false)
-                    }}
-                    variant="outline"
-                    className="border-gray-600 text-gray-300 hover:bg-gray-800"
-                  >
-                    Cancel
-                  </Button>
-                </div>
+              <div className="flex justify-end gap-4 mt-6">
+                <Button onClick={resetForm} variant="outline" className="border-gray-600 text-gray-400 bg-transparent">
+                  Cancel
+                </Button>
+                <Button onClick={handleSavePartnership} className="bg-yellow-400 hover:bg-yellow-500 text-black">
+                  <Save className="w-4 h-4 mr-2" />
+                  {editingPartnership ? "Update" : "Create"} Partnership
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
+        </div>
+
+        {/* Filters */}
+        <div className="mb-8">
+          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div className="flex items-center gap-4 w-full md:w-auto">
+              <div className="relative flex-1 md:w-80">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder="Search partnerships..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 bg-gray-900 border-gray-700 text-white"
+                />
+              </div>
+              <Select value={selectedType} onValueChange={setSelectedType}>
+                <SelectTrigger className="w-48 bg-gray-900 border-gray-700 text-white">
+                  <Filter className="w-4 h-4 mr-2" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-900 border-gray-700">
+                  <SelectItem value="all" className="text-white">
+                    All Types
+                  </SelectItem>
+                  {partnershipTypes.map((type) => (
+                    <SelectItem key={type.value} value={type.value} className="text-white">
+                      {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                <SelectTrigger className="w-48 bg-gray-900 border-gray-700 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-900 border-gray-700">
+                  <SelectItem value="all" className="text-white">
+                    All Status
+                  </SelectItem>
+                  {statusOptions.map((status) => (
+                    <SelectItem key={status.value} value={status.value} className="text-white">
+                      {status.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="text-sm text-gray-400">
+              {filteredPartnerships.length} partnership{filteredPartnerships.length !== 1 ? "s" : ""} found
+            </div>
+          </div>
         </div>
 
         {/* Partnerships Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {partnerships
-            .sort((a, b) => b.priority - a.priority)
-            .map((partnership) => {
-              const TypeIcon = getTypeIcon(partnership.partnership_type)
-              return (
-                <Card
-                  key={partnership.id}
-                  className="bg-gray-900 border-gray-800 hover:border-yellow-400 transition-all duration-300"
-                >
-                  <CardHeader className="pb-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-yellow-400 rounded-lg">
-                          <TypeIcon className="w-6 h-6 text-black" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-white text-lg">{partnership.title}</CardTitle>
-                          <p className="text-gray-400 text-sm">{partnership.partner_name}</p>
+          {filteredPartnerships.map((partnership) => {
+            const TypeIcon = getTypeIcon(partnership.partnership_type)
+            return (
+              <Card
+                key={partnership.id}
+                className="bg-gray-900 border-gray-800 hover:border-yellow-400 transition-all duration-300 group overflow-hidden"
+              >
+                {/* Partnership Photo */}
+                {partnership.partnership_photo && (
+                  <div className="relative h-40 overflow-hidden">
+                    <img
+                      src={partnership.partnership_photo || "/placeholder.svg"}
+                      alt={partnership.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                    {partnership.featured && (
+                      <div className="absolute top-4 right-4">
+                        <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                      </div>
+                    )}
+                    {partnership.partner_logo && (
+                      <div className="absolute bottom-4 left-4">
+                        <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
+                          <img
+                            src={partnership.partner_logo || "/placeholder.svg"}
+                            alt={`${partnership.partner_name} logo`}
+                            className="max-w-8 max-h-8 object-contain"
+                          />
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {partnership.featured && <Star className="w-4 h-4 text-yellow-400 fill-current" />}
-                        <div className={`w-3 h-3 rounded-full ${getStatusColor(partnership.status)}`} />
+                    )}
+                  </div>
+                )}
+
+                <CardHeader className="pb-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-gray-800 rounded-lg group-hover:bg-yellow-400 transition-colors">
+                        <TypeIcon className="w-5 h-5 text-yellow-400 group-hover:text-black transition-colors" />
                       </div>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="space-y-4">
-                    <p className="text-gray-300 text-sm line-clamp-3">{partnership.description}</p>
-
-                    {partnership.benefits.length > 0 && (
                       <div>
-                        <p className="text-sm font-medium text-gray-400 mb-2">Benefits:</p>
-                        <div className="flex flex-wrap gap-1">
-                          {partnership.benefits.slice(0, 3).map((benefit, index) => (
-                            <Badge key={index} variant="outline" className="border-green-400 text-green-400 text-xs">
-                              {benefit}
-                            </Badge>
-                          ))}
-                          {partnership.benefits.length > 3 && (
-                            <Badge variant="outline" className="border-gray-600 text-gray-400 text-xs">
-                              +{partnership.benefits.length - 3} more
-                            </Badge>
-                          )}
+                        <CardTitle className="text-white text-lg group-hover:text-yellow-400 transition-colors">
+                          {partnership.title}
+                        </CardTitle>
+                        <p className="text-gray-400 text-sm">{partnership.partner_name}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className={`w-2 h-2 rounded-full ${getStatusColor(partnership.status)}`}></div>
+                          <span className="text-xs text-gray-500 capitalize">{partnership.status}</span>
+                          {partnership.featured && <Star className="w-3 h-3 text-yellow-400 fill-current" />}
                         </div>
                       </div>
-                    )}
+                    </div>
+                  </div>
+                </CardHeader>
 
-                    {partnership.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {partnership.tags.slice(0, 4).map((tag, index) => (
-                          <Badge key={index} variant="outline" className="border-gray-600 text-gray-400 text-xs">
-                            #{tag}
-                          </Badge>
+                <CardContent className="space-y-4">
+                  <p className="text-gray-300 text-sm leading-relaxed line-clamp-3">{partnership.description}</p>
+
+                  {partnership.benefits && partnership.benefits.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-400 mb-2">Benefits:</p>
+                      <div className="space-y-1">
+                        {partnership.benefits.slice(0, 3).map((benefit, index) => (
+                          <div key={index} className="flex items-center gap-2 text-sm text-gray-300">
+                            <div className="w-1 h-1 bg-yellow-400 rounded-full"></div>
+                            {benefit}
+                          </div>
                         ))}
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-between pt-2">
-                      <div className="flex items-center gap-2 text-xs text-gray-400">
-                        <Calendar className="w-3 h-3" />
-                        {new Date(partnership.created_at).toLocaleDateString()}
-                      </div>
-                      <div className="flex gap-2">
-                        {partnership.partner_website && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => window.open(partnership.partner_website, "_blank")}
-                            className="border-blue-400 text-blue-400 hover:bg-blue-400 hover:text-white"
-                          >
-                            <ExternalLink className="w-3 h-3" />
-                          </Button>
+                        {partnership.benefits.length > 3 && (
+                          <p className="text-xs text-gray-400 mt-1">+{partnership.benefits.length - 3} more benefits</p>
                         )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setEditingPartnership(partnership)}
-                          className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black"
-                        >
-                          <Edit className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => deletePartnership(partnership.id)}
-                          className="border-red-400 text-red-400 hover:bg-red-400 hover:text-white"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
+                  )}
+
+                  {partnership.tags && partnership.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {partnership.tags.slice(0, 4).map((tag, index) => (
+                        <Badge key={index} variant="outline" className="border-gray-600 text-gray-400 text-xs">
+                          #{tag}
+                        </Badge>
+                      ))}
+                      {partnership.tags.length > 4 && (
+                        <Badge variant="outline" className="border-gray-600 text-gray-400 text-xs">
+                          +{partnership.tags.length - 4}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-2">
+                    <div className="flex items-center gap-2 text-xs text-gray-400">
+                      <Calendar className="w-3 h-3" />
+                      {partnership.partnership_date
+                        ? new Date(partnership.partnership_date).toLocaleDateString()
+                        : new Date(partnership.created_at).toLocaleDateString()}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleEditPartnership(partnership)}
+                        className="border-blue-400 text-blue-400 hover:bg-blue-400 hover:text-white"
+                      >
+                        <Edit className="w-3 h-3" />
+                      </Button>
+                      {partnership.partner_website && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => window.open(partnership.partner_website, "_blank")}
+                          className="border-green-400 text-green-400 hover:bg-green-400 hover:text-white"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDeletePartnership(partnership.id)}
+                        className="border-red-400 text-red-400 hover:bg-red-400 hover:text-white"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
 
-        {partnerships.length === 0 && (
+        {/* No Results */}
+        {filteredPartnerships.length === 0 && (
           <div className="text-center py-12">
-            <Handshake className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-400 mb-2">No partnerships yet</h3>
-            <p className="text-gray-500">Add your first community partnership to get started.</p>
+            <Users className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-400 mb-2">No partnerships found</h3>
+            <p className="text-gray-500 mb-4">
+              {searchQuery || selectedType !== "all" || selectedStatus !== "all"
+                ? "Try adjusting your search or filters to find more partnerships."
+                : "Create your first partnership to get started."}
+            </p>
+            {(searchQuery || selectedType !== "all" || selectedStatus !== "all") && (
+              <Button
+                onClick={() => {
+                  setSearchQuery("")
+                  setSelectedType("all")
+                  setSelectedStatus("all")
+                }}
+                variant="outline"
+                className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black"
+              >
+                Clear Filters
+              </Button>
+            )}
           </div>
-        )}
-
-        {/* Edit Partnership Dialog */}
-        {editingPartnership && (
-          <Dialog open={!!editingPartnership} onOpenChange={() => setEditingPartnership(null)}>
-            <DialogContent className="bg-gray-900 border-gray-800 text-white max-w-4xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="text-white">Edit Partnership</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-6">
-                {/* Similar form structure as add partnership, but with editingPartnership values */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-gray-300">Partnership Title *</Label>
-                    <Input
-                      value={editingPartnership.title}
-                      onChange={(e) =>
-                        setEditingPartnership((prev) => (prev ? { ...prev, title: e.target.value } : null))
-                      }
-                      className="bg-gray-800 border-gray-700 text-white"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-gray-300">Partner Name *</Label>
-                    <Input
-                      value={editingPartnership.partner_name}
-                      onChange={(e) =>
-                        setEditingPartnership((prev) => (prev ? { ...prev, partner_name: e.target.value } : null))
-                      }
-                      className="bg-gray-800 border-gray-700 text-white"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label className="text-gray-300">Description *</Label>
-                  <Textarea
-                    value={editingPartnership.description}
-                    onChange={(e) =>
-                      setEditingPartnership((prev) => (prev ? { ...prev, description: e.target.value } : null))
-                    }
-                    className="bg-gray-800 border-gray-700 text-white"
-                    rows={3}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label className="text-gray-300">Partnership Type</Label>
-                    <Select
-                      value={editingPartnership.partnership_type}
-                      onValueChange={(value) =>
-                        setEditingPartnership((prev) => (prev ? { ...prev, partnership_type: value as any } : null))
-                      }
-                    >
-                      <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-gray-800 border-gray-700">
-                        {partnershipTypes.map((type) => (
-                          <SelectItem key={type.value} value={type.value} className="text-white">
-                            {type.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-gray-300">Status</Label>
-                    <Select
-                      value={editingPartnership.status}
-                      onValueChange={(value) =>
-                        setEditingPartnership((prev) => (prev ? { ...prev, status: value as any } : null))
-                      }
-                    >
-                      <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-gray-800 border-gray-700">
-                        <SelectItem value="active" className="text-white">
-                          Active
-                        </SelectItem>
-                        <SelectItem value="inactive" className="text-white">
-                          Inactive
-                        </SelectItem>
-                        <SelectItem value="draft" className="text-white">
-                          Draft
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-gray-300">Priority (0-10)</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      max="10"
-                      value={editingPartnership.priority}
-                      onChange={(e) =>
-                        setEditingPartnership((prev) =>
-                          prev ? { ...prev, priority: Number.parseInt(e.target.value) || 0 } : null,
-                        )
-                      }
-                      className="bg-gray-800 border-gray-700 text-white"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-gray-300">Partner Website</Label>
-                    <Input
-                      value={editingPartnership.partner_website || ""}
-                      onChange={(e) =>
-                        setEditingPartnership((prev) => (prev ? { ...prev, partner_website: e.target.value } : null))
-                      }
-                      className="bg-gray-800 border-gray-700 text-white"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-gray-300">Contact Email</Label>
-                    <Input
-                      value={editingPartnership.contact_email || ""}
-                      onChange={(e) =>
-                        setEditingPartnership((prev) => (prev ? { ...prev, contact_email: e.target.value } : null))
-                      }
-                      className="bg-gray-800 border-gray-700 text-white"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label className="text-gray-300">Contact Person</Label>
-                  <Input
-                    value={editingPartnership.contact_person || ""}
-                    onChange={(e) =>
-                      setEditingPartnership((prev) => (prev ? { ...prev, contact_person: e.target.value } : null))
-                    }
-                    className="bg-gray-800 border-gray-700 text-white"
-                  />
-                </div>
-
-                {/* Benefits for editing */}
-                <div>
-                  <Label className="text-gray-300">Benefits</Label>
-                  <div className="flex gap-2 mb-2">
-                    <Input
-                      value={newBenefit}
-                      onChange={(e) => setNewBenefit(e.target.value)}
-                      className="bg-gray-800 border-gray-700 text-white"
-                      placeholder="Add benefit"
-                      onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addBenefit(true))}
-                    />
-                    <Button
-                      type="button"
-                      onClick={() => addBenefit(true)}
-                      className="bg-yellow-400 hover:bg-yellow-500 text-black"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {editingPartnership.benefits.map((benefit, index) => (
-                      <Badge key={index} variant="outline" className="border-yellow-400 text-yellow-400">
-                        {benefit}
-                        <button
-                          type="button"
-                          onClick={() => removeBenefit(benefit, true)}
-                          className="ml-2 text-red-400 hover:text-red-300"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Tags for editing */}
-                <div>
-                  <Label className="text-gray-300">Tags</Label>
-                  <div className="flex gap-2 mb-2">
-                    <Input
-                      value={newTag}
-                      onChange={(e) => setNewTag(e.target.value)}
-                      className="bg-gray-800 border-gray-700 text-white"
-                      placeholder="Add tag"
-                      onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addTag(true))}
-                    />
-                    <Button
-                      type="button"
-                      onClick={() => addTag(true)}
-                      className="bg-yellow-400 hover:bg-yellow-500 text-black"
-                    >
-                      <Tag className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {editingPartnership.tags.map((tag, index) => (
-                      <Badge key={index} variant="outline" className="border-gray-600 text-gray-300">
-                        {tag}
-                        <button
-                          type="button"
-                          onClick={() => removeTag(tag, true)}
-                          className="ml-2 text-red-400 hover:text-red-300"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Social Links for editing */}
-                <div>
-                  <Label className="text-gray-300">Social Links</Label>
-                  <div className="flex gap-2 mb-2">
-                    <Input
-                      value={newSocialPlatform}
-                      onChange={(e) => setNewSocialPlatform(e.target.value)}
-                      className="bg-gray-800 border-gray-700 text-white"
-                      placeholder="Platform"
-                    />
-                    <Input
-                      value={newSocialUrl}
-                      onChange={(e) => setNewSocialUrl(e.target.value)}
-                      className="bg-gray-800 border-gray-700 text-white"
-                      placeholder="URL"
-                    />
-                    <Button
-                      type="button"
-                      onClick={() => addSocialLink(true)}
-                      className="bg-yellow-400 hover:bg-yellow-500 text-black"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <div className="space-y-2">
-                    {Object.entries(editingPartnership.social_links).map(([platform, url]) => (
-                      <div key={platform} className="flex items-center gap-2 p-2 bg-gray-800 rounded">
-                        <span className="text-yellow-400 capitalize">{platform}:</span>
-                        <span className="text-gray-300 flex-1">{url}</span>
-                        <button
-                          type="button"
-                          onClick={() => removeSocialLink(platform, true)}
-                          className="text-red-400 hover:text-red-300"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Featured Toggle for editing */}
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="edit-featured"
-                    checked={editingPartnership.featured}
-                    onChange={(e) =>
-                      setEditingPartnership((prev) => (prev ? { ...prev, featured: e.target.checked } : null))
-                    }
-                    className="w-4 h-4"
-                  />
-                  <Label htmlFor="edit-featured" className="text-gray-300">
-                    Featured Partnership
-                  </Label>
-                </div>
-
-                <div className="flex gap-2 pt-4">
-                  <Button onClick={updatePartnership} className="bg-green-500 hover:bg-green-600 text-white">
-                    <Save className="w-4 h-4 mr-2" />
-                    Update Partnership
-                  </Button>
-                  <Button
-                    onClick={() => setEditingPartnership(null)}
-                    variant="outline"
-                    className="border-gray-600 text-gray-300 hover:bg-gray-800"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
         )}
       </div>
     </div>

@@ -137,6 +137,8 @@ export interface Partnership {
   contact_person?: string
   start_date?: string
   end_date?: string
+  partnership_date?: string
+  partnership_photo?: string
   social_links: { [key: string]: string }
   tags: string[]
   priority: number
