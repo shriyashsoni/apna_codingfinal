@@ -121,6 +121,30 @@ export interface HackathonRegistration {
   updated_at: string
 }
 
+export interface Partnership {
+  id: string
+  title: string
+  description: string
+  image_url?: string
+  partner_logo?: string
+  partner_name: string
+  partner_website?: string
+  partnership_type: "general" | "educational" | "corporate" | "startup" | "nonprofit"
+  status: "active" | "inactive" | "draft"
+  featured: boolean
+  benefits: string[]
+  contact_email?: string
+  contact_person?: string
+  start_date?: string
+  end_date?: string
+  social_links: { [key: string]: string }
+  tags: string[]
+  priority: number
+  created_by?: string
+  created_at: string
+  updated_at: string
+}
+
 // Auth functions with Google OAuth
 export const signUp = async (email: string, password: string, fullName: string) => {
   const { data, error } = await supabase.auth.signUp({
@@ -557,6 +581,59 @@ export const getJobById = async (id: string) => {
   return { data, error }
 }
 
+// Database functions for Partnerships
+export const getPartnerships = async () => {
+  const { data, error } = await supabase
+    .from("community_partnerships")
+    .select("*")
+    .eq("status", "active")
+    .order("priority", { ascending: false })
+  return { data, error }
+}
+
+export const getAllPartnerships = async () => {
+  const { data, error } = await supabase
+    .from("community_partnerships")
+    .select("*")
+    .order("created_at", { ascending: false })
+  return { data, error }
+}
+
+export const createPartnership = async (partnership: Omit<Partnership, "id" | "created_at" | "updated_at">) => {
+  const currentUser = await getCurrentUser()
+  const { data, error } = await supabase
+    .from("community_partnerships")
+    .insert([
+      {
+        ...partnership,
+        created_by: currentUser?.id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ])
+    .select()
+  return { data, error }
+}
+
+export const updatePartnership = async (id: string, updates: Partial<Partnership>) => {
+  const { data, error } = await supabase
+    .from("community_partnerships")
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+  return { data, error }
+}
+
+export const deletePartnership = async (id: string) => {
+  const { data, error } = await supabase.from("community_partnerships").delete().eq("id", id)
+  return { data, error }
+}
+
+export const getPartnershipById = async (id: string) => {
+  const { data, error } = await supabase.from("community_partnerships").select("*").eq("id", id).single()
+  return { data, error }
+}
+
 // User Management Functions
 export const getAllUsers = async () => {
   const { data, error } = await supabase.from("users").select("*").order("created_at", { ascending: false })
@@ -819,6 +896,23 @@ export const searchJobs = async (query: string, type?: string, experience?: stri
   }
 
   const { data, error } = await queryBuilder.order("posted_date", { ascending: false })
+  return { data, error }
+}
+
+export const searchPartnerships = async (query: string, type?: string) => {
+  let queryBuilder = supabase.from("community_partnerships").select("*").eq("status", "active")
+
+  if (query) {
+    queryBuilder = queryBuilder.or(
+      `title.ilike.%${query}%,description.ilike.%${query}%,partner_name.ilike.%${query}%,tags.cs.{${query}}`,
+    )
+  }
+
+  if (type && type !== "all") {
+    queryBuilder = queryBuilder.eq("partnership_type", type)
+  }
+
+  const { data, error } = await queryBuilder.order("priority", { ascending: false })
   return { data, error }
 }
 
