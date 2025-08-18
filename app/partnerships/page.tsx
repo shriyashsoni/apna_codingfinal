@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -26,7 +25,7 @@ import {
   Target,
   Zap,
 } from "lucide-react"
-import { PartnershipSlider } from "@/components/partnership-slider"
+import PartnershipSlider from "@/components/partnership-slider"
 
 export default function PartnershipsPage() {
   const [formData, setFormData] = useState({
