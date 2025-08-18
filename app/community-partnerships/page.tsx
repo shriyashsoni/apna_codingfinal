@@ -14,11 +14,18 @@ import {
   GraduationCap,
   Heart,
   Briefcase,
+  CheckCircle,
+  Award,
+  Target,
+  Share2,
+  ArrowRight,
+  Handshake,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Link from "next/link"
 import Image from "next/image"
 
@@ -47,6 +54,14 @@ interface Partnership {
   updated_at: string
 }
 
+const partnershipTypes = [
+  { value: "all", label: "All Types", icon: Handshake },
+  { value: "educational", label: "Educational", icon: GraduationCap },
+  { value: "corporate", label: "Corporate", icon: Building },
+  { value: "startup", label: "Startup", icon: Briefcase },
+  { value: "nonprofit", label: "Non-Profit", icon: Heart },
+]
+
 export default function CommunityPartnershipsPage() {
   const [partnerships, setPartnerships] = useState<Partnership[]>([])
   const [filteredPartnerships, setFilteredPartnerships] = useState<Partnership[]>([])
@@ -56,6 +71,13 @@ export default function CommunityPartnershipsPage() {
 
   useEffect(() => {
     loadPartnerships()
+
+    // Real-time updates - check for new partnerships every 30 seconds
+    const interval = setInterval(() => {
+      loadPartnerships()
+    }, 30000)
+
+    return () => clearInterval(interval)
   }, [])
 
   useEffect(() => {
@@ -63,23 +85,22 @@ export default function CommunityPartnershipsPage() {
   }, [partnerships, searchQuery, selectedType])
 
   const loadPartnerships = () => {
-    // Load from localStorage for demo (in production, this would be from Supabase)
+    // Load from localStorage (in production, this would be from Supabase with real-time subscriptions)
     const savedPartnerships = localStorage.getItem("communityPartnerships")
     if (savedPartnerships) {
       const allPartnerships = JSON.parse(savedPartnerships)
       const activePartnerships = allPartnerships.filter((p: Partnership) => p.status === "active")
       setPartnerships(activePartnerships)
     } else {
-      // Default partnerships with photos
+      // Default partnerships with brand photos
       const defaultPartnerships: Partnership[] = [
         {
           id: "1",
           title: "AWS Cloud Credits Program",
           description:
             "Get up to $10,000 in AWS credits for your startup or project. Perfect for students and developers looking to build scalable applications in the cloud.",
-          image_url: "/images/partners/aws-partnership.jpg",
-          partner_logo: "/images/partners/aws-new.webp",
           partner_name: "Amazon Web Services",
+          partner_logo: "/images/partners/aws-new.webp",
           partner_website: "https://aws.amazon.com/activate",
           partnership_type: "corporate",
           status: "active",
@@ -94,7 +115,7 @@ export default function CommunityPartnershipsPage() {
           contact_email: "partnerships@aws.com",
           contact_person: "AWS Startup Team",
           partnership_date: "2024-01-15",
-          partnership_photo: "/images/partnerships/aws-event.jpg",
+          partnership_photo: "/images/partners/aws-new.webp",
           social_links: {
             twitter: "https://twitter.com/awscloud",
             linkedin: "https://linkedin.com/company/amazon-web-services",
@@ -109,9 +130,8 @@ export default function CommunityPartnershipsPage() {
           title: "GitHub Student Developer Pack",
           description:
             "Access to premium developer tools and services worth over $200k. Includes free GitHub Pro, domain names, cloud hosting, and much more.",
-          image_url: "/images/partners/github-partnership.jpg",
-          partner_logo: "/images/partners/github.png",
           partner_name: "GitHub",
+          partner_logo: "/images/partners/github.png",
           partner_website: "https://education.github.com/pack",
           partnership_type: "educational",
           status: "active",
@@ -126,7 +146,7 @@ export default function CommunityPartnershipsPage() {
           contact_email: "education@github.com",
           contact_person: "GitHub Education Team",
           partnership_date: "2024-01-10",
-          partnership_photo: "/images/partnerships/github-event.jpg",
+          partnership_photo: "/images/partners/github.png",
           social_links: {
             twitter: "https://twitter.com/github",
             linkedin: "https://linkedin.com/company/github",
@@ -141,9 +161,8 @@ export default function CommunityPartnershipsPage() {
           title: "Microsoft for Startups",
           description:
             "Join Microsoft for Startups and get up to $150,000 in Azure credits, plus access to technical support and go-to-market resources.",
-          image_url: "/images/partners/microsoft-partnership.jpg",
-          partner_logo: "/images/partners/microsoft-new.webp",
           partner_name: "Microsoft",
+          partner_logo: "/images/partners/microsoft-new.webp",
           partner_website: "https://startups.microsoft.com",
           partnership_type: "startup",
           status: "active",
@@ -158,7 +177,7 @@ export default function CommunityPartnershipsPage() {
           contact_email: "startups@microsoft.com",
           contact_person: "Microsoft Startups Team",
           partnership_date: "2024-01-20",
-          partnership_photo: "/images/partnerships/microsoft-event.jpg",
+          partnership_photo: "/images/partners/microsoft-new.webp",
           social_links: {
             twitter: "https://twitter.com/microsoft",
             linkedin: "https://linkedin.com/company/microsoft",
@@ -172,36 +191,97 @@ export default function CommunityPartnershipsPage() {
           id: "4",
           title: "NVIDIA Developer Program",
           description:
-            "Access to cutting-edge AI and GPU development tools, training resources, and exclusive developer events.",
-          image_url: "/images/partners/nvidia-partnership.jpg",
-          partner_logo: "/images/partners/nvidia-new.png",
+            "Access to cutting-edge AI and GPU computing resources. Perfect for machine learning and AI development projects.",
           partner_name: "NVIDIA",
+          partner_logo: "/images/partners/nvidia-new.png",
           partner_website: "https://developer.nvidia.com",
           partnership_type: "corporate",
           status: "active",
           featured: false,
           benefits: [
-            "Free GPU Cloud Credits",
-            "AI Training Resources",
-            "Developer Tools Access",
-            "Exclusive Events",
-            "Technical Support",
+            "Free GPU Computing Credits",
+            "AI Development Tools",
+            "Technical Documentation",
+            "Community Support",
+            "Early Access Programs",
           ],
           contact_email: "developer@nvidia.com",
           contact_person: "NVIDIA Developer Relations",
           partnership_date: "2024-02-01",
-          partnership_photo: "/images/partnerships/nvidia-event.jpg",
+          partnership_photo: "/images/partners/nvidia-new.png",
           social_links: {
             twitter: "https://twitter.com/nvidia",
             linkedin: "https://linkedin.com/company/nvidia",
           },
-          tags: ["ai", "gpu", "machine learning", "nvidia", "developer"],
+          tags: ["ai", "gpu", "machine-learning", "nvidia", "computing"],
           priority: 7,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        {
+          id: "5",
+          title: "Dell Technologies Student Program",
+          description: "Hardware and infrastructure support for student projects and educational initiatives.",
+          partner_name: "Dell Technologies",
+          partner_logo: "/images/partners/dell.png",
+          partner_website: "https://dell.com/students",
+          partnership_type: "educational",
+          status: "active",
+          featured: false,
+          benefits: [
+            "Hardware Discounts",
+            "Technical Support",
+            "Infrastructure Solutions",
+            "Student Resources",
+            "Career Opportunities",
+          ],
+          contact_email: "education@dell.com",
+          contact_person: "Dell Education Team",
+          partnership_date: "2024-02-15",
+          partnership_photo: "/images/partners/dell.png",
+          social_links: {
+            twitter: "https://twitter.com/dell",
+            linkedin: "https://linkedin.com/company/dell-technologies",
+          },
+          tags: ["hardware", "infrastructure", "student", "dell", "technology"],
+          priority: 6,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        {
+          id: "6",
+          title: "IIT Bombay E-Cell Collaboration",
+          description:
+            "Entrepreneurship and innovation partnership with one of India's premier technical institutions.",
+          partner_name: "IIT Bombay E-Cell",
+          partner_logo: "/images/partners/iit-bombay-ecell.png",
+          partner_website: "https://ecell.in",
+          partnership_type: "educational",
+          status: "active",
+          featured: false,
+          benefits: [
+            "Startup Incubation",
+            "Mentorship Programs",
+            "Networking Events",
+            "Research Collaboration",
+            "Innovation Workshops",
+          ],
+          contact_email: "partnerships@ecell.in",
+          contact_person: "E-Cell Partnership Team",
+          partnership_date: "2024-03-01",
+          partnership_photo: "/images/partners/iit-bombay-ecell.png",
+          social_links: {
+            twitter: "https://twitter.com/ecell_iitb",
+            linkedin: "https://linkedin.com/company/e-cell-iit-bombay",
+          },
+          tags: ["entrepreneurship", "startup", "iit", "innovation", "education"],
+          priority: 5,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
       ]
       setPartnerships(defaultPartnerships)
+      localStorage.setItem("communityPartnerships", JSON.stringify(defaultPartnerships))
     }
     setLoading(false)
   }
@@ -235,33 +315,41 @@ export default function CommunityPartnershipsPage() {
     setFilteredPartnerships(filtered)
   }
 
-  const getPartnershipTypeIcon = (type: string) => {
+  const getTypeIcon = (type: string) => {
+    const typeConfig = partnershipTypes.find((t) => t.value === type)
+    return typeConfig?.icon || Handshake
+  }
+
+  const getTypeLabel = (type: string) => {
+    const typeConfig = partnershipTypes.find((t) => t.value === type)
+    return typeConfig?.label || "General"
+  }
+
+  const getTypeColor = (type: string) => {
     switch (type) {
-      case "corporate":
-        return <Building className="w-4 h-4" />
       case "educational":
-        return <GraduationCap className="w-4 h-4" />
+        return "border-blue-400 text-blue-400"
+      case "corporate":
+        return "border-purple-400 text-purple-400"
       case "startup":
-        return <Briefcase className="w-4 h-4" />
+        return "border-green-400 text-green-400"
       case "nonprofit":
-        return <Heart className="w-4 h-4" />
+        return "border-pink-400 text-pink-400"
       default:
-        return <Users className="w-4 h-4" />
+        return "border-yellow-400 text-yellow-400"
     }
   }
 
-  const getPartnershipTypeColor = (type: string) => {
-    switch (type) {
-      case "corporate":
-        return "bg-blue-500/10 text-blue-400 border-blue-400/20"
-      case "educational":
-        return "bg-green-500/10 text-green-400 border-green-400/20"
-      case "startup":
-        return "bg-purple-500/10 text-purple-400 border-purple-400/20"
-      case "nonprofit":
-        return "bg-pink-500/10 text-pink-400 border-pink-400/20"
-      default:
-        return "bg-gray-500/10 text-gray-400 border-gray-400/20"
+  const sharePartnership = (partnership: Partnership) => {
+    if (navigator.share) {
+      navigator.share({
+        title: partnership.title,
+        text: partnership.description,
+        url: `/community-partnerships/${partnership.id}`,
+      })
+    } else {
+      // Fallback to copying URL
+      navigator.clipboard.writeText(`${window.location.origin}/community-partnerships/${partnership.id}`)
     }
   }
 
@@ -283,47 +371,72 @@ export default function CommunityPartnershipsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white pt-20">
+    <div className="min-h-screen bg-black text-white">
       {/* Hero Section */}
-      <div className="relative py-16 px-4 text-center bg-gradient-to-b from-gray-900/50 to-transparent">
-        <div className="max-w-4xl mx-auto">
+      <div className="relative py-20 px-4 text-center">
+        <div className="absolute inset-0 bg-gradient-to-b from-black/50 to-transparent" />
+        <div className="relative max-w-4xl mx-auto">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
-            <h1 className="text-4xl md:text-5xl font-bold mb-6">
+            <h1 className="text-5xl md:text-6xl font-bold mb-6 text-white">
               Community <span className="text-yellow-400">Partnerships</span>
             </h1>
             <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
-              Discover exclusive partnerships and opportunities available to our community members
+              Discover exclusive partnerships and opportunities designed to accelerate your coding journey and career
+              growth.
             </p>
+            <div className="flex flex-wrap justify-center gap-6 text-sm text-gray-300">
+              <div className="flex items-center gap-2">
+                <Award className="w-5 h-5 text-yellow-400" />
+                <span>Exclusive Benefits</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Target className="w-5 h-5 text-yellow-400" />
+                <span>Career Growth</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-yellow-400" />
+                <span>Community Access</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span className="text-green-400">Live Updates</span>
+              </div>
+            </div>
           </motion.div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 pb-20">
-        {/* Search and Filter */}
+        {/* Filters */}
         <div className="mb-8">
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Search partnerships..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-gray-900 border-gray-800 text-white"
-              />
+            <div className="flex items-center gap-4 w-full md:w-auto">
+              <div className="relative flex-1 md:w-80">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder="Search partnerships..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 bg-gray-900 border-gray-700 text-white"
+                />
+              </div>
+              <Select value={selectedType} onValueChange={setSelectedType}>
+                <SelectTrigger className="w-48 bg-gray-900 border-gray-700 text-white">
+                  <Filter className="w-4 h-4 mr-2" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-900 border-gray-700">
+                  {partnershipTypes.map((type) => (
+                    <SelectItem key={type.value} value={type.value} className="text-white">
+                      {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div className="flex items-center gap-4">
-              <Filter className="text-gray-400 w-4 h-4" />
-              <select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                className="bg-gray-900 border border-gray-800 rounded-md px-3 py-2 text-white"
-              >
-                <option value="all">All Types</option>
-                <option value="corporate">Corporate</option>
-                <option value="educational">Educational</option>
-                <option value="startup">Startup</option>
-                <option value="nonprofit">Non-profit</option>
-              </select>
+            <div className="text-sm text-gray-400 flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+              {filteredPartnerships.length} partnership{filteredPartnerships.length !== 1 ? "s" : ""} found
             </div>
           </div>
         </div>
@@ -331,210 +444,339 @@ export default function CommunityPartnershipsPage() {
         {/* Featured Partnerships */}
         {filteredPartnerships.some((p) => p.featured) && (
           <div className="mb-12">
-            <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-              <Star className="w-6 h-6 text-yellow-400" />
+            <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+              <Star className="w-6 h-6 text-yellow-400 fill-current" />
               Featured Partnerships
             </h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredPartnerships
                 .filter((partnership) => partnership.featured)
-                .slice(0, 2)
-                .map((partnership, index) => (
-                  <motion.div
-                    key={partnership.id}
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: index * 0.1 }}
-                  >
-                    <Card className="bg-gray-900 border-yellow-400/30 hover:border-yellow-400 transition-all group overflow-hidden">
-                      <div className="relative h-48 overflow-hidden">
-                        <Image
-                          src={
-                            partnership.image_url ||
-                            partnership.partnership_photo ||
-                            "/placeholder.svg?height=200&width=400"
-                          }
-                          alt={partnership.title}
-                          fill
-                          className="object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                        <div className="absolute top-4 left-4">
-                          <Badge className="bg-yellow-400 text-black">
-                            <Star className="w-3 h-3 mr-1" />
-                            Featured
-                          </Badge>
-                        </div>
-                        <div className="absolute top-4 right-4">
-                          <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center">
+                .map((partnership) => {
+                  const TypeIcon = getTypeIcon(partnership.partnership_type)
+                  return (
+                    <motion.div
+                      key={partnership.id}
+                      initial={{ opacity: 0, y: 30 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.6 }}
+                    >
+                      <Card className="bg-gray-900 border-yellow-400 hover:border-yellow-300 transition-all duration-300 group overflow-hidden">
+                        {/* Partnership Photo */}
+                        {partnership.partnership_photo && (
+                          <div className="relative h-48 overflow-hidden">
                             <Image
-                              src={partnership.partner_logo || "/placeholder.svg"}
-                              alt={partnership.partner_name}
-                              width={32}
-                              height={32}
-                              className="object-contain"
+                              src={partnership.partnership_photo || "/placeholder.svg?height=200&width=400"}
+                              alt={partnership.title}
+                              fill
+                              className="object-cover group-hover:scale-105 transition-transform duration-300"
                             />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                            <div className="absolute top-4 right-4">
+                              <Star className="w-5 h-5 text-yellow-400 fill-current" />
+                            </div>
+                            {partnership.partner_logo && (
+                              <div className="absolute bottom-4 left-4">
+                                <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center">
+                                  <Image
+                                    src={partnership.partner_logo || "/placeholder.svg"}
+                                    alt={`${partnership.partner_name} logo`}
+                                    width={40}
+                                    height={40}
+                                    className="object-contain"
+                                  />
+                                </div>
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      </div>
-                      <CardHeader>
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <CardTitle className="text-xl text-white group-hover:text-yellow-400 transition-colors">
-                              {partnership.title}
-                            </CardTitle>
-                            <p className="text-gray-400 mt-1">{partnership.partner_name}</p>
-                          </div>
-                          <Badge className={`${getPartnershipTypeColor(partnership.partnership_type)} border`}>
-                            {getPartnershipTypeIcon(partnership.partnership_type)}
-                            <span className="ml-1 capitalize">{partnership.partnership_type}</span>
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <p className="text-gray-300 text-sm line-clamp-2">{partnership.description}</p>
-                        <div className="flex flex-wrap gap-2">
-                          {partnership.tags.slice(0, 3).map((tag) => (
-                            <Badge key={tag} variant="outline" className="text-xs border-gray-700 text-gray-400">
-                              {tag}
-                            </Badge>
-                          ))}
-                        </div>
-                        <div className="flex items-center justify-between pt-2">
-                          <div className="flex items-center gap-4 text-sm text-gray-400">
-                            <div className="flex items-center gap-1">
-                              <Calendar className="w-4 h-4" />
-                              {new Date(partnership.partnership_date || partnership.created_at).toLocaleDateString()}
+                        )}
+
+                        <CardHeader className="pb-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="p-3 bg-yellow-400 rounded-lg">
+                                <TypeIcon className="w-6 h-6 text-black" />
+                              </div>
+                              <div>
+                                <CardTitle className="text-white text-lg group-hover:text-yellow-400 transition-colors">
+                                  {partnership.title}
+                                </CardTitle>
+                                <p className="text-gray-400 text-sm">{partnership.partner_name}</p>
+                                <Badge
+                                  variant="outline"
+                                  className={`mt-1 text-xs ${getTypeColor(partnership.partnership_type)}`}
+                                >
+                                  {getTypeLabel(partnership.partnership_type)}
+                                </Badge>
+                              </div>
                             </div>
                           </div>
-                          <Link href={`/community-partnerships/${partnership.id}`}>
-                            <Button className="bg-yellow-400 hover:bg-yellow-500 text-black">
-                              <Eye className="w-4 h-4 mr-2" />
-                              View Details
+                        </CardHeader>
+
+                        <CardContent className="space-y-4">
+                          <p className="text-gray-300 text-sm leading-relaxed line-clamp-3">
+                            {partnership.description}
+                          </p>
+
+                          <div>
+                            <p className="text-sm font-medium text-gray-400 mb-2">Key Benefits:</p>
+                            <div className="space-y-1">
+                              {partnership.benefits.slice(0, 4).map((benefit, index) => (
+                                <div key={index} className="flex items-center gap-2 text-sm text-gray-300">
+                                  <CheckCircle className="w-3 h-3 text-green-400 flex-shrink-0" />
+                                  {benefit}
+                                </div>
+                              ))}
+                              {partnership.benefits.length > 4 && (
+                                <p className="text-xs text-gray-400 mt-1">
+                                  +{partnership.benefits.length - 4} more benefits
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          {partnership.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {partnership.tags.slice(0, 4).map((tag, index) => (
+                                <Badge key={index} variant="outline" className="border-gray-600 text-gray-400 text-xs">
+                                  #{tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between pt-2">
+                            <div className="flex items-center gap-2">
+                              <Link href={`/community-partnerships/${partnership.id}`}>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-blue-400 text-blue-400 hover:bg-blue-400 hover:text-white bg-transparent"
+                                >
+                                  <Eye className="w-3 h-3 mr-1" />
+                                  View Details
+                                </Button>
+                              </Link>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => sharePartnership(partnership)}
+                                className="border-gray-400 text-gray-400 hover:bg-gray-400 hover:text-black"
+                              >
+                                <Share2 className="w-3 h-3" />
+                              </Button>
+                            </div>
+                            <Button
+                              onClick={() =>
+                                partnership.partner_website && window.open(partnership.partner_website, "_blank")
+                              }
+                              className="bg-yellow-400 hover:bg-yellow-500 text-black text-sm"
+                              disabled={!partnership.partner_website}
+                            >
+                              Learn More
+                              <ArrowRight className="w-3 h-3 ml-1" />
                             </Button>
-                          </Link>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  )
+                })}
             </div>
           </div>
         )}
 
         {/* All Partnerships */}
-        <div>
-          <h2 className="text-2xl font-bold mb-6">All Partnerships ({filteredPartnerships.length})</h2>
-          {filteredPartnerships.length === 0 ? (
-            <Card className="bg-gray-900 border-gray-800">
-              <CardContent className="text-center py-12">
-                <Users className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-400 mb-2">No partnerships found</h3>
-                <p className="text-gray-500">Try adjusting your search or filter criteria</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredPartnerships.map((partnership, index) => (
+        <div className="mb-12">
+          <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+            <Handshake className="w-6 h-6 text-yellow-400" />
+            All Partnerships
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredPartnerships.map((partnership) => {
+              const TypeIcon = getTypeIcon(partnership.partnership_type)
+              return (
                 <motion.div
                   key={partnership.id}
                   initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: index * 0.1 }}
+                  transition={{ duration: 0.6 }}
                 >
-                  <Card className="bg-gray-900 border-gray-800 hover:border-yellow-400 transition-all group h-full overflow-hidden">
-                    <div className="relative h-40 overflow-hidden">
-                      <Image
-                        src={
-                          partnership.image_url ||
-                          partnership.partnership_photo ||
-                          "/placeholder.svg?height=160&width=300"
-                        }
-                        alt={partnership.title}
-                        fill
-                        className="object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                      {partnership.featured && (
-                        <div className="absolute top-3 left-3">
-                          <Badge className="bg-yellow-400 text-black text-xs">
-                            <Star className="w-3 h-3 mr-1" />
-                            Featured
-                          </Badge>
-                        </div>
-                      )}
-                      <div className="absolute top-3 right-3">
-                        <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
-                          <Image
-                            src={partnership.partner_logo || "/placeholder.svg"}
-                            alt={partnership.partner_name}
-                            width={24}
-                            height={24}
-                            className="object-contain"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <CardTitle className="text-lg text-white group-hover:text-yellow-400 transition-colors line-clamp-1">
-                            {partnership.title}
-                          </CardTitle>
-                          <p className="text-gray-400 text-sm mt-1">{partnership.partner_name}</p>
-                        </div>
-                      </div>
-                      <Badge className={`${getPartnershipTypeColor(partnership.partnership_type)} border w-fit`}>
-                        {getPartnershipTypeIcon(partnership.partnership_type)}
-                        <span className="ml-1 capitalize text-xs">{partnership.partnership_type}</span>
-                      </Badge>
-                    </CardHeader>
-                    <CardContent className="space-y-3 flex-1 flex flex-col">
-                      <p className="text-gray-300 text-sm line-clamp-2 flex-1">{partnership.description}</p>
-                      <div className="flex flex-wrap gap-1">
-                        {partnership.tags.slice(0, 2).map((tag) => (
-                          <Badge key={tag} variant="outline" className="text-xs border-gray-700 text-gray-400">
-                            {tag}
-                          </Badge>
-                        ))}
-                        {partnership.tags.length > 2 && (
-                          <Badge variant="outline" className="text-xs border-gray-700 text-gray-400">
-                            +{partnership.tags.length - 2}
-                          </Badge>
+                  <Card className="bg-gray-900 border-gray-800 hover:border-yellow-400 transition-all duration-300 group overflow-hidden">
+                    {/* Partnership Photo */}
+                    {partnership.partnership_photo && (
+                      <div className="relative h-40 overflow-hidden">
+                        <Image
+                          src={partnership.partnership_photo || "/placeholder.svg?height=160&width=300"}
+                          alt={partnership.title}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                        {partnership.featured && (
+                          <div className="absolute top-4 right-4">
+                            <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                          </div>
+                        )}
+                        {partnership.partner_logo && (
+                          <div className="absolute bottom-4 left-4">
+                            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
+                              <Image
+                                src={partnership.partner_logo || "/placeholder.svg"}
+                                alt={`${partnership.partner_name} logo`}
+                                width={32}
+                                height={32}
+                                className="object-contain"
+                              />
+                            </div>
+                          </div>
                         )}
                       </div>
-                      <div className="flex items-center justify-between pt-2">
-                        <div className="flex items-center gap-1 text-xs text-gray-400">
-                          <Calendar className="w-3 h-3" />
-                          {new Date(partnership.partnership_date || partnership.created_at).toLocaleDateString()}
+                    )}
+
+                    <CardHeader className="pb-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-gray-800 rounded-lg group-hover:bg-yellow-400 transition-colors">
+                            <TypeIcon className="w-5 h-5 text-yellow-400 group-hover:text-black transition-colors" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-white text-lg group-hover:text-yellow-400 transition-colors">
+                              {partnership.title}
+                            </CardTitle>
+                            <p className="text-gray-400 text-sm">{partnership.partner_name}</p>
+                            <Badge
+                              variant="outline"
+                              className={`mt-1 text-xs ${getTypeColor(partnership.partnership_type)}`}
+                            >
+                              {getTypeLabel(partnership.partnership_type)}
+                            </Badge>
+                          </div>
                         </div>
-                        <Link href={`/community-partnerships/${partnership.id}`}>
-                          <Button size="sm" className="bg-yellow-400 hover:bg-yellow-500 text-black">
-                            <Eye className="w-3 h-3 mr-1" />
-                            View
-                          </Button>
-                        </Link>
+                      </div>
+                    </CardHeader>
+
+                    <CardContent className="space-y-4">
+                      <p className="text-gray-300 text-sm leading-relaxed line-clamp-3">{partnership.description}</p>
+
+                      <div>
+                        <p className="text-sm font-medium text-gray-400 mb-2">Benefits:</p>
+                        <div className="space-y-1">
+                          {partnership.benefits.slice(0, 3).map((benefit, index) => (
+                            <div key={index} className="flex items-center gap-2 text-sm text-gray-300">
+                              <CheckCircle className="w-3 h-3 text-green-400 flex-shrink-0" />
+                              {benefit}
+                            </div>
+                          ))}
+                          {partnership.benefits.length > 3 && (
+                            <p className="text-xs text-gray-400 mt-1">
+                              +{partnership.benefits.length - 3} more benefits
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {partnership.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {partnership.tags.slice(0, 3).map((tag, index) => (
+                            <Badge key={index} variant="outline" className="border-gray-600 text-gray-400 text-xs">
+                              #{tag}
+                            </Badge>
+                          ))}
+                          {partnership.tags.length > 3 && (
+                            <Badge variant="outline" className="border-gray-600 text-gray-400 text-xs">
+                              +{partnership.tags.length - 3}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-2">
+                        <div className="flex items-center gap-2 text-xs text-gray-400">
+                          <Calendar className="w-3 h-3" />
+                          {partnership.partnership_date
+                            ? new Date(partnership.partnership_date).toLocaleDateString()
+                            : new Date(partnership.created_at).toLocaleDateString()}
+                        </div>
+                        <div className="flex gap-2">
+                          <Link href={`/community-partnerships/${partnership.id}`}>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-blue-400 text-blue-400 hover:bg-blue-400 hover:text-white bg-transparent"
+                            >
+                              <Eye className="w-3 h-3" />
+                            </Button>
+                          </Link>
+                          {partnership.partner_website && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => window.open(partnership.partner_website, "_blank")}
+                              className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
                 </motion.div>
-              ))}
-            </div>
-          )}
+              )
+            })}
+          </div>
         </div>
 
+        {/* No Results */}
+        {filteredPartnerships.length === 0 && (
+          <div className="text-center py-12">
+            <Handshake className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-400 mb-2">No partnerships found</h3>
+            <p className="text-gray-500 mb-4">
+              {searchQuery || selectedType !== "all"
+                ? "Try adjusting your search or filters to find more partnerships."
+                : "Check back soon for new partnership opportunities."}
+            </p>
+            {(searchQuery || selectedType !== "all") && (
+              <Button
+                onClick={() => {
+                  setSearchQuery("")
+                  setSelectedType("all")
+                }}
+                variant="outline"
+                className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black"
+              >
+                Clear Filters
+              </Button>
+            )}
+          </div>
+        )}
+
         {/* Call to Action */}
-        <div className="mt-16 text-center">
-          <Card className="bg-gradient-to-r from-yellow-400/10 to-yellow-600/10 border-yellow-400/30">
-            <CardContent className="p-8">
-              <h2 className="text-2xl font-bold text-white mb-4">Want to Partner with Us?</h2>
-              <p className="text-gray-300 mb-6 max-w-2xl mx-auto">
-                Join our growing network of partners and help us empower the next generation of developers.
+        <div className="text-center mt-16">
+          <Card className="bg-gray-900 border-yellow-400">
+            <CardContent className="p-12">
+              <h2 className="text-3xl font-bold text-white mb-4">Ready to Get Started?</h2>
+              <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
+                Join our community and unlock access to exclusive partnerships that can accelerate your coding journey.
               </p>
-              <Link href="/partnerships">
-                <Button className="bg-yellow-400 hover:bg-yellow-500 text-black px-6 py-3">
-                  Become a Partner
-                  <ExternalLink className="w-4 h-4 ml-2" />
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button
+                  onClick={() => window.open("/community", "_self")}
+                  className="bg-yellow-400 hover:bg-yellow-500 text-black px-8 py-3 text-lg"
+                >
+                  Join Community
+                  <Users className="w-5 h-5 ml-2" />
                 </Button>
-              </Link>
+                <Button
+                  onClick={() => window.open("/partnerships", "_self")}
+                  variant="outline"
+                  className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black px-8 py-3 text-lg"
+                >
+                  Become a Partner
+                  <Handshake className="w-5 h-5 ml-2" />
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
