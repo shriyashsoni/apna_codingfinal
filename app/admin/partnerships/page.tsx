@@ -325,389 +325,444 @@ export default function AdminPartnershipsPage() {
     <div className="min-h-screen bg-black text-white pt-20">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Community Partnerships</h1>
+            <h1 className="text-3xl font-bold text-white">Community Partnerships</h1>
             <p className="text-gray-400 mt-2">Manage partnership opportunities for the community</p>
+            <div className="flex items-center gap-4 mt-3 text-sm text-gray-400">
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                <span>{partnerships.filter((p) => p.status === "active").length} Active</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
+                <span>{partnerships.filter((p) => p.featured).length} Featured</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                <span>{partnerships.filter((p) => p.status === "draft").length} Drafts</span>
+              </div>
+            </div>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-yellow-400 hover:bg-yellow-500 text-black" onClick={resetForm}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Partnership
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="bg-gray-900 border-gray-800 text-white max-w-4xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="text-xl">
-                  {editingPartnership ? "Edit Partnership" : "Add New Partnership"}
-                </DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Basic Information */}
-                  <div className="space-y-4">
+
+          <div className="flex flex-col sm:flex-row gap-3">
+            {/* Quick Add Featured Partnership */}
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  className="bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-black font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                  onClick={() => {
+                    resetForm()
+                    setFormData((prev) => ({ ...prev, featured: true, status: "active" }))
+                  }}
+                >
+                  <Star className="w-4 h-4 mr-2" />
+                  Add Featured Partner
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="bg-gray-900 border-gray-800 text-white max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="text-xl flex items-center gap-2">
+                    <Star className="w-5 h-5 text-yellow-400" />
+                    {editingPartnership ? "Edit Partnership" : "Add New Partnership"}
+                  </DialogTitle>
+                </DialogHeader>
+                {/* Form content remains the same */}
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Basic Information */}
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="title">Partnership Title</Label>
+                        <Input
+                          id="title"
+                          value={formData.title}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
+                          className="bg-gray-800 border-gray-700 text-white"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="partner_name">Partner Name</Label>
+                        <Input
+                          id="partner_name"
+                          value={formData.partner_name}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, partner_name: e.target.value }))}
+                          className="bg-gray-800 border-gray-700 text-white"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="partner_website">Partner Website</Label>
+                        <Input
+                          id="partner_website"
+                          type="url"
+                          value={formData.partner_website}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, partner_website: e.target.value }))}
+                          className="bg-gray-800 border-gray-700 text-white"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="partnership_type">Partnership Type</Label>
+                        <Select
+                          value={formData.partnership_type}
+                          onValueChange={(value) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              partnership_type: value as Partnership["partnership_type"],
+                            }))
+                          }
+                        >
+                          <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-gray-800 border-gray-700">
+                            <SelectItem value="general">General</SelectItem>
+                            <SelectItem value="corporate">Corporate</SelectItem>
+                            <SelectItem value="educational">Educational</SelectItem>
+                            <SelectItem value="startup">Startup</SelectItem>
+                            <SelectItem value="nonprofit">Non-profit</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {/* Images */}
+                    <div className="space-y-4">
+                      <div>
+                        <Label>Partner Logo</Label>
+                        <div className="border-2 border-dashed border-gray-700 rounded-lg p-4 text-center">
+                          {imagePreviews.partner_logo ? (
+                            <div className="relative">
+                              <Image
+                                src={imagePreviews.partner_logo || "/placeholder.svg"}
+                                alt="Partner logo preview"
+                                width={100}
+                                height={100}
+                                className="mx-auto object-contain"
+                              />
+                              <Button
+                                type="button"
+                                onClick={() => removeImage("partner_logo")}
+                                className="absolute top-0 right-0 bg-red-500 hover:bg-red-600 text-white p-1 rounded-full"
+                                size="sm"
+                              >
+                                <X className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div>
+                              <ImageIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                              <p className="text-gray-400 text-sm mb-2">Upload partner logo</p>
+                              <Input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0]
+                                  if (file) handleImageUpload("partner_logo", file)
+                                }}
+                                className="bg-gray-800 border-gray-700 text-white"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label>Partnership Photo</Label>
+                        <div className="border-2 border-dashed border-gray-700 rounded-lg p-4 text-center">
+                          {imagePreviews.partnership_photo ? (
+                            <div className="relative">
+                              <Image
+                                src={imagePreviews.partnership_photo || "/placeholder.svg"}
+                                alt="Partnership photo preview"
+                                width={200}
+                                height={120}
+                                className="mx-auto object-cover rounded"
+                              />
+                              <Button
+                                type="button"
+                                onClick={() => removeImage("partnership_photo")}
+                                className="absolute top-0 right-0 bg-red-500 hover:bg-red-600 text-white p-1 rounded-full"
+                                size="sm"
+                              >
+                                <X className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div>
+                              <ImageIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                              <p className="text-gray-400 text-sm mb-2">Upload partnership photo</p>
+                              <Input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0]
+                                  if (file) handleImageUpload("partnership_photo", file)
+                                }}
+                                className="bg-gray-800 border-gray-700 text-white"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <div>
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea
+                      id="description"
+                      value={formData.description}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                      className="bg-gray-800 border-gray-700 text-white"
+                      rows={4}
+                      required
+                    />
+                  </div>
+
+                  {/* Benefits */}
+                  <div>
+                    <Label>Benefits</Label>
+                    <div className="space-y-2">
+                      {formData.benefits.map((benefit, index) => (
+                        <div key={index} className="flex gap-2">
+                          <Input
+                            value={benefit}
+                            onChange={(e) => updateBenefit(index, e.target.value)}
+                            className="bg-gray-800 border-gray-700 text-white"
+                            placeholder="Enter benefit"
+                          />
+                          <Button
+                            type="button"
+                            onClick={() => removeBenefit(index)}
+                            className="bg-red-500 hover:bg-red-600 text-white px-3"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        onClick={addBenefit}
+                        variant="outline"
+                        className="border-gray-700 text-gray-300 hover:bg-gray-800 bg-transparent"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Benefit
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Tags */}
+                  <div>
+                    <Label>Tags</Label>
+                    <div className="space-y-2">
+                      {formData.tags.map((tag, index) => (
+                        <div key={index} className="flex gap-2">
+                          <Input
+                            value={tag}
+                            onChange={(e) => updateTag(index, e.target.value)}
+                            className="bg-gray-800 border-gray-700 text-white"
+                            placeholder="Enter tag"
+                          />
+                          <Button
+                            type="button"
+                            onClick={() => removeTag(index)}
+                            className="bg-red-500 hover:bg-red-600 text-white px-3"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        onClick={addTag}
+                        variant="outline"
+                        className="border-gray-700 text-gray-300 hover:bg-gray-800 bg-transparent"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Tag
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Additional Fields */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="title">Partnership Title</Label>
+                      <Label htmlFor="contact_person">Contact Person</Label>
                       <Input
-                        id="title"
-                        value={formData.title}
-                        onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
+                        id="contact_person"
+                        value={formData.contact_person}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, contact_person: e.target.value }))}
                         className="bg-gray-800 border-gray-700 text-white"
-                        required
                       />
                     </div>
                     <div>
-                      <Label htmlFor="partner_name">Partner Name</Label>
+                      <Label htmlFor="contact_email">Contact Email</Label>
                       <Input
-                        id="partner_name"
-                        value={formData.partner_name}
-                        onChange={(e) => setFormData((prev) => ({ ...prev, partner_name: e.target.value }))}
-                        className="bg-gray-800 border-gray-700 text-white"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="partner_website">Partner Website</Label>
-                      <Input
-                        id="partner_website"
-                        type="url"
-                        value={formData.partner_website}
-                        onChange={(e) => setFormData((prev) => ({ ...prev, partner_website: e.target.value }))}
+                        id="contact_email"
+                        type="email"
+                        value={formData.contact_email}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, contact_email: e.target.value }))}
                         className="bg-gray-800 border-gray-700 text-white"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="partnership_type">Partnership Type</Label>
+                      <Label htmlFor="partnership_date">Partnership Date</Label>
+                      <Input
+                        id="partnership_date"
+                        type="date"
+                        value={formData.partnership_date}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, partnership_date: e.target.value }))}
+                        className="bg-gray-800 border-gray-700 text-white"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="priority">Priority (1-10)</Label>
+                      <Input
+                        id="priority"
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={formData.priority}
+                        onChange={(e) =>
+                          setFormData((prev) => ({ ...prev, priority: Number.parseInt(e.target.value) }))
+                        }
+                        className="bg-gray-800 border-gray-700 text-white"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Social Links */}
+                  <div>
+                    <Label>Social Links</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <Label htmlFor="twitter">Twitter</Label>
+                        <Input
+                          id="twitter"
+                          value={formData.social_links.twitter}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              social_links: { ...prev.social_links, twitter: e.target.value },
+                            }))
+                          }
+                          className="bg-gray-800 border-gray-700 text-white"
+                          placeholder="https://twitter.com/..."
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="linkedin">LinkedIn</Label>
+                        <Input
+                          id="linkedin"
+                          value={formData.social_links.linkedin}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              social_links: { ...prev.social_links, linkedin: e.target.value },
+                            }))
+                          }
+                          className="bg-gray-800 border-gray-700 text-white"
+                          placeholder="https://linkedin.com/company/..."
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="website">Website</Label>
+                        <Input
+                          id="website"
+                          value={formData.social_links.website}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              social_links: { ...prev.social_links, website: e.target.value },
+                            }))
+                          }
+                          className="bg-gray-800 border-gray-700 text-white"
+                          placeholder="https://example.com"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Status and Featured */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="status">Status</Label>
                       <Select
-                        value={formData.partnership_type}
+                        value={formData.status}
                         onValueChange={(value) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            partnership_type: value as Partnership["partnership_type"],
-                          }))
+                          setFormData((prev) => ({ ...prev, status: value as Partnership["status"] }))
                         }
                       >
                         <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-gray-800 border-gray-700">
-                          <SelectItem value="general">General</SelectItem>
-                          <SelectItem value="corporate">Corporate</SelectItem>
-                          <SelectItem value="educational">Educational</SelectItem>
-                          <SelectItem value="startup">Startup</SelectItem>
-                          <SelectItem value="nonprofit">Non-profit</SelectItem>
+                          <SelectItem value="draft">Draft</SelectItem>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="inactive">Inactive</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                  </div>
-
-                  {/* Images */}
-                  <div className="space-y-4">
-                    <div>
-                      <Label>Partner Logo</Label>
-                      <div className="border-2 border-dashed border-gray-700 rounded-lg p-4 text-center">
-                        {imagePreviews.partner_logo ? (
-                          <div className="relative">
-                            <Image
-                              src={imagePreviews.partner_logo || "/placeholder.svg"}
-                              alt="Partner logo preview"
-                              width={100}
-                              height={100}
-                              className="mx-auto object-contain"
-                            />
-                            <Button
-                              type="button"
-                              onClick={() => removeImage("partner_logo")}
-                              className="absolute top-0 right-0 bg-red-500 hover:bg-red-600 text-white p-1 rounded-full"
-                              size="sm"
-                            >
-                              <X className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <div>
-                            <ImageIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                            <p className="text-gray-400 text-sm mb-2">Upload partner logo</p>
-                            <Input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0]
-                                if (file) handleImageUpload("partner_logo", file)
-                              }}
-                              className="bg-gray-800 border-gray-700 text-white"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label>Partnership Photo</Label>
-                      <div className="border-2 border-dashed border-gray-700 rounded-lg p-4 text-center">
-                        {imagePreviews.partnership_photo ? (
-                          <div className="relative">
-                            <Image
-                              src={imagePreviews.partnership_photo || "/placeholder.svg"}
-                              alt="Partnership photo preview"
-                              width={200}
-                              height={120}
-                              className="mx-auto object-cover rounded"
-                            />
-                            <Button
-                              type="button"
-                              onClick={() => removeImage("partnership_photo")}
-                              className="absolute top-0 right-0 bg-red-500 hover:bg-red-600 text-white p-1 rounded-full"
-                              size="sm"
-                            >
-                              <X className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <div>
-                            <ImageIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                            <p className="text-gray-400 text-sm mb-2">Upload partnership photo</p>
-                            <Input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0]
-                                if (file) handleImageUpload("partnership_photo", file)
-                              }}
-                              className="bg-gray-800 border-gray-700 text-white"
-                            />
-                          </div>
-                        )}
-                      </div>
+                    <div className="flex items-center space-x-2 pt-6">
+                      <input
+                        type="checkbox"
+                        id="featured"
+                        checked={formData.featured}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, featured: e.target.checked }))}
+                        className="rounded border-gray-700 bg-gray-800"
+                      />
+                      <Label htmlFor="featured">Featured Partnership</Label>
                     </div>
                   </div>
-                </div>
 
-                {/* Description */}
-                <div>
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                    className="bg-gray-800 border-gray-700 text-white"
-                    rows={4}
-                    required
-                  />
-                </div>
-
-                {/* Benefits */}
-                <div>
-                  <Label>Benefits</Label>
-                  <div className="space-y-2">
-                    {formData.benefits.map((benefit, index) => (
-                      <div key={index} className="flex gap-2">
-                        <Input
-                          value={benefit}
-                          onChange={(e) => updateBenefit(index, e.target.value)}
-                          className="bg-gray-800 border-gray-700 text-white"
-                          placeholder="Enter benefit"
-                        />
-                        <Button
-                          type="button"
-                          onClick={() => removeBenefit(index)}
-                          className="bg-red-500 hover:bg-red-600 text-white px-3"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))}
+                  <div className="flex justify-end gap-4">
                     <Button
                       type="button"
-                      onClick={addBenefit}
+                      onClick={() => setIsDialogOpen(false)}
                       variant="outline"
-                      className="border-gray-700 text-gray-300 hover:bg-gray-800 bg-transparent"
+                      className="border-gray-700 text-gray-300 hover:bg-gray-800"
                     >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Benefit
+                      Cancel
+                    </Button>
+                    <Button type="submit" className="bg-yellow-400 hover:bg-yellow-500 text-black">
+                      {editingPartnership ? "Update Partnership" : "Create Partnership"}
                     </Button>
                   </div>
-                </div>
+                </form>
+              </DialogContent>
+            </Dialog>
 
-                {/* Tags */}
-                <div>
-                  <Label>Tags</Label>
-                  <div className="space-y-2">
-                    {formData.tags.map((tag, index) => (
-                      <div key={index} className="flex gap-2">
-                        <Input
-                          value={tag}
-                          onChange={(e) => updateTag(index, e.target.value)}
-                          className="bg-gray-800 border-gray-700 text-white"
-                          placeholder="Enter tag"
-                        />
-                        <Button
-                          type="button"
-                          onClick={() => removeTag(index)}
-                          className="bg-red-500 hover:bg-red-600 text-white px-3"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))}
-                    <Button
-                      type="button"
-                      onClick={addTag}
-                      variant="outline"
-                      className="border-gray-700 text-gray-300 hover:bg-gray-800 bg-transparent"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Tag
-                    </Button>
-                  </div>
-                </div>
+            {/* Regular Add Partnership */}
+            <Button
+              variant="outline"
+              className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black transition-all duration-300 bg-transparent"
+              onClick={() => {
+                resetForm()
+                setIsDialogOpen(true)
+              }}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Regular Partner
+            </Button>
 
-                {/* Additional Fields */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="contact_person">Contact Person</Label>
-                    <Input
-                      id="contact_person"
-                      value={formData.contact_person}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, contact_person: e.target.value }))}
-                      className="bg-gray-800 border-gray-700 text-white"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="contact_email">Contact Email</Label>
-                    <Input
-                      id="contact_email"
-                      type="email"
-                      value={formData.contact_email}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, contact_email: e.target.value }))}
-                      className="bg-gray-800 border-gray-700 text-white"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="partnership_date">Partnership Date</Label>
-                    <Input
-                      id="partnership_date"
-                      type="date"
-                      value={formData.partnership_date}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, partnership_date: e.target.value }))}
-                      className="bg-gray-800 border-gray-700 text-white"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="priority">Priority (1-10)</Label>
-                    <Input
-                      id="priority"
-                      type="number"
-                      min="1"
-                      max="10"
-                      value={formData.priority}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, priority: Number.parseInt(e.target.value) }))}
-                      className="bg-gray-800 border-gray-700 text-white"
-                    />
-                  </div>
-                </div>
-
-                {/* Social Links */}
-                <div>
-                  <Label>Social Links</Label>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <Label htmlFor="twitter">Twitter</Label>
-                      <Input
-                        id="twitter"
-                        value={formData.social_links.twitter}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            social_links: { ...prev.social_links, twitter: e.target.value },
-                          }))
-                        }
-                        className="bg-gray-800 border-gray-700 text-white"
-                        placeholder="https://twitter.com/..."
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="linkedin">LinkedIn</Label>
-                      <Input
-                        id="linkedin"
-                        value={formData.social_links.linkedin}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            social_links: { ...prev.social_links, linkedin: e.target.value },
-                          }))
-                        }
-                        className="bg-gray-800 border-gray-700 text-white"
-                        placeholder="https://linkedin.com/company/..."
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="website">Website</Label>
-                      <Input
-                        id="website"
-                        value={formData.social_links.website}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            social_links: { ...prev.social_links, website: e.target.value },
-                          }))
-                        }
-                        className="bg-gray-800 border-gray-700 text-white"
-                        placeholder="https://example.com"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Status and Featured */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="status">Status</Label>
-                    <Select
-                      value={formData.status}
-                      onValueChange={(value) =>
-                        setFormData((prev) => ({ ...prev, status: value as Partnership["status"] }))
-                      }
-                    >
-                      <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-gray-800 border-gray-700">
-                        <SelectItem value="draft">Draft</SelectItem>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-center space-x-2 pt-6">
-                    <input
-                      type="checkbox"
-                      id="featured"
-                      checked={formData.featured}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, featured: e.target.checked }))}
-                      className="rounded border-gray-700 bg-gray-800"
-                    />
-                    <Label htmlFor="featured">Featured Partnership</Label>
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-4">
-                  <Button
-                    type="button"
-                    onClick={() => setIsDialogOpen(false)}
-                    variant="outline"
-                    className="border-gray-700 text-gray-300 hover:bg-gray-800"
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" className="bg-yellow-400 hover:bg-yellow-500 text-black">
-                    {editingPartnership ? "Update Partnership" : "Create Partnership"}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+            {/* Quick Draft Button */}
+            <Button
+              variant="outline"
+              className="border-blue-400 text-blue-400 hover:bg-blue-400 hover:text-white transition-all duration-300 bg-transparent"
+              onClick={() => {
+                resetForm()
+                setFormData((prev) => ({ ...prev, status: "draft" }))
+                setIsDialogOpen(true)
+              }}
+            >
+              <Edit className="w-4 h-4 mr-2" />
+              Save as Draft
+            </Button>
+          </div>
         </div>
 
         {/* Search and Filters */}
@@ -747,6 +802,108 @@ export default function AdminPartnershipsPage() {
                   <SelectItem value="draft">Draft</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+        </div>
+
+        {/* Bulk Actions */}
+        <div className="mb-6 p-4 bg-gray-900 rounded-lg border border-gray-800">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-1">Quick Actions</h3>
+              <p className="text-gray-400 text-sm">Quickly add different types of partnerships</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                className="bg-blue-500 hover:bg-blue-600 text-white"
+                onClick={() => {
+                  resetForm()
+                  setFormData((prev) => ({
+                    ...prev,
+                    partnership_type: "corporate",
+                    status: "active",
+                    featured: true,
+                    priority: 10,
+                  }))
+                  setIsDialogOpen(true)
+                }}
+              >
+                <Building className="w-3 h-3 mr-1" />
+                Corporate
+              </Button>
+              <Button
+                size="sm"
+                className="bg-green-500 hover:bg-green-600 text-white"
+                onClick={() => {
+                  resetForm()
+                  setFormData((prev) => ({
+                    ...prev,
+                    partnership_type: "educational",
+                    status: "active",
+                    featured: false,
+                    priority: 8,
+                  }))
+                  setIsDialogOpen(true)
+                }}
+              >
+                <GraduationCap className="w-3 h-3 mr-1" />
+                Educational
+              </Button>
+              <Button
+                size="sm"
+                className="bg-purple-500 hover:bg-purple-600 text-white"
+                onClick={() => {
+                  resetForm()
+                  setFormData((prev) => ({
+                    ...prev,
+                    partnership_type: "startup",
+                    status: "active",
+                    featured: false,
+                    priority: 7,
+                  }))
+                  setIsDialogOpen(true)
+                }}
+              >
+                <Briefcase className="w-3 h-3 mr-1" />
+                Startup
+              </Button>
+              <Button
+                size="sm"
+                className="bg-pink-500 hover:bg-pink-600 text-white"
+                onClick={() => {
+                  resetForm()
+                  setFormData((prev) => ({
+                    ...prev,
+                    partnership_type: "nonprofit",
+                    status: "active",
+                    featured: false,
+                    priority: 6,
+                  }))
+                  setIsDialogOpen(true)
+                }}
+              >
+                <Heart className="w-3 h-3 mr-1" />
+                Non-Profit
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black bg-transparent"
+                onClick={() => {
+                  resetForm()
+                  setFormData((prev) => ({
+                    ...prev,
+                    status: "draft",
+                    featured: false,
+                    priority: 5,
+                  }))
+                  setIsDialogOpen(true)
+                }}
+              >
+                <Edit className="w-3 h-3 mr-1" />
+                Draft
+              </Button>
             </div>
           </div>
         </div>
@@ -856,6 +1013,81 @@ export default function AdminPartnershipsPage() {
               </Card>
             </motion.div>
           ))}
+        </div>
+
+        {/* Quick Action Cards */}
+        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card
+            className="bg-gradient-to-br from-yellow-400/10 to-yellow-600/10 border-yellow-400/30 hover:border-yellow-400 transition-all cursor-pointer group"
+            onClick={() => {
+              resetForm()
+              setFormData((prev) => ({ ...prev, featured: true, status: "active", partnership_type: "corporate" }))
+              setIsDialogOpen(true)
+            }}
+          >
+            <CardContent className="p-6 text-center">
+              <div className="w-12 h-12 bg-yellow-400 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                <Building className="w-6 h-6 text-black" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">Add Corporate Partner</h3>
+              <p className="text-gray-400 text-sm">Add a new corporate partnership with featured status</p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="bg-gradient-to-br from-green-400/10 to-green-600/10 border-green-400/30 hover:border-green-400 transition-all cursor-pointer group"
+            onClick={() => {
+              resetForm()
+              setFormData((prev) => ({ ...prev, featured: false, status: "active", partnership_type: "educational" }))
+              setIsDialogOpen(true)
+            }}
+          >
+            <CardContent className="p-6 text-center">
+              <div className="w-12 h-12 bg-green-400 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                <GraduationCap className="w-6 h-6 text-black" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">Add Educational Partner</h3>
+              <p className="text-gray-400 text-sm">Add a new educational institution partnership</p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="bg-gradient-to-br from-purple-400/10 to-purple-600/10 border-purple-400/30 hover:border-purple-400 transition-all cursor-pointer group"
+            onClick={() => {
+              resetForm()
+              setFormData((prev) => ({ ...prev, featured: false, status: "active", partnership_type: "startup" }))
+              setIsDialogOpen(true)
+            }}
+          >
+            <CardContent className="p-6 text-center">
+              <div className="w-12 h-12 bg-purple-400 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                <Briefcase className="w-6 h-6 text-black" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">Add Startup Partner</h3>
+              <p className="text-gray-400 text-sm">Add a new startup or tech company partnership</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Floating Action Button */}
+        <div className="fixed bottom-8 right-8 z-50">
+          <div className="relative group">
+            <Button
+              className="w-14 h-14 rounded-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-black shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-110"
+              onClick={() => {
+                resetForm()
+                setIsDialogOpen(true)
+              }}
+            >
+              <Plus className="w-6 h-6" />
+            </Button>
+
+            {/* Tooltip */}
+            <div className="absolute bottom-full right-0 mb-2 px-3 py-1 bg-gray-800 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+              Quick Add Partnership
+              <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+            </div>
+          </div>
         </div>
 
         {filteredPartnerships.length === 0 && (
