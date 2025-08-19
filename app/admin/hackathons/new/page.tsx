@@ -11,7 +11,6 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Plus, X, Save, Calendar, MapPin, Trophy } from "lucide-react"
-import { createHackathon } from "@/lib/supabase"
 
 export default function NewHackathonPage() {
   const router = useRouter()
@@ -74,32 +73,52 @@ export default function NewHackathonPage() {
     setLoading(true)
 
     try {
+      // Create hackathon data without created_by field - let the database handle it
       const hackathonData = {
-        ...formData,
-        max_team_size: formData.max_team_size ? Number.parseInt(formData.max_team_size) : null,
+        title: formData.title,
+        description: formData.description,
+        start_date: formData.start_date,
+        end_date: formData.end_date,
+        registration_deadline: formData.registration_deadline || null,
+        location: formData.location,
+        prize_pool: formData.prize_pool,
+        status: formData.status,
+        registration_open: true,
         technologies,
+        registration_link: formData.registration_link || null,
+        whatsapp_link: formData.whatsapp_link || null,
+        organizer: formData.organizer,
         partnerships,
+        featured: formData.featured,
+        mode: formData.mode,
+        difficulty: formData.difficulty,
+        max_team_size: formData.max_team_size ? Number.parseInt(formData.max_team_size) : null,
+        image_url: formData.image_url || null,
         participants_count: 0,
       }
 
-      const { data, error } = await createHackathon(hackathonData)
+      // Direct database insert without using the createHackathon function
+      const response = await fetch("/api/hackathons", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(hackathonData),
+      })
 
-      if (error) {
-        alert("Error creating hackathon: " + error.message)
-        return
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to create hackathon")
       }
 
+      const result = await response.json()
       alert("Hackathon created successfully!")
 
-      // Redirect to the new hackathon's detail page
-      if (data?.slug) {
-        router.push(`/hackathons/${data.slug}`)
-      } else {
-        router.push("/admin/hackathons")
-      }
+      // Redirect to hackathons list
+      router.push("/admin/hackathons")
     } catch (error) {
       console.error("Error creating hackathon:", error)
-      alert("Error creating hackathon. Please try again.")
+      alert("Error creating hackathon: " + (error instanceof Error ? error.message : "Unknown error"))
     } finally {
       setLoading(false)
     }
