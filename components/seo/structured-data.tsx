@@ -1,188 +1,193 @@
-import Script from "next/script"
+"use client"
+
+import { useEffect } from "react"
 
 interface StructuredDataProps {
-  type: "Organization" | "Event" | "JobPosting" | "Course" | "Article" | "Person"
   data: any
 }
 
-export default function StructuredData({ type, data }: StructuredDataProps) {
-  const generateStructuredData = () => {
-    const baseData = {
-      "@context": "https://schema.org",
-      "@type": type,
-    }
+export function StructuredData({ data }: StructuredDataProps) {
+  useEffect(() => {
+    const script = document.createElement("script")
+    script.type = "application/ld+json"
+    script.text = JSON.stringify(data)
+    document.head.appendChild(script)
 
-    switch (type) {
-      case "Organization":
-        return {
-          ...baseData,
-          name: "Apna Coding",
-          url: "https://apnacoding.tech",
-          logo: "https://apnacoding.tech/logo.png",
-          description: "Global tech community for developers, hackathons, courses, and job opportunities",
-          foundingDate: "2023",
-          founder: {
-            "@type": "Person",
-            name: "Shriyash Soni",
-          },
-          contactPoint: {
-            "@type": "ContactPoint",
-            telephone: "+91-8989976990",
-            contactType: "Customer Service",
-            email: "apnacoding.tech@gmail.com",
-          },
+    return () => {
+      document.head.removeChild(script)
+    }
+  }, [data])
+
+  return null
+}
+
+// Helper functions to generate structured data
+export const generateOrganizationSchema = () => ({
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "Apna Coding",
+  url: "https://apnacoding.com",
+  logo: "https://apnacoding.com/logo.png",
+  description: "Global tech community for developers, hackathons, courses, and job opportunities",
+  sameAs: [
+    "https://twitter.com/apnacoding",
+    "https://linkedin.com/company/apnacoding",
+    "https://github.com/apnacoding",
+  ],
+  contactPoint: {
+    "@type": "ContactPoint",
+    telephone: "+1-555-123-4567",
+    contactType: "customer service",
+    email: "hello@apnacoding.com",
+  },
+})
+
+export const generateEventSchema = (hackathon: any) => ({
+  "@context": "https://schema.org",
+  "@type": "Event",
+  name: hackathon.title,
+  description: hackathon.description,
+  startDate: hackathon.start_date,
+  endDate: hackathon.end_date,
+  eventStatus: "https://schema.org/EventScheduled",
+  eventAttendanceMode:
+    hackathon.mode === "online"
+      ? "https://schema.org/OnlineEventAttendanceMode"
+      : "https://schema.org/OfflineEventAttendanceMode",
+  location:
+    hackathon.mode === "online"
+      ? {
+          "@type": "VirtualLocation",
+          url: hackathon.registration_url,
+        }
+      : {
+          "@type": "Place",
+          name: hackathon.location,
+          address: hackathon.location,
+        },
+  organizer: {
+    "@type": "Organization",
+    name: "Apna Coding",
+    url: "https://apnacoding.com",
+  },
+  offers: {
+    "@type": "Offer",
+    price: hackathon.entry_fee || "0",
+    priceCurrency: "USD",
+    availability: "https://schema.org/InStock",
+    url: `https://apnacoding.com/hackathons/${hackathon.slug}`,
+  },
+  image: hackathon.banner_image,
+  url: `https://apnacoding.com/hackathons/${hackathon.slug}`,
+})
+
+export const generateJobPostingSchema = (job: any) => ({
+  "@context": "https://schema.org",
+  "@type": "JobPosting",
+  title: job.title,
+  description: job.description,
+  datePosted: job.created_at,
+  validThrough: job.application_deadline,
+  employmentType: job.type?.toUpperCase(),
+  hiringOrganization: {
+    "@type": "Organization",
+    name: job.company,
+    logo: job.company_logo,
+  },
+  jobLocation:
+    job.location_type === "remote"
+      ? {
+          "@type": "Place",
           address: {
             "@type": "PostalAddress",
-            addressLocality: "Jabalpur",
-            addressRegion: "MP",
-            postalCode: "482001",
-            addressCountry: "IN",
-          },
-          sameAs: [
-            "https://discord.gg/krffBfBF",
-            "https://github.com/APNA-CODING-BY-APNA-COUNSELLOR",
-            "https://chat.whatsapp.com/HqVg4ctR6QKJnfvemsEQ8H",
-          ],
-        }
-
-      case "Event":
-        return {
-          ...baseData,
-          name: data.title,
-          description: data.description,
-          startDate: data.start_date,
-          endDate: data.end_date,
-          location: {
-            "@type": "Place",
-            name: data.location,
-            address: data.location,
-          },
-          organizer: {
-            "@type": "Organization",
-            name: data.organizer || "Apna Coding",
-            url: "https://apnacoding.tech",
-          },
-          offers: {
-            "@type": "Offer",
-            price: "0",
-            priceCurrency: "USD",
-            availability: "https://schema.org/InStock",
-            url: data.registration_link || `https://apnacoding.tech/hackathons/${data.slug}`,
-          },
-          image: data.image_url || "https://apnacoding.tech/images/hackathon-hero.png",
-          url: `https://apnacoding.tech/hackathons/${data.slug}`,
-          eventStatus: "https://schema.org/EventScheduled",
-          eventAttendanceMode:
-            data.mode === "online"
-              ? "https://schema.org/OnlineEventAttendanceMode"
-              : data.mode === "offline"
-                ? "https://schema.org/OfflineEventAttendanceMode"
-                : "https://schema.org/MixedEventAttendanceMode",
-        }
-
-      case "JobPosting":
-        return {
-          ...baseData,
-          title: data.title,
-          description: data.description,
-          hiringOrganization: {
-            "@type": "Organization",
-            name: data.company,
-            logo: data.company_logo,
-          },
-          jobLocation: {
-            "@type": "Place",
-            address: {
-              "@type": "PostalAddress",
-              addressLocality: data.location,
-            },
-          },
-          baseSalary: {
-            "@type": "MonetaryAmount",
-            currency: "USD",
-            value: {
-              "@type": "QuantitativeValue",
-              value: data.salary,
-            },
-          },
-          employmentType: data.type?.toUpperCase(),
-          datePosted: data.posted_date,
-          validThrough: data.application_deadline,
-          url: `https://apnacoding.tech/jobs/${data.slug}`,
-          applicationContact: {
-            "@type": "ContactPoint",
-            email: "jobs@apnacoding.tech",
+            addressLocality: "Remote",
           },
         }
-
-      case "Course":
-        return {
-          ...baseData,
-          name: data.title,
-          description: data.description,
-          provider: {
-            "@type": "Organization",
-            name: "Apna Coding",
-            url: "https://apnacoding.tech",
+      : {
+          "@type": "Place",
+          address: {
+            "@type": "PostalAddress",
+            addressLocality: job.location,
           },
-          instructor: {
-            "@type": "Person",
-            name: data.instructor,
+        },
+  baseSalary:
+    job.salary_min && job.salary_max
+      ? {
+          "@type": "MonetaryAmount",
+          currency: "USD",
+          value: {
+            "@type": "QuantitativeValue",
+            minValue: job.salary_min,
+            maxValue: job.salary_max,
+            unitText: "YEAR",
           },
-          courseCode: data.id,
-          educationalLevel: data.level,
-          timeRequired: data.duration,
-          aggregateRating: {
-            "@type": "AggregateRating",
-            ratingValue: data.rating,
-            ratingCount: data.students_count,
-          },
-          offers: {
-            "@type": "Offer",
-            price: "0",
-            priceCurrency: "USD",
-          },
-          url: `https://apnacoding.tech/courses/${data.slug}`,
-          image: data.image_url,
         }
+      : undefined,
+  url: `https://apnacoding.com/jobs/${job.slug}`,
+})
 
-      case "Article":
-        return {
-          ...baseData,
-          headline: data.title,
-          description: data.excerpt,
-          author: {
-            "@type": "Person",
-            name: data.author_name || "Apna Coding Team",
-          },
-          publisher: {
-            "@type": "Organization",
-            name: "Apna Coding",
-            logo: {
-              "@type": "ImageObject",
-              url: "https://apnacoding.tech/logo.png",
-            },
-          },
-          datePublished: data.published_at,
-          dateModified: data.updated_at,
-          image: data.featured_image,
-          url: `https://apnacoding.tech/blog/${data.slug}`,
-          wordCount: data.content?.length || 1000,
-          keywords: data.tags?.join(", "),
-        }
+export const generateCourseSchema = (course: any) => ({
+  "@context": "https://schema.org",
+  "@type": "Course",
+  name: course.title,
+  description: course.description,
+  provider: {
+    "@type": "Organization",
+    name: "Apna Coding",
+    url: "https://apnacoding.com",
+  },
+  courseCode: course.slug,
+  educationalLevel: course.level,
+  teaches: course.skills,
+  timeRequired: course.duration,
+  offers: {
+    "@type": "Offer",
+    price: course.price || "0",
+    priceCurrency: "USD",
+    category: "Educational",
+  },
+  image: course.thumbnail,
+  url: `https://apnacoding.com/courses/${course.slug}`,
+})
 
-      default:
-        return { ...baseData, ...data }
-    }
-  }
+export const generateArticleSchema = (article: any) => ({
+  "@context": "https://schema.org",
+  "@type": "Article",
+  headline: article.title,
+  description: article.excerpt,
+  image: article.featured_image,
+  author: {
+    "@type": "Person",
+    name: article.author_name,
+    image: article.author_avatar,
+  },
+  publisher: {
+    "@type": "Organization",
+    name: "Apna Coding",
+    logo: {
+      "@type": "ImageObject",
+      url: "https://apnacoding.com/logo.png",
+    },
+  },
+  datePublished: article.published_at,
+  dateModified: article.updated_at,
+  mainEntityOfPage: {
+    "@type": "WebPage",
+    "@id": `https://apnacoding.com/blog/${article.slug}`,
+  },
+  keywords: article.tags?.join(", "),
+  articleSection: article.category,
+  wordCount: Math.ceil(article.content?.length / 5) || 0,
+  url: `https://apnacoding.com/blog/${article.slug}`,
+})
 
-  return (
-    <Script
-      id={`structured-data-${type.toLowerCase()}`}
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{
-        __html: JSON.stringify(generateStructuredData()),
-      }}
-    />
-  )
-}
+export const generateBreadcrumbSchema = (items: Array<{ name: string; url: string }>) => ({
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: items.map((item, index) => ({
+    "@type": "ListItem",
+    position: index + 1,
+    name: item.name,
+    item: item.url,
+  })),
+})
