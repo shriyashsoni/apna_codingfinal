@@ -6,15 +6,15 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/admin/", "/api/", "/dashboard/", "/_next/", "/auth/", "/private/"],
+        disallow: ["/admin/", "/api/", "/dashboard/profile", "/_next/", "/auth/"],
       },
       {
         userAgent: "Googlebot",
         allow: "/",
-        disallow: ["/admin/", "/api/", "/dashboard/", "/auth/", "/private/"],
+        disallow: ["/admin/", "/api/", "/dashboard/profile", "/auth/"],
       },
     ],
-    sitemap: "https://apnacoding.com/sitemap.xml",
-    host: "https://apnacoding.com",
+    sitemap: "https://apnacoding.tech/sitemap.xml",
+    host: "https://apnacoding.tech",
   }
 }

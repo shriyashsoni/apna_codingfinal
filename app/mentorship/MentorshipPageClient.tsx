@@ -1,24 +1,28 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { motion } from "framer-motion"
 import {
   Search,
   Clock,
   Users,
-  Calendar,
-  DollarSign,
   Star,
+  DollarSign,
+  Calendar,
   Award,
-  BookOpen,
+  ChevronRight,
   Target,
   TrendingUp,
-  CheckCircle,
+  BookOpen,
+  MessageCircle,
+  ExternalLink,
 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { supabase } from "@/lib/supabase"
 
 interface MentorshipProgram {
   id: string
@@ -26,399 +30,524 @@ interface MentorshipProgram {
   slug: string
   description: string
   mentor_name: string
-  mentor_avatar: string
   mentor_bio: string
-  mentor_experience: string
-  skills: string[]
+  mentor_image: string
+  mentor_company: string
+  mentor_position: string
   duration: string
+  format: string
   price: number
-  currency: string
   max_participants: number
   current_participants: number
+  skills_covered: string[]
+  prerequisites: string[]
+  target_audience: string[]
+  features: string[]
+  what_you_learn: string[]
+  career_outcomes: string[]
   start_date: string
   end_date: string
-  schedule: string
-  level: string
+  application_deadline: string
+  status: string
   featured: boolean
+  application_link: string
+  contact_email: string
 }
 
-interface MentorshipPageClientProps {
-  programs: MentorshipProgram[]
-  featuredPrograms: MentorshipProgram[]
-  skills: string[]
-}
-
-export default function MentorshipPageClient({ programs, featuredPrograms, skills }: MentorshipPageClientProps) {
+export default function MentorshipPageClient() {
+  const [programs, setPrograms] = useState<MentorshipProgram[]>([])
+  const [filteredPrograms, setFilteredPrograms] = useState<MentorshipProgram[]>([])
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedSkill, setSelectedSkill] = useState<string | null>(null)
-  const [selectedLevel, setSelectedLevel] = useState<string | null>(null)
-  const [filteredPrograms, setFilteredPrograms] = useState(programs)
+  const [selectedFormat, setSelectedFormat] = useState("All")
+  const [loading, setLoading] = useState(true)
 
-  const handleSearch = (term: string) => {
-    setSearchTerm(term)
-    filterPrograms(term, selectedSkill, selectedLevel)
+  const formats = ["All", "1-on-1", "group", "hybrid"]
+
+  useEffect(() => {
+    loadPrograms()
+  }, [])
+
+  useEffect(() => {
+    filterPrograms()
+  }, [searchTerm, selectedFormat, programs])
+
+  const loadPrograms = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("mentorship_programs")
+        .select("*")
+        .eq("status", "active")
+        .order("featured", { ascending: false })
+        .order("created_at", { ascending: false })
+
+      if (error) {
+        console.error("Error loading mentorship programs:", error)
+        return
+      }
+
+      setPrograms(data || [])
+    } catch (error) {
+      console.error("Error loading mentorship programs:", error)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleSkillFilter = (skill: string | null) => {
-    setSelectedSkill(skill)
-    filterPrograms(searchTerm, skill, selectedLevel)
-  }
-
-  const handleLevelFilter = (level: string | null) => {
-    setSelectedLevel(level)
-    filterPrograms(searchTerm, selectedSkill, level)
-  }
-
-  const filterPrograms = (term: string, skill: string | null, level: string | null) => {
+  const filterPrograms = () => {
     let filtered = programs
 
-    if (term) {
+    if (searchTerm) {
       filtered = filtered.filter(
         (program) =>
-          program.title.toLowerCase().includes(term.toLowerCase()) ||
-          program.description.toLowerCase().includes(term.toLowerCase()) ||
-          program.mentor_name.toLowerCase().includes(term.toLowerCase()) ||
-          program.skills.some((s) => s.toLowerCase().includes(term.toLowerCase())),
+          program.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          program.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          program.mentor_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          program.skills_covered.some((skill) => skill.toLowerCase().includes(searchTerm.toLowerCase())),
       )
     }
 
-    if (skill) {
-      filtered = filtered.filter((program) => program.skills.includes(skill))
-    }
-
-    if (level) {
-      filtered = filtered.filter((program) => program.level === level)
+    if (selectedFormat !== "All") {
+      filtered = filtered.filter((program) => program.format === selectedFormat)
     }
 
     setFilteredPrograms(filtered)
   }
 
-  const formatPrice = (price: number, currency: string) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: currency,
-    }).format(price)
-  }
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
       month: "short",
       day: "numeric",
+      year: "numeric",
     })
   }
 
-  const getLevelColor = (level: string) => {
-    switch (level) {
-      case "beginner":
-        return "bg-green-100 text-green-800"
-      case "intermediate":
-        return "bg-yellow-100 text-yellow-800"
-      case "advanced":
-        return "bg-red-100 text-red-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
+  const getAvailableSpots = (program: MentorshipProgram) => {
+    return program.max_participants - program.current_participants
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
-      {/* Hero Section */}
-      <section className="relative py-20 px-4">
-        <div className="max-w-7xl mx-auto text-center">
-          <div className="flex items-center justify-center gap-2 mb-6">
-            <Award className="h-8 w-8 text-purple-600" />
-            <h1 className="text-5xl font-bold text-gray-900">
-              Tech <span className="text-purple-600">Mentorship</span>
-            </h1>
-          </div>
-          <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-            Get personalized guidance from industry experts. Accelerate your career with 1-on-1 mentorship, hands-on
-            projects, and real-world experience from top tech professionals.
-          </p>
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-yellow-400"></div>
+      </div>
+    )
+  }
 
-          {/* Search Bar */}
-          <div className="max-w-md mx-auto relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-            <Input
-              type="text"
-              placeholder="Search mentorship programs..."
-              value={searchTerm}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="pl-10 pr-4 py-3 w-full rounded-full border-2 border-gray-200 focus:border-purple-500"
-            />
+  const featuredPrograms = programs.filter((program) => program.featured)
+  const regularPrograms = filteredPrograms.filter((program) => !program.featured)
+
+  return (
+    <div className="min-h-screen pt-20 bg-black">
+      {/* Hero Section */}
+      <section className="relative py-16 overflow-hidden">
+        <div className="container mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="text-center mb-12"
+          >
+            <h1 className="text-4xl lg:text-5xl font-bold text-white mb-6">
+              Tech <span className="text-yellow-400">Mentorship</span> Programs
+            </h1>
+            <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-8">
+              Get personalized mentorship from top tech industry leaders. Advance your skills, land your dream job, and
+              accelerate your career growth with expert guidance.
+            </p>
+
+            {/* Search and Filter */}
+            <div className="max-w-2xl mx-auto">
+              <div className="flex flex-col md:flex-row gap-4 items-center">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <Input
+                    type="text"
+                    placeholder="Search mentorship programs..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 bg-gray-900 border-gray-700 text-white focus:border-yellow-400"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {formats.map((format) => (
+                    <button
+                      key={format}
+                      onClick={() => setSelectedFormat(format)}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
+                        selectedFormat === format
+                          ? "bg-yellow-400 text-black"
+                          : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                      }`}
+                    >
+                      {format}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Stats Section */}
+      <section className="py-16 bg-gray-900/20">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.1 }}
+              className="text-center"
+            >
+              <div className="text-4xl font-bold text-yellow-400 mb-2">50+</div>
+              <p className="text-gray-300">Expert Mentors</p>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+              className="text-center"
+            >
+              <div className="text-4xl font-bold text-yellow-400 mb-2">1000+</div>
+              <p className="text-gray-300">Students Mentored</p>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.3 }}
+              className="text-center"
+            >
+              <div className="text-4xl font-bold text-yellow-400 mb-2">85%</div>
+              <p className="text-gray-300">Job Success Rate</p>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+              className="text-center"
+            >
+              <div className="text-4xl font-bold text-yellow-400 mb-2">40%</div>
+              <p className="text-gray-300">Average Salary Increase</p>
+            </motion.div>
           </div>
         </div>
       </section>
 
-      <div className="max-w-7xl mx-auto px-4 pb-20">
-        {/* Stats Section */}
-        <section className="mb-16">
-          <div className="grid md:grid-cols-4 gap-6">
-            <Card className="text-center p-6">
-              <Users className="h-8 w-8 text-purple-600 mx-auto mb-3" />
-              <h3 className="text-2xl font-bold text-gray-900">500+</h3>
-              <p className="text-gray-600">Students Mentored</p>
-            </Card>
-            <Card className="text-center p-6">
-              <Target className="h-8 w-8 text-blue-600 mx-auto mb-3" />
-              <h3 className="text-2xl font-bold text-gray-900">95%</h3>
-              <p className="text-gray-600">Success Rate</p>
-            </Card>
-            <Card className="text-center p-6">
-              <TrendingUp className="h-8 w-8 text-green-600 mx-auto mb-3" />
-              <h3 className="text-2xl font-bold text-gray-900">3x</h3>
-              <p className="text-gray-600">Average Salary Increase</p>
-            </Card>
-            <Card className="text-center p-6">
-              <BookOpen className="h-8 w-8 text-orange-600 mx-auto mb-3" />
-              <h3 className="text-2xl font-bold text-gray-900">50+</h3>
-              <p className="text-gray-600">Expert Mentors</p>
-            </Card>
-          </div>
-        </section>
-
-        {/* Featured Programs */}
-        {featuredPrograms.length > 0 && (
-          <section className="mb-16">
+      {/* Featured Programs */}
+      {featuredPrograms.length > 0 && (
+        <section className="py-16">
+          <div className="container mx-auto px-4">
             <div className="flex items-center gap-2 mb-8">
-              <Star className="h-6 w-6 text-yellow-500" />
-              <h2 className="text-3xl font-bold text-gray-900">Featured Programs</h2>
+              <Star className="w-6 h-6 text-yellow-400" />
+              <h2 className="text-2xl font-bold text-white">Featured Programs</h2>
             </div>
-            <div className="grid md:grid-cols-3 gap-8">
-              {featuredPrograms.map((program) => (
-                <Card key={program.id} className="group hover:shadow-xl transition-all duration-300 overflow-hidden">
-                  <CardHeader className="pb-4">
-                    <div className="flex items-center gap-3 mb-4">
-                      <Image
-                        src={program.mentor_avatar || "/placeholder-user.jpg"}
-                        alt={program.mentor_name}
-                        width={48}
-                        height={48}
-                        className="rounded-full"
-                      />
-                      <div>
-                        <h4 className="font-semibold text-gray-900">{program.mentor_name}</h4>
-                        <Badge className="bg-yellow-500 text-white text-xs">Featured</Badge>
-                      </div>
-                    </div>
-                    <h3 className="text-xl font-bold text-gray-900 group-hover:text-purple-600 transition-colors">
-                      {program.title}
-                    </h3>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-gray-600 mb-4 line-clamp-3">{program.description}</p>
 
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {program.skills.slice(0, 3).map((skill) => (
-                        <Badge key={skill} variant="secondary" className="text-xs">
-                          {skill}
-                        </Badge>
-                      ))}
-                      {program.skills.length > 3 && (
-                        <Badge variant="secondary" className="text-xs">
-                          +{program.skills.length - 3} more
-                        </Badge>
-                      )}
-                    </div>
+            <div className="grid md:grid-cols-2 gap-8">
+              {featuredPrograms.map((program, index) => (
+                <motion.div
+                  key={program.id}
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: index * 0.1 }}
+                >
+                  <Card className="bg-gray-900 border-yellow-400 hover:border-yellow-300 transition-all duration-300 group overflow-hidden h-full">
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-4 mb-6">
+                        <div className="relative w-16 h-16 rounded-full overflow-hidden">
+                          <Image
+                            src={program.mentor_image || "/placeholder-user.jpg"}
+                            alt={program.mentor_name}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge className="bg-yellow-400 text-black font-semibold">Featured</Badge>
+                            <Badge variant="outline" className="border-yellow-400 text-yellow-400 capitalize">
+                              {program.format}
+                            </Badge>
+                          </div>
+                          <h3 className="text-xl font-bold text-white mb-2 group-hover:text-yellow-400 transition-colors">
+                            {program.title}
+                          </h3>
+                          <p className="text-gray-400 text-sm">
+                            with <span className="text-yellow-400 font-medium">{program.mentor_name}</span>
+                          </p>
+                          <p className="text-gray-500 text-xs">
+                            {program.mentor_position} at {program.mentor_company}
+                          </p>
+                        </div>
+                      </div>
 
-                    <div className="space-y-2 mb-4">
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Clock className="h-4 w-4" />
-                        {program.duration}
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Users className="h-4 w-4" />
-                        {program.current_participants}/{program.max_participants} enrolled
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Calendar className="h-4 w-4" />
-                        Starts {formatDate(program.start_date)}
-                      </div>
-                    </div>
+                      <p className="text-gray-300 mb-6 leading-relaxed">{program.description}</p>
 
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <DollarSign className="h-5 w-5 text-green-600" />
-                        <span className="text-2xl font-bold text-gray-900">
-                          {formatPrice(program.price, program.currency)}
-                        </span>
+                      <div className="grid grid-cols-2 gap-4 mb-6">
+                        <div className="flex items-center gap-2 text-sm text-gray-400">
+                          <Clock className="w-4 h-4 text-yellow-400" />
+                          <span>{program.duration}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-400">
+                          <Users className="w-4 h-4 text-yellow-400" />
+                          <span>{getAvailableSpots(program)} spots left</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-400">
+                          <DollarSign className="w-4 h-4 text-yellow-400" />
+                          <span className="text-green-400 font-semibold">
+                            {program.price === 0 ? "Free" : `$${program.price}`}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-400">
+                          <Calendar className="w-4 h-4 text-yellow-400" />
+                          <span>{formatDate(program.start_date)}</span>
+                        </div>
                       </div>
-                      <Badge className={getLevelColor(program.level)}>{program.level}</Badge>
-                    </div>
 
-                    <Button className="w-full mt-4 bg-purple-600 hover:bg-purple-700">Enroll Now</Button>
-                  </CardContent>
-                </Card>
+                      <div className="mb-6">
+                        <h4 className="text-white font-medium mb-3">Skills You'll Master:</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {program.skills_covered.slice(0, 4).map((skill) => (
+                            <Badge key={skill} variant="secondary" className="text-xs">
+                              {skill}
+                            </Badge>
+                          ))}
+                          {program.skills_covered.length > 4 && (
+                            <Badge variant="secondary" className="text-xs">
+                              +{program.skills_covered.length - 4} more
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3">
+                        <Button
+                          className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
+                          onClick={() => window.open(program.application_link, "_blank")}
+                        >
+                          Apply Now
+                          <ExternalLink className="ml-2 w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black bg-transparent"
+                        >
+                          Learn More
+                          <ChevronRight className="ml-2 w-4 h-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
               ))}
             </div>
-          </section>
-        )}
-
-        {/* Filters */}
-        <section className="mb-8">
-          <div className="flex flex-wrap gap-3 mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 mr-4">Filter by Skills:</h3>
-            <Button
-              variant={selectedSkill === null ? "default" : "outline"}
-              onClick={() => handleSkillFilter(null)}
-              className="rounded-full"
-            >
-              All Skills
-            </Button>
-            {skills.slice(0, 8).map((skill) => (
-              <Button
-                key={skill}
-                variant={selectedSkill === skill ? "default" : "outline"}
-                onClick={() => handleSkillFilter(skill)}
-                className="rounded-full"
-              >
-                {skill}
-              </Button>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <h3 className="text-lg font-semibold text-gray-900 mr-4">Filter by Level:</h3>
-            <Button
-              variant={selectedLevel === null ? "default" : "outline"}
-              onClick={() => handleLevelFilter(null)}
-              className="rounded-full"
-            >
-              All Levels
-            </Button>
-            {["beginner", "intermediate", "advanced"].map((level) => (
-              <Button
-                key={level}
-                variant={selectedLevel === level ? "default" : "outline"}
-                onClick={() => handleLevelFilter(level)}
-                className="rounded-full capitalize"
-              >
-                {level}
-              </Button>
-            ))}
           </div>
         </section>
+      )}
 
-        {/* All Programs */}
-        <section>
-          <h2 className="text-3xl font-bold text-gray-900 mb-8">
-            {selectedSkill || selectedLevel ? "Filtered Programs" : "All Mentorship Programs"}
-          </h2>
+      {/* All Programs */}
+      <section className="py-16">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center gap-2 mb-8">
+            <BookOpen className="w-6 h-6 text-yellow-400" />
+            <h2 className="text-2xl font-bold text-white">All Programs ({filteredPrograms.length})</h2>
+          </div>
 
-          {filteredPrograms.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-gray-500 text-lg">No programs found matching your criteria.</p>
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {filteredPrograms.map((program) => (
-                <Card key={program.id} className="group hover:shadow-xl transition-all duration-300 overflow-hidden">
-                  <CardHeader className="pb-4">
-                    <div className="flex items-center gap-3 mb-4">
-                      <Image
-                        src={program.mentor_avatar || "/placeholder-user.jpg"}
-                        alt={program.mentor_name}
-                        width={48}
-                        height={48}
-                        className="rounded-full"
-                      />
-                      <div>
-                        <h4 className="font-semibold text-gray-900">{program.mentor_name}</h4>
-                        <p className="text-sm text-gray-600 line-clamp-1">{program.mentor_experience}</p>
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-8">
+            {regularPrograms.map((program, index) => (
+              <motion.div
+                key={program.id}
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: index * 0.1 }}
+              >
+                <Card className="bg-gray-900 border-gray-800 hover:border-yellow-400 transition-all duration-300 group overflow-hidden h-full">
+                  <CardContent className="p-6">
+                    <div className="flex items-start gap-4 mb-6">
+                      <div className="relative w-12 h-12 rounded-full overflow-hidden">
+                        <Image
+                          src={program.mentor_image || "/placeholder-user.jpg"}
+                          alt={program.mentor_name}
+                          fill
+                          className="object-cover"
+                        />
                       </div>
-                    </div>
-                    <h3 className="text-xl font-bold text-gray-900 group-hover:text-purple-600 transition-colors">
-                      {program.title}
-                    </h3>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-gray-600 mb-4 line-clamp-3">{program.description}</p>
-
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {program.skills.slice(0, 3).map((skill) => (
-                        <Badge key={skill} variant="secondary" className="text-xs">
-                          {skill}
+                      <div className="flex-1">
+                        <Badge variant="outline" className="border-yellow-400 text-yellow-400 capitalize mb-2">
+                          {program.format}
                         </Badge>
-                      ))}
-                      {program.skills.length > 3 && (
-                        <Badge variant="secondary" className="text-xs">
-                          +{program.skills.length - 3} more
-                        </Badge>
-                      )}
-                    </div>
-
-                    <div className="space-y-2 mb-4">
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Clock className="h-4 w-4" />
-                        {program.duration}
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Users className="h-4 w-4" />
-                        {program.current_participants}/{program.max_participants} enrolled
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Calendar className="h-4 w-4" />
-                        Starts {formatDate(program.start_date)}
+                        <h3 className="text-lg font-bold text-white mb-1 group-hover:text-yellow-400 transition-colors">
+                          {program.title}
+                        </h3>
+                        <p className="text-gray-400 text-sm">
+                          with <span className="text-yellow-400 font-medium">{program.mentor_name}</span>
+                        </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <DollarSign className="h-5 w-5 text-green-600" />
-                        <span className="text-2xl font-bold text-gray-900">
-                          {formatPrice(program.price, program.currency)}
+                    <p className="text-gray-300 mb-4 text-sm leading-relaxed line-clamp-3">{program.description}</p>
+
+                    <div className="grid grid-cols-2 gap-3 mb-4 text-xs">
+                      <div className="flex items-center gap-1 text-gray-400">
+                        <Clock className="w-3 h-3 text-yellow-400" />
+                        <span>{program.duration}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-gray-400">
+                        <Users className="w-3 h-3 text-yellow-400" />
+                        <span>{getAvailableSpots(program)} spots</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-gray-400">
+                        <DollarSign className="w-3 h-3 text-yellow-400" />
+                        <span className="text-green-400 font-semibold">
+                          {program.price === 0 ? "Free" : `$${program.price}`}
                         </span>
                       </div>
-                      <Badge className={getLevelColor(program.level)}>{program.level}</Badge>
+                      <div className="flex items-center gap-1 text-gray-400">
+                        <Calendar className="w-3 h-3 text-yellow-400" />
+                        <span>{formatDate(program.start_date)}</span>
+                      </div>
                     </div>
 
-                    <Button className="w-full bg-purple-600 hover:bg-purple-700">Learn More</Button>
+                    <div className="mb-4">
+                      <div className="flex flex-wrap gap-1">
+                        {program.skills_covered.slice(0, 3).map((skill) => (
+                          <Badge key={skill} variant="secondary" className="text-xs">
+                            {skill}
+                          </Badge>
+                        ))}
+                        {program.skills_covered.length > 3 && (
+                          <Badge variant="secondary" className="text-xs">
+                            +{program.skills_covered.length - 3}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
+                        onClick={() => window.open(program.application_link, "_blank")}
+                      >
+                        Apply
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-gray-600 text-gray-300 hover:bg-gray-700 bg-transparent"
+                      >
+                        Details
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
-              ))}
+              </motion.div>
+            ))}
+          </div>
+
+          {filteredPrograms.length === 0 && (
+            <div className="text-center py-12">
+              <div className="text-6xl mb-4">🎯</div>
+              <h3 className="text-2xl font-bold text-white mb-2">No programs found</h3>
+              <p className="text-gray-400">Try adjusting your search or filter criteria</p>
             </div>
           )}
-        </section>
+        </div>
+      </section>
 
-        {/* Why Choose Our Mentorship */}
-        <section className="mt-20">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Why Choose Our Mentorship?</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+      {/* Why Choose Our Mentorship */}
+      <section className="py-16 bg-gray-900/20">
+        <div className="container mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className="text-center mb-12"
+          >
+            <h2 className="text-3xl font-bold text-white mb-6">
+              Why Choose <span className="text-yellow-400">Our Mentorship</span>?
+            </h2>
+            <p className="text-lg text-gray-300 max-w-3xl mx-auto">
               Our mentorship programs are designed by industry experts to provide you with practical skills and
               real-world experience.
             </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {[
+              {
+                icon: Target,
+                title: "Personalized Learning",
+                description: "Tailored curriculum based on your goals and current skill level",
+              },
+              {
+                icon: TrendingUp,
+                title: "Career Growth",
+                description: "85% of our mentees land better jobs within 6 months",
+              },
+              {
+                icon: Users,
+                title: "Industry Experts",
+                description: "Learn from professionals at top tech companies",
+              },
+              {
+                icon: Award,
+                title: "Proven Results",
+                description: "Average 40% salary increase for program graduates",
+              },
+            ].map((feature, index) => (
+              <motion.div
+                key={feature.title}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: index * 0.1 }}
+                viewport={{ once: true }}
+                className="text-center"
+              >
+                <div className="w-16 h-16 bg-yellow-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <feature.icon className="w-8 h-8 text-black" />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-3">{feature.title}</h3>
+                <p className="text-gray-300">{feature.description}</p>
+              </motion.div>
+            ))}
           </div>
+        </div>
+      </section>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <Card className="p-6 text-center">
-              <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-gray-900 mb-3">1-on-1 Sessions</h3>
-              <p className="text-gray-600">
-                Get personalized attention with dedicated one-on-one sessions tailored to your learning goals.
-              </p>
-            </Card>
-
-            <Card className="p-6 text-center">
-              <Target className="h-12 w-12 text-blue-600 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Real Projects</h3>
-              <p className="text-gray-600">
-                Work on actual industry projects that you can showcase in your portfolio and to potential employers.
-              </p>
-            </Card>
-
-            <Card className="p-6 text-center">
-              <TrendingUp className="h-12 w-12 text-purple-600 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Career Growth</h3>
-              <p className="text-gray-600">
-                Get guidance on career transitions, interview preparation, and salary negotiations from industry
-                veterans.
-              </p>
-            </Card>
-          </div>
-        </section>
-      </div>
+      {/* CTA Section */}
+      <section className="py-16">
+        <div className="container mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className="text-center bg-gray-900/50 rounded-2xl p-12"
+          >
+            <h2 className="text-3xl font-bold text-white mb-6">
+              Ready to Accelerate <span className="text-yellow-400">Your Career</span>?
+            </h2>
+            <p className="text-lg text-gray-300 mb-8 max-w-2xl mx-auto">
+              Join thousands of developers who have transformed their careers with our mentorship programs. Get
+              personalized guidance from industry experts.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-3">
+                Browse Programs
+                <BookOpen className="ml-2 w-5 h-5" />
+              </Button>
+              <Button
+                variant="outline"
+                className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black px-8 py-3 bg-transparent"
+              >
+                Contact Us
+                <MessageCircle className="ml-2 w-5 h-5" />
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      </section>
     </div>
   )
 }

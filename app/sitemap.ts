@@ -1,10 +1,8 @@
 import type { MetadataRoute } from "next"
-import { createClient } from "@supabase/supabase-js"
-
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+import { supabase } from "@/lib/supabase"
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = "https://apnacoding.com"
+  const baseUrl = "https://apnacoding.tech"
 
   // Static pages
   const staticPages = [
@@ -30,7 +28,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: `${baseUrl}/courses`,
       lastModified: new Date(),
       changeFrequency: "weekly" as const,
-      priority: 0.8,
+      priority: 0.9,
     },
     {
       url: `${baseUrl}/mentorship`,
@@ -42,107 +40,89 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: `${baseUrl}/blog`,
       lastModified: new Date(),
       changeFrequency: "daily" as const,
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/ai-tools`,
-      lastModified: new Date(),
-      changeFrequency: "weekly" as const,
-      priority: 0.6,
+      priority: 0.8,
     },
     {
       url: `${baseUrl}/about`,
       lastModified: new Date(),
       changeFrequency: "monthly" as const,
-      priority: 0.5,
+      priority: 0.6,
     },
     {
       url: `${baseUrl}/contact`,
       lastModified: new Date(),
       changeFrequency: "monthly" as const,
-      priority: 0.5,
+      priority: 0.6,
     },
   ]
 
-  // Dynamic pages
-  const dynamicPages = []
-
   try {
-    // Hackathons
-    const { data: hackathons } = await supabase.from("hackathons").select("slug, updated_at").eq("status", "active")
+    // Fetch dynamic content
+    const [hackathonsResult, jobsResult, coursesResult, blogResult, mentorshipResult] = await Promise.all([
+      supabase.from("hackathons").select("slug, updated_at").order("updated_at", { ascending: false }),
+      supabase.from("jobs").select("id, title, company, updated_at").order("updated_at", { ascending: false }),
+      supabase.from("courses").select("id, title, updated_at").order("updated_at", { ascending: false }),
+      supabase
+        .from("blog_posts")
+        .select("slug, updated_at")
+        .eq("status", "published")
+        .order("updated_at", { ascending: false }),
+      supabase
+        .from("mentorship_programs")
+        .select("slug, updated_at")
+        .eq("status", "active")
+        .order("updated_at", { ascending: false }),
+    ])
 
-    if (hackathons) {
-      hackathons.forEach((hackathon) => {
-        dynamicPages.push({
-          url: `${baseUrl}/hackathons/${hackathon.slug}`,
-          lastModified: new Date(hackathon.updated_at),
-          changeFrequency: "weekly" as const,
-          priority: 0.8,
-        })
-      })
-    }
+    // Generate hackathon pages
+    const hackathonPages = (hackathonsResult.data || []).map((hackathon) => ({
+      url: `${baseUrl}/hackathons/${hackathon.slug}`,
+      lastModified: new Date(hackathon.updated_at),
+      changeFrequency: "weekly" as const,
+      priority: 0.8,
+    }))
 
-    // Jobs
-    const { data: jobs } = await supabase.from("jobs").select("slug, updated_at").eq("status", "active")
+    // Generate job pages
+    const jobPages = (jobsResult.data || []).map((job) => {
+      const slug = `${job.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${job.company.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${job.id.substring(0, 8)}`
+      return {
+        url: `${baseUrl}/jobs/${slug}`,
+        lastModified: new Date(job.updated_at),
+        changeFrequency: "weekly" as const,
+        priority: 0.7,
+      }
+    })
 
-    if (jobs) {
-      jobs.forEach((job) => {
-        dynamicPages.push({
-          url: `${baseUrl}/jobs/${job.slug}`,
-          lastModified: new Date(job.updated_at),
-          changeFrequency: "weekly" as const,
-          priority: 0.7,
-        })
-      })
-    }
+    // Generate course pages
+    const coursePages = (coursesResult.data || []).map((course) => {
+      const slug = `${course.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${course.id.substring(0, 8)}`
+      return {
+        url: `${baseUrl}/courses/${slug}`,
+        lastModified: new Date(course.updated_at),
+        changeFrequency: "monthly" as const,
+        priority: 0.7,
+      }
+    })
 
-    // Courses
-    const { data: courses } = await supabase.from("courses").select("slug, updated_at").eq("status", "published")
+    // Generate blog pages
+    const blogPages = (blogResult.data || []).map((post) => ({
+      url: `${baseUrl}/blog/${post.slug}`,
+      lastModified: new Date(post.updated_at),
+      changeFrequency: "monthly" as const,
+      priority: 0.6,
+    }))
 
-    if (courses) {
-      courses.forEach((course) => {
-        dynamicPages.push({
-          url: `${baseUrl}/courses/${course.slug}`,
-          lastModified: new Date(course.updated_at),
-          changeFrequency: "monthly" as const,
-          priority: 0.7,
-        })
-      })
-    }
+    // Generate mentorship pages
+    const mentorshipPages = (mentorshipResult.data || []).map((program) => ({
+      url: `${baseUrl}/mentorship/${program.slug}`,
+      lastModified: new Date(program.updated_at),
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    }))
 
-    // Blog posts
-    const { data: blogPosts } = await supabase.from("blog_posts").select("slug, updated_at").eq("published", true)
-
-    if (blogPosts) {
-      blogPosts.forEach((post) => {
-        dynamicPages.push({
-          url: `${baseUrl}/blog/${post.slug}`,
-          lastModified: new Date(post.updated_at),
-          changeFrequency: "monthly" as const,
-          priority: 0.6,
-        })
-      })
-    }
-
-    // Mentorship programs
-    const { data: mentorshipPrograms } = await supabase
-      .from("mentorship_programs")
-      .select("slug, updated_at")
-      .eq("active", true)
-
-    if (mentorshipPrograms) {
-      mentorshipPrograms.forEach((program) => {
-        dynamicPages.push({
-          url: `${baseUrl}/mentorship/${program.slug}`,
-          lastModified: new Date(program.updated_at),
-          changeFrequency: "monthly" as const,
-          priority: 0.6,
-        })
-      })
-    }
+    return [...staticPages, ...hackathonPages, ...jobPages, ...coursePages, ...blogPages, ...mentorshipPages]
   } catch (error) {
     console.error("Error generating sitemap:", error)
+    return staticPages
   }
-
-  return [...staticPages, ...dynamicPages]
 }

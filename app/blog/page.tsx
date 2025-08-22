@@ -1,98 +1,70 @@
 import type { Metadata } from "next"
-import { createClient } from "@supabase/supabase-js"
-import { generateMetadata as generateSEOMetadata } from "@/components/seo/seo-head"
-import { StructuredData, generateOrganizationSchema, generateBreadcrumbSchema } from "@/components/seo/structured-data"
 import BlogClientPage from "./BlogClientPage"
+import SEOHead from "@/components/seo/seo-head"
+import { BreadcrumbSchema } from "@/components/seo/structured-data"
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-
-export const metadata: Metadata = generateSEOMetadata({
-  title: "Coding Tips, Tech News & Tutorials | Apna Coding Blog",
+export const metadata: Metadata = {
+  title: "Coding Tips, Tech News & Updates | Apna Coding Blog",
   description:
-    "Stay updated with the latest tech news, coding tutorials, career advice, and programming tips on the Apna Coding Blog. Learn from industry experts.",
+    "Stay updated with the latest tech news, coding tutorials, career advice, and hackathon tips on the Apna Coding Blog. Explore new topics every week!",
   keywords: [
     "coding blog",
-    "tech news",
-    "programming tutorials",
-    "software development",
-    "web development",
-    "mobile development",
-    "data science",
-    "machine learning",
+    "tech updates",
+    "programming tips",
+    "hackathon news",
+    "Apna Coding blog",
     "career advice",
-    "coding tips",
-    "apna coding blog",
+    "coding tutorials",
   ],
-  url: "https://apnacoding.com/blog",
-  type: "website",
-})
-
-async function getBlogPosts() {
-  try {
-    const { data: posts, error } = await supabase
-      .from("blog_posts")
-      .select("*")
-      .eq("published", true)
-      .order("published_at", { ascending: false })
-
-    if (error) throw error
-    return posts || []
-  } catch (error) {
-    console.error("Error fetching blog posts:", error)
-    return []
-  }
-}
-
-async function getFeaturedPosts() {
-  try {
-    const { data: posts, error } = await supabase
-      .from("blog_posts")
-      .select("*")
-      .eq("published", true)
-      .eq("featured", true)
-      .order("published_at", { ascending: false })
-      .limit(3)
-
-    if (error) throw error
-    return posts || []
-  } catch (error) {
-    console.error("Error fetching featured posts:", error)
-    return []
-  }
-}
-
-async function getCategories() {
-  try {
-    const { data: categories, error } = await supabase
-      .from("blog_posts")
-      .select("category")
-      .eq("published", true)
-      .not("category", "is", null)
-
-    if (error) throw error
-
-    const uniqueCategories = [...new Set(categories?.map((c) => c.category) || [])]
-    return uniqueCategories
-  } catch (error) {
-    console.error("Error fetching categories:", error)
-    return []
-  }
+  openGraph: {
+    title: "Coding Tips, Tech News & Updates | Apna Coding Blog",
+    description:
+      "Stay updated with the latest tech news, coding tutorials, career advice, and hackathon tips on the Apna Coding Blog.",
+    url: "https://apnacoding.tech/blog",
+    siteName: "Apna Coding",
+    images: [
+      {
+        url: "https://apnacoding.tech/images/blog-hero.png",
+        width: 1200,
+        height: 630,
+        alt: "Apna Coding Blog",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Coding Tips, Tech News & Updates | Apna Coding Blog",
+    description: "Stay updated with the latest tech news, coding tutorials, career advice, and hackathon tips.",
+    images: ["https://apnacoding.tech/images/blog-hero.png"],
+    creator: "@shriyashsoni",
+    site: "@apnacoding",
+  },
+  alternates: {
+    canonical: "https://apnacoding.tech/blog",
+  },
 }
 
 export default async function BlogPage() {
-  const [posts, featuredPosts, categories] = await Promise.all([getBlogPosts(), getFeaturedPosts(), getCategories()])
-
-  const organizationSchema = generateOrganizationSchema()
-  const breadcrumbSchema = generateBreadcrumbSchema([
-    { name: "Home", url: "https://apnacoding.com" },
-    { name: "Blog", url: "https://apnacoding.com/blog" },
-  ])
+  const breadcrumbItems = [
+    { name: "Home", url: "https://apnacoding.tech" },
+    { name: "Blog", url: "https://apnacoding.tech/blog" },
+  ]
 
   return (
     <>
-      <StructuredData data={organizationSchema} />
-      <StructuredData data={breadcrumbSchema} />
-      <BlogClientPage posts={posts} featuredPosts={featuredPosts} categories={categories} />
+      <SEOHead
+        title="Coding Tips, Tech News & Updates | Apna Coding Blog"
+        description="Stay updated with the latest tech news, coding tutorials, career advice, and hackathon tips on the Apna Coding Blog. Explore new topics every week!"
+        keywords={["coding blog", "tech updates", "programming tips", "hackathon news", "Apna Coding blog"]}
+        canonicalUrl="https://apnacoding.tech/blog"
+        ogTitle="Coding Tips, Tech News & Updates | Apna Coding Blog"
+        ogDescription="Stay updated with the latest tech news, coding tutorials, career advice, and hackathon tips."
+        ogImage="https://apnacoding.tech/images/blog-hero.png"
+      />
+      <BreadcrumbSchema items={breadcrumbItems} />
+      <BlogClientPage />
     </>
   )
 }

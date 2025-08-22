@@ -1,95 +1,83 @@
-import type { Metadata } from "next"
+import Head from "next/head"
 
-interface SEOProps {
+interface SEOHeadProps {
   title: string
   description: string
   keywords?: string[]
-  image?: string
-  url?: string
-  type?: "website" | "article" | "profile"
-  publishedTime?: string
-  modifiedTime?: string
-  author?: string
-  section?: string
-  tags?: string[]
+  canonicalUrl?: string
+  ogTitle?: string
+  ogDescription?: string
+  ogImage?: string
+  ogType?: string
+  twitterTitle?: string
+  twitterDescription?: string
+  twitterImage?: string
+  twitterCard?: string
+  noindex?: boolean
+  nofollow?: boolean
 }
 
-export function generateMetadata({
+export default function SEOHead({
   title,
   description,
   keywords = [],
-  image = "/logo.png",
-  url = "https://apnacoding.com",
-  type = "website",
-  publishedTime,
-  modifiedTime,
-  author,
-  section,
-  tags = [],
-}: SEOProps): Metadata {
-  const fullTitle = title.includes("Apna Coding") ? title : `${title} | Apna Coding`
-  const fullImage = image.startsWith("http") ? image : `https://apnacoding.com${image}`
+  canonicalUrl,
+  ogTitle,
+  ogDescription,
+  ogImage,
+  ogType = "website",
+  twitterTitle,
+  twitterDescription,
+  twitterImage,
+  twitterCard = "summary_large_image",
+  noindex = false,
+  nofollow = false,
+}: SEOHeadProps) {
+  const robots = []
+  if (noindex) robots.push("noindex")
+  if (nofollow) robots.push("nofollow")
+  if (robots.length === 0) robots.push("index", "follow")
 
-  return {
-    title: fullTitle,
-    description,
-    keywords: keywords.join(", "),
-    authors: author ? [{ name: author }] : [{ name: "Apna Coding Team" }],
-    creator: "Apna Coding",
-    publisher: "Apna Coding",
-    robots: {
-      index: true,
-      follow: true,
-      googleBot: {
-        index: true,
-        follow: true,
-        "max-video-preview": -1,
-        "max-image-preview": "large",
-        "max-snippet": -1,
-      },
-    },
-    openGraph: {
-      type,
-      locale: "en_US",
-      url,
-      title: fullTitle,
-      description,
-      siteName: "Apna Coding",
-      images: [
-        {
-          url: fullImage,
-          width: 1200,
-          height: 630,
-          alt: title,
-        },
-      ],
-      ...(type === "article" && {
-        publishedTime,
-        modifiedTime,
-        authors: author ? [author] : ["Apna Coding Team"],
-        section,
-        tags,
-      }),
-    },
-    twitter: {
-      card: "summary_large_image",
-      site: "@apnacoding",
-      creator: "@apnacoding",
-      title: fullTitle,
-      description,
-      images: [fullImage],
-    },
-    alternates: {
-      canonical: url,
-    },
-    other: {
-      "google-site-verification": "your-google-verification-code",
-    },
-  }
-}
+  return (
+    <Head>
+      {/* Basic Meta Tags */}
+      <title>{title}</title>
+      <meta name="description" content={description} />
+      {keywords.length > 0 && <meta name="keywords" content={keywords.join(", ")} />}
+      <meta name="robots" content={robots.join(", ")} />
 
-export function generatePageJsonLd(data: any) {
-  return {
-    __html: JSON.stringify(data),
-  }
+      {/* Canonical URL */}
+      {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
+
+      {/* Open Graph Tags */}
+      <meta property="og:title" content={ogTitle || title} />
+      <meta property="og:description" content={ogDescription || description} />
+      <meta property="og:type" content={ogType} />
+      {ogImage && <meta property="og:image" content={ogImage} />}
+      {canonicalUrl && <meta property="og:url" content={canonicalUrl} />}
+      <meta property="og:site_name" content="Apna Coding" />
+
+      {/* Twitter Card Tags */}
+      <meta name="twitter:card" content={twitterCard} />
+      <meta name="twitter:title" content={twitterTitle || ogTitle || title} />
+      <meta name="twitter:description" content={twitterDescription || ogDescription || description} />
+      {twitterImage && <meta name="twitter:image" content={twitterImage} />}
+      <meta name="twitter:site" content="@apnacoding" />
+      <meta name="twitter:creator" content="@shriyashsoni" />
+
+      {/* Additional Meta Tags */}
+      <meta name="author" content="Apna Coding" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <meta httpEquiv="Content-Language" content="en" />
+      <meta name="theme-color" content="#facc15" />
+
+      {/* Favicon */}
+      <link rel="icon" href="/favicon.ico" />
+      <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+      {/* Preconnect to external domains */}
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+    </Head>
+  )
 }

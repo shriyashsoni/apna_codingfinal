@@ -1,193 +1,330 @@
-"use client"
+import Script from "next/script"
 
-import { useEffect } from "react"
-
-interface StructuredDataProps {
-  data: any
+interface OrganizationSchemaProps {
+  name: string
+  url: string
+  logo: string
+  description: string
+  sameAs: string[]
 }
 
-export function StructuredData({ data }: StructuredDataProps) {
-  useEffect(() => {
-    const script = document.createElement("script")
-    script.type = "application/ld+json"
-    script.text = JSON.stringify(data)
-    document.head.appendChild(script)
-
-    return () => {
-      document.head.removeChild(script)
-    }
-  }, [data])
-
-  return null
-}
-
-// Helper functions to generate structured data
-export const generateOrganizationSchema = () => ({
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  name: "Apna Coding",
-  url: "https://apnacoding.com",
-  logo: "https://apnacoding.com/logo.png",
-  description: "Global tech community for developers, hackathons, courses, and job opportunities",
-  sameAs: [
-    "https://twitter.com/apnacoding",
-    "https://linkedin.com/company/apnacoding",
-    "https://github.com/apnacoding",
-  ],
-  contactPoint: {
-    "@type": "ContactPoint",
-    telephone: "+1-555-123-4567",
-    contactType: "customer service",
-    email: "hello@apnacoding.com",
-  },
-})
-
-export const generateEventSchema = (hackathon: any) => ({
-  "@context": "https://schema.org",
-  "@type": "Event",
-  name: hackathon.title,
-  description: hackathon.description,
-  startDate: hackathon.start_date,
-  endDate: hackathon.end_date,
-  eventStatus: "https://schema.org/EventScheduled",
-  eventAttendanceMode:
-    hackathon.mode === "online"
-      ? "https://schema.org/OnlineEventAttendanceMode"
-      : "https://schema.org/OfflineEventAttendanceMode",
-  location:
-    hackathon.mode === "online"
-      ? {
-          "@type": "VirtualLocation",
-          url: hackathon.registration_url,
-        }
-      : {
-          "@type": "Place",
-          name: hackathon.location,
-          address: hackathon.location,
-        },
-  organizer: {
+export function OrganizationSchema({ name, url, logo, description, sameAs }: OrganizationSchemaProps) {
+  const schema = {
+    "@context": "https://schema.org",
     "@type": "Organization",
-    name: "Apna Coding",
-    url: "https://apnacoding.com",
-  },
-  offers: {
-    "@type": "Offer",
-    price: hackathon.entry_fee || "0",
-    priceCurrency: "USD",
-    availability: "https://schema.org/InStock",
-    url: `https://apnacoding.com/hackathons/${hackathon.slug}`,
-  },
-  image: hackathon.banner_image,
-  url: `https://apnacoding.com/hackathons/${hackathon.slug}`,
-})
-
-export const generateJobPostingSchema = (job: any) => ({
-  "@context": "https://schema.org",
-  "@type": "JobPosting",
-  title: job.title,
-  description: job.description,
-  datePosted: job.created_at,
-  validThrough: job.application_deadline,
-  employmentType: job.type?.toUpperCase(),
-  hiringOrganization: {
-    "@type": "Organization",
-    name: job.company,
-    logo: job.company_logo,
-  },
-  jobLocation:
-    job.location_type === "remote"
-      ? {
-          "@type": "Place",
-          address: {
-            "@type": "PostalAddress",
-            addressLocality: "Remote",
-          },
-        }
-      : {
-          "@type": "Place",
-          address: {
-            "@type": "PostalAddress",
-            addressLocality: job.location,
-          },
-        },
-  baseSalary:
-    job.salary_min && job.salary_max
-      ? {
-          "@type": "MonetaryAmount",
-          currency: "USD",
-          value: {
-            "@type": "QuantitativeValue",
-            minValue: job.salary_min,
-            maxValue: job.salary_max,
-            unitText: "YEAR",
-          },
-        }
-      : undefined,
-  url: `https://apnacoding.com/jobs/${job.slug}`,
-})
-
-export const generateCourseSchema = (course: any) => ({
-  "@context": "https://schema.org",
-  "@type": "Course",
-  name: course.title,
-  description: course.description,
-  provider: {
-    "@type": "Organization",
-    name: "Apna Coding",
-    url: "https://apnacoding.com",
-  },
-  courseCode: course.slug,
-  educationalLevel: course.level,
-  teaches: course.skills,
-  timeRequired: course.duration,
-  offers: {
-    "@type": "Offer",
-    price: course.price || "0",
-    priceCurrency: "USD",
-    category: "Educational",
-  },
-  image: course.thumbnail,
-  url: `https://apnacoding.com/courses/${course.slug}`,
-})
-
-export const generateArticleSchema = (article: any) => ({
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: article.title,
-  description: article.excerpt,
-  image: article.featured_image,
-  author: {
-    "@type": "Person",
-    name: article.author_name,
-    image: article.author_avatar,
-  },
-  publisher: {
-    "@type": "Organization",
-    name: "Apna Coding",
-    logo: {
-      "@type": "ImageObject",
-      url: "https://apnacoding.com/logo.png",
+    name,
+    url,
+    logo,
+    description,
+    sameAs,
+    contactPoint: {
+      "@type": "ContactPoint",
+      telephone: "+1-XXX-XXX-XXXX",
+      contactType: "customer service",
+      availableLanguage: ["English", "Hindi"],
     },
-  },
-  datePublished: article.published_at,
-  dateModified: article.updated_at,
-  mainEntityOfPage: {
-    "@type": "WebPage",
-    "@id": `https://apnacoding.com/blog/${article.slug}`,
-  },
-  keywords: article.tags?.join(", "),
-  articleSection: article.category,
-  wordCount: Math.ceil(article.content?.length / 5) || 0,
-  url: `https://apnacoding.com/blog/${article.slug}`,
-})
+  }
 
-export const generateBreadcrumbSchema = (items: Array<{ name: string; url: string }>) => ({
-  "@context": "https://schema.org",
-  "@type": "BreadcrumbList",
-  itemListElement: items.map((item, index) => ({
-    "@type": "ListItem",
-    position: index + 1,
-    name: item.name,
-    item: item.url,
-  })),
-})
+  return (
+    <Script
+      id="organization-schema"
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+    />
+  )
+}
+
+interface EventSchemaProps {
+  name: string
+  description: string
+  startDate: string
+  endDate: string
+  location: {
+    name: string
+    address: string
+  }
+  organizer: {
+    name: string
+    url: string
+  }
+  offers?: {
+    price: string
+    currency: string
+    availability: string
+  }
+  image?: string
+}
+
+export function EventSchema({
+  name,
+  description,
+  startDate,
+  endDate,
+  location,
+  organizer,
+  offers,
+  image,
+}: EventSchemaProps) {
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "Event",
+    name,
+    description,
+    startDate,
+    endDate,
+    eventStatus: "https://schema.org/EventScheduled",
+    eventAttendanceMode: "https://schema.org/OnlineEventAttendanceMode",
+    location: {
+      "@type": "VirtualLocation",
+      name: location.name,
+      address: location.address,
+    },
+    organizer: {
+      "@type": "Organization",
+      name: organizer.name,
+      url: organizer.url,
+    },
+    ...(offers && {
+      offers: {
+        "@type": "Offer",
+        price: offers.price,
+        priceCurrency: offers.currency,
+        availability: offers.availability,
+      },
+    }),
+    ...(image && { image }),
+  }
+
+  return (
+    <Script id="event-schema" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
+  )
+}
+
+interface JobPostingSchemaProps {
+  title: string
+  description: string
+  company: string
+  location: string
+  employmentType: string
+  salary?: {
+    min: number
+    max: number
+    currency: string
+  }
+  datePosted: string
+  validThrough?: string
+  requirements?: string[]
+}
+
+export function JobPostingSchema({
+  title,
+  description,
+  company,
+  location,
+  employmentType,
+  salary,
+  datePosted,
+  validThrough,
+  requirements,
+}: JobPostingSchemaProps) {
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "JobPosting",
+    title,
+    description,
+    hiringOrganization: {
+      "@type": "Organization",
+      name: company,
+    },
+    jobLocation: {
+      "@type": "Place",
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: location,
+      },
+    },
+    employmentType,
+    datePosted,
+    ...(validThrough && { validThrough }),
+    ...(salary && {
+      baseSalary: {
+        "@type": "MonetaryAmount",
+        currency: salary.currency,
+        value: {
+          "@type": "QuantitativeValue",
+          minValue: salary.min,
+          maxValue: salary.max,
+          unitText: "YEAR",
+        },
+      },
+    }),
+    ...(requirements && {
+      qualifications: requirements.join(", "),
+    }),
+  }
+
+  return (
+    <Script
+      id="job-posting-schema"
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+    />
+  )
+}
+
+interface CourseSchemaProps {
+  name: string
+  description: string
+  provider: string
+  instructor: string
+  duration: string
+  level: string
+  price?: number
+  currency?: string
+  image?: string
+  rating?: number
+  reviewCount?: number
+}
+
+export function CourseSchema({
+  name,
+  description,
+  provider,
+  instructor,
+  duration,
+  level,
+  price,
+  currency,
+  image,
+  rating,
+  reviewCount,
+}: CourseSchemaProps) {
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "Course",
+    name,
+    description,
+    provider: {
+      "@type": "Organization",
+      name: provider,
+    },
+    instructor: {
+      "@type": "Person",
+      name: instructor,
+    },
+    courseMode: "online",
+    educationalLevel: level,
+    timeRequired: duration,
+    ...(price &&
+      currency && {
+        offers: {
+          "@type": "Offer",
+          price,
+          priceCurrency: currency,
+        },
+      }),
+    ...(image && { image }),
+    ...(rating &&
+      reviewCount && {
+        aggregateRating: {
+          "@type": "AggregateRating",
+          ratingValue: rating,
+          reviewCount,
+        },
+      }),
+  }
+
+  return (
+    <Script
+      id="course-schema"
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+    />
+  )
+}
+
+interface ArticleSchemaProps {
+  headline: string
+  description: string
+  author: string
+  datePublished: string
+  dateModified: string
+  image?: string
+  publisher: {
+    name: string
+    logo: string
+  }
+}
+
+export function ArticleSchema({
+  headline,
+  description,
+  author,
+  datePublished,
+  dateModified,
+  image,
+  publisher,
+}: ArticleSchemaProps) {
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline,
+    description,
+    author: {
+      "@type": "Person",
+      name: author,
+    },
+    datePublished,
+    dateModified,
+    publisher: {
+      "@type": "Organization",
+      name: publisher.name,
+      logo: {
+        "@type": "ImageObject",
+        url: publisher.logo,
+      },
+    },
+    ...(image && {
+      image: {
+        "@type": "ImageObject",
+        url: image,
+      },
+    }),
+  }
+
+  return (
+    <Script
+      id="article-schema"
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+    />
+  )
+}
+
+interface BreadcrumbSchemaProps {
+  items: Array<{
+    name: string
+    url: string
+  }>
+}
+
+export function BreadcrumbSchema({ items }: BreadcrumbSchemaProps) {
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.name,
+      item: item.url,
+    })),
+  }
+
+  return (
+    <Script
+      id="breadcrumb-schema"
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+    />
+  )
+}
