@@ -1,921 +1,1016 @@
 "use client"
 
 import type React from "react"
-
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowLeft, Calendar, Save, X, Upload, Plus, Trash2, ImageIcon } from "lucide-react"
-import { getCurrentUser, isAdmin, getUserOrganizerStatus, type User } from "@/lib/supabase"
-import {
-  createEnhancedHackathon,
-  uploadHackathonImage,
-  createProblemStatement,
-  createHackathonPartnership,
-} from "@/lib/hackathon-system"
+import { Badge } from "@/components/ui/badge"
+import { ArrowLeft, Plus, X, Save, Calendar, MapPin, Trophy, ImageIcon } from "lucide-react"
+import { createEnhancedHackathon } from "@/lib/hackathon-system"
 
-export default function NewEnhancedHackathon() {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [adminAccess, setAdminAccess] = useState(false)
-  const [organizerStatus, setOrganizerStatus] = useState({ is_organizer: false, organizer_types: [] })
-  const [uploadingImage, setUploadingImage] = useState(false)
+interface ProblemStatement {
+  title: string
+  description: string
+  difficulty: "easy" | "medium" | "hard"
+  resources: string[]
+  constraints: string[]
+  evaluation_criteria: string[]
+  sample_input?: string
+  sample_output?: string
+}
+
+interface Partnership {
+  name: string
+  type: "sponsor" | "organizer" | "supporter" | "media"
+  logo_url?: string
+  website?: string
+  contact_email?: string
+  contribution?: string
+}
+
+export default function NewEnhancedHackathonPage() {
   const router = useRouter()
+  const [loading, setLoading] = useState(false)
+  const [imageUploading, setImageUploading] = useState(false)
 
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    hackathon_type: "apna_coding" as "external" | "apna_coding",
-    platform_url: "",
-    image_url: "",
+    short_description: "",
     start_date: "",
     end_date: "",
     registration_deadline: "",
     location: "",
-    prize_pool: "",
+    mode: "hybrid" as "online" | "offline" | "hybrid",
     status: "upcoming" as "upcoming" | "ongoing" | "completed" | "cancelled",
-    max_team_members: 5,
-    min_team_members: 1,
-    allow_individual: true,
-    submissions_open: false,
+    prize_pool: "",
+    max_team_size: "",
+    min_team_size: "",
+    difficulty: "intermediate" as "beginner" | "intermediate" | "advanced",
     organizer: "",
-    technologies: "",
+    registration_link: "",
+    whatsapp_link: "",
+    image_url: "",
+    banner_url: "",
     featured: false,
+    hackathon_type: "apna_coding" as "external" | "apna_coding",
+    submission_start: "",
+    submission_end: "",
+    team_formation_deadline: "",
+    max_participants: "",
+    entry_fee: "",
+    certificate_provided: true,
+    live_streaming: false,
+    recording_available: false,
   })
 
-  const [problemStatements, setProblemStatements] = useState([
-    {
-      title: "",
-      description: "",
-      difficulty_level: "medium" as "easy" | "medium" | "hard",
-      max_points: 100,
-      resources: "",
-      constraints: "",
-      evaluation_criteria: "",
-      sample_input: "",
-      sample_output: "",
-    },
-  ])
+  const [technologies, setTechnologies] = useState<string[]>([])
+  const [problemStatements, setProblemStatements] = useState<ProblemStatement[]>([])
+  const [partnerships, setPartnerships] = useState<Partnership[]>([])
+  const [newTech, setNewTech] = useState("")
 
-  const [partnerships, setPartnerships] = useState([
-    {
-      partner_name: "",
-      partner_logo_url: "",
-      partner_website: "",
-      partnership_type: "sponsor" as "sponsor" | "organizer" | "supporter" | "media",
-      contribution_amount: "",
-      benefits: "",
-      contact_person: "",
-      contact_email: "",
-    },
-  ])
-
-  const [errors, setErrors] = useState<Record<string, string>>({})
-
-  useEffect(() => {
-    checkAccess()
-  }, [])
-
-  const checkAccess = async () => {
-    try {
-      const currentUser = await getCurrentUser()
-      if (!currentUser) {
-        router.push("/")
-        return
-      }
-
-      const hasAdminAccess = await isAdmin(currentUser.email)
-      const orgStatus = await getUserOrganizerStatus(currentUser.id)
-
-      if (!hasAdminAccess && !orgStatus.organizer_types.includes("hackathon_organizer")) {
-        router.push("/")
-        return
-      }
-
-      setUser(currentUser)
-      setAdminAccess(hasAdminAccess)
-      setOrganizerStatus(orgStatus)
-
-      // Set default organizer name
-      setFormData((prev) => ({
-        ...prev,
-        organizer: currentUser.full_name || currentUser.email || "Apna Coding Team",
-      }))
-    } catch (error) {
-      console.error("Error checking access:", error)
-      router.push("/")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    setUploadingImage(true)
-    try {
-      const { data, error } = await uploadHackathonImage(file, "temp")
-      if (error) {
-        alert("Error uploading image: " + error.message)
-        return
-      }
-
-      setFormData((prev) => ({ ...prev, image_url: data.publicUrl }))
-    } catch (error) {
-      console.error("Error uploading image:", error)
-      alert("Error uploading image")
-    } finally {
-      setUploadingImage(false)
-    }
-  }
-
+  // Problem Statement Management
   const addProblemStatement = () => {
     setProblemStatements([
       ...problemStatements,
       {
         title: "",
         description: "",
-        difficulty_level: "medium" as "easy" | "medium" | "hard",
-        max_points: 100,
-        resources: "",
-        constraints: "",
-        evaluation_criteria: "",
+        difficulty: "medium",
+        resources: [],
+        constraints: [],
+        evaluation_criteria: [],
         sample_input: "",
         sample_output: "",
       },
     ])
   }
 
-  const removeProblemStatement = (index: number) => {
-    setProblemStatements(problemStatements.filter((_, i) => i !== index))
-  }
-
-  const updateProblemStatement = (index: number, field: string, value: any) => {
+  const updateProblemStatement = (index: number, field: keyof ProblemStatement, value: any) => {
     const updated = [...problemStatements]
     updated[index] = { ...updated[index], [field]: value }
     setProblemStatements(updated)
   }
 
+  const removeProblemStatement = (index: number) => {
+    setProblemStatements(problemStatements.filter((_, i) => i !== index))
+  }
+
+  // Partnership Management
   const addPartnership = () => {
     setPartnerships([
       ...partnerships,
       {
-        partner_name: "",
-        partner_logo_url: "",
-        partner_website: "",
-        partnership_type: "sponsor" as "sponsor" | "organizer" | "supporter" | "media",
-        contribution_amount: "",
-        benefits: "",
-        contact_person: "",
+        name: "",
+        type: "sponsor",
+        logo_url: "",
+        website: "",
         contact_email: "",
+        contribution: "",
       },
     ])
+  }
+
+  const updatePartnership = (index: number, field: keyof Partnership, value: any) => {
+    const updated = [...partnerships]
+    updated[index] = { ...updated[index], [field]: value }
+    setPartnerships(updated)
   }
 
   const removePartnership = (index: number) => {
     setPartnerships(partnerships.filter((_, i) => i !== index))
   }
 
-  const updatePartnership = (index: number, field: string, value: any) => {
-    const updated = [...partnerships]
-    updated[index] = { ...updated[index], [field]: value }
-    setPartnerships(updated)
+  // Technology Management
+  const addTechnology = () => {
+    if (newTech.trim() && !technologies.includes(newTech.trim())) {
+      setTechnologies([...technologies, newTech.trim()])
+      setNewTech("")
+    }
   }
 
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {}
-
-    if (!formData.title.trim()) newErrors.title = "Title is required"
-    if (!formData.description.trim()) newErrors.description = "Description is required"
-    if (!formData.start_date) newErrors.start_date = "Start date is required"
-    if (!formData.end_date) newErrors.end_date = "End date is required"
-    if (!formData.location.trim()) newErrors.location = "Location is required"
-    if (!formData.prize_pool.trim()) newErrors.prize_pool = "Prize pool is required"
-    if (!formData.organizer.trim()) newErrors.organizer = "Organizer is required"
-
-    if (formData.hackathon_type === "external" && !formData.platform_url.trim()) {
-      newErrors.platform_url = "Platform URL is required for external hackathons"
-    }
-
-    if (formData.start_date && formData.end_date) {
-      const startDate = new Date(formData.start_date)
-      const endDate = new Date(formData.end_date)
-
-      // Check if dates are valid
-      if (isNaN(startDate.getTime())) {
-        newErrors.start_date = "Invalid start date"
-      }
-      if (isNaN(endDate.getTime())) {
-        newErrors.end_date = "Invalid end date"
-      }
-
-      if (startDate >= endDate) {
-        newErrors.end_date = "End date must be after start date"
-      }
-    }
-
-    // Validate registration deadline if provided
-    if (formData.registration_deadline) {
-      const regDeadline = new Date(formData.registration_deadline)
-      if (isNaN(regDeadline.getTime())) {
-        newErrors.registration_deadline = "Invalid registration deadline"
-      } else if (formData.start_date) {
-        const startDate = new Date(formData.start_date)
-        if (regDeadline > startDate) {
-          newErrors.registration_deadline = "Registration deadline must be before start date"
-        }
-      }
-    }
-
-    if (formData.min_team_members > formData.max_team_members) {
-      newErrors.max_team_members = "Max team members must be greater than or equal to min team members"
-    }
-
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+  const removeTechnology = (tech: string) => {
+    setTechnologies(technologies.filter((t) => t !== tech))
   }
 
+  // Form Handlers
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
+    }))
+  }
+
+  // Image Upload Handler
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: "image_url" | "banner_url") => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setImageUploading(true)
+    try {
+      // In a real implementation, you would upload to your storage service
+      // For now, we'll use a placeholder URL
+      const imageUrl = URL.createObjectURL(file)
+      setFormData((prev) => ({ ...prev, [field]: imageUrl }))
+    } catch (error) {
+      console.error("Error uploading image:", error)
+      alert("Failed to upload image")
+    } finally {
+      setImageUploading(false)
+    }
+  }
+
+  // Date Validation
+  const validateDates = () => {
+    const startDate = new Date(formData.start_date)
+    const endDate = new Date(formData.end_date)
+    const regDeadline = formData.registration_deadline ? new Date(formData.registration_deadline) : null
+    const submissionStart = formData.submission_start ? new Date(formData.submission_start) : null
+    const submissionEnd = formData.submission_end ? new Date(formData.submission_end) : null
+
+    if (endDate <= startDate) {
+      alert("End date must be after start date")
+      return false
+    }
+
+    if (regDeadline && regDeadline >= startDate) {
+      alert("Registration deadline must be before start date")
+      return false
+    }
+
+    if (submissionStart && submissionEnd && submissionEnd <= submissionStart) {
+      alert("Submission end date must be after submission start date")
+      return false
+    }
+
+    return true
+  }
+
+  // Form Submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!validateForm()) {
-      return
-    }
+    if (!validateDates()) return
 
-    setSaving(true)
+    setLoading(true)
+
     try {
-      const technologiesArray = formData.technologies
-        .split(",")
-        .map((tech) => tech.trim())
-        .filter((tech) => tech.length > 0)
+      // Format dates properly, handling empty strings
+      const formatDate = (dateString: string) => {
+        if (!dateString || dateString.trim() === "") return null
+        const date = new Date(dateString)
+        return isNaN(date.getTime()) ? null : date.toISOString()
+      }
 
-      // Format dates properly and handle empty registration deadline
       const hackathonData = {
         ...formData,
-        technologies: technologiesArray,
-        results_published: false,
-        // Only include registration_deadline if it's not empty
-        registration_deadline: formData.registration_deadline || null,
-        // Ensure dates are properly formatted
-        start_date: new Date(formData.start_date).toISOString(),
-        end_date: new Date(formData.end_date).toISOString(),
+        start_date: formatDate(formData.start_date),
+        end_date: formatDate(formData.end_date),
+        registration_deadline: formatDate(formData.registration_deadline),
+        submission_start: formatDate(formData.submission_start),
+        submission_end: formatDate(formData.submission_end),
+        team_formation_deadline: formatDate(formData.team_formation_deadline),
+        max_team_size: formData.max_team_size ? Number.parseInt(formData.max_team_size) : null,
+        min_team_size: formData.min_team_size ? Number.parseInt(formData.min_team_size) : null,
+        max_participants: formData.max_participants ? Number.parseInt(formData.max_participants) : null,
+        entry_fee: formData.entry_fee ? Number.parseFloat(formData.entry_fee) : 0,
+        technologies,
+        problem_statements: problemStatements,
+        partnerships,
+        participants_count: 0,
       }
 
-      // Remove registration_deadline if it's null to avoid sending empty string
-      if (!hackathonData.registration_deadline) {
-        delete hackathonData.registration_deadline
-      }
-
-      const { data: hackathon, error } = await createEnhancedHackathon(hackathonData)
-
-      if (error || !hackathon) {
-        alert("Error creating hackathon: " + (error?.message || "Unknown error"))
+      // Validate required dates
+      if (!hackathonData.start_date || !hackathonData.end_date) {
+        alert("Start date and end date are required")
         return
       }
 
-      // Create problem statements
-      for (const problem of problemStatements) {
-        if (problem.title.trim() && problem.description.trim()) {
-          await createProblemStatement({
-            hackathon_id: hackathon.id,
-            title: problem.title,
-            description: problem.description,
-            difficulty_level: problem.difficulty_level,
-            max_points: problem.max_points,
-            resources: problem.resources
-              .split(",")
-              .map((r) => r.trim())
-              .filter((r) => r),
-            constraints: problem.constraints
-              .split(",")
-              .map((c) => c.trim())
-              .filter((c) => c),
-            evaluation_criteria: problem.evaluation_criteria
-              .split(",")
-              .map((e) => e.trim())
-              .filter((e) => e),
-            sample_input: problem.sample_input,
-            sample_output: problem.sample_output,
-          })
-        }
-      }
+      const result = await createEnhancedHackathon(hackathonData)
 
-      // Create partnerships
-      for (const partnership of partnerships) {
-        if (partnership.partner_name.trim()) {
-          await createHackathonPartnership({
-            hackathon_id: hackathon.id,
-            partner_name: partnership.partner_name,
-            partner_logo_url: partnership.partner_logo_url,
-            partner_website: partnership.partner_website,
-            partnership_type: partnership.partnership_type,
-            contribution_amount: partnership.contribution_amount,
-            benefits: partnership.benefits
-              .split(",")
-              .map((b) => b.trim())
-              .filter((b) => b),
-            contact_person: partnership.contact_person,
-            contact_email: partnership.contact_email,
-            status: "active",
-          })
-        }
+      if (result.success) {
+        alert("Enhanced hackathon created successfully!")
+        router.push("/admin/hackathons/enhanced")
+      } else {
+        alert("Error creating hackathon: " + result.error)
       }
-
-      alert("Hackathon created successfully!")
-      router.push("/admin/hackathons/enhanced")
     } catch (error) {
       console.error("Error creating hackathon:", error)
       alert("Error creating hackathon: " + (error instanceof Error ? error.message : "Unknown error"))
     } finally {
-      setSaving(false)
+      setLoading(false)
     }
-  }
-
-  const handleInputChange = (field: string, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-    if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: "" }))
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-400 mx-auto"></div>
-          <p className="text-white mt-4">Loading...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!adminAccess && !organizerStatus.organizer_types.includes("hackathon_organizer")) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-400 mb-4">Access Denied</h1>
-          <p className="text-gray-400">You don't have permission to create hackathons.</p>
-        </div>
-      </div>
-    )
   }
 
   return (
     <div className="min-h-screen bg-black text-white pt-20">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-white flex items-center gap-2">
-              <Calendar className="w-8 h-8 text-purple-400" />
-              Create New Hackathon
-            </h1>
-            <p className="text-gray-400 mt-1">Set up a new hackathon event with all features</p>
-          </div>
+        <div className="flex items-center gap-4 mb-8">
           <Button
             onClick={() => router.push("/admin/hackathons/enhanced")}
             variant="outline"
             className="border-gray-700 text-white hover:bg-gray-800"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Hackathons
+            Back to Enhanced Hackathons
           </Button>
+          <h1 className="text-3xl font-bold text-white">Create Enhanced Hackathon</h1>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-6">
-            {/* Basic Information */}
-            <Card className="bg-gray-900 border-gray-800">
-              <CardHeader>
-                <CardTitle className="text-white">Basic Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="title" className="text-gray-300">
-                      Title *
-                    </Label>
-                    <Input
-                      id="title"
-                      value={formData.title}
-                      onChange={(e) => handleInputChange("title", e.target.value)}
-                      className={`bg-gray-800 border-gray-700 text-white ${errors.title ? "border-red-500" : ""}`}
-                      placeholder="Enter hackathon title"
-                    />
-                    {errors.title && <p className="text-red-400 text-sm mt-1">{errors.title}</p>}
-                  </div>
-                  <div>
-                    <Label htmlFor="organizer" className="text-gray-300">
-                      Organizer *
-                    </Label>
-                    <Input
-                      id="organizer"
-                      value={formData.organizer}
-                      onChange={(e) => handleInputChange("organizer", e.target.value)}
-                      className={`bg-gray-800 border-gray-700 text-white ${errors.organizer ? "border-red-500" : ""}`}
-                      placeholder="Enter organizer name"
-                    />
-                    {errors.organizer && <p className="text-red-400 text-sm mt-1">{errors.organizer}</p>}
-                  </div>
-                </div>
-
+        <form onSubmit={handleSubmit} className="space-y-8">
+          {/* Basic Information */}
+          <Card className="bg-gray-900 border-gray-800">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-yellow-400" />
+                Basic Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="description" className="text-gray-300">
-                    Description *
+                  <Label htmlFor="title" className="text-gray-300">
+                    Title *
                   </Label>
-                  <Textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) => handleInputChange("description", e.target.value)}
-                    className={`bg-gray-800 border-gray-700 text-white ${errors.description ? "border-red-500" : ""}`}
-                    placeholder="Describe the hackathon"
-                    rows={4}
+                  <Input
+                    id="title"
+                    name="title"
+                    value={formData.title}
+                    onChange={handleInputChange}
+                    required
+                    className="bg-gray-800 border-gray-700 text-white"
+                    placeholder="Enter hackathon title"
                   />
-                  {errors.description && <p className="text-red-400 text-sm mt-1">{errors.description}</p>}
                 </div>
-
-                {/* Image Upload */}
                 <div>
-                  <Label htmlFor="image" className="text-gray-300">
-                    Hackathon Image
+                  <Label htmlFor="organizer" className="text-gray-300">
+                    Organizer *
                   </Label>
-                  <div className="mt-2">
-                    {formData.image_url ? (
-                      <div className="relative">
-                        <img
-                          src={formData.image_url || "/placeholder.svg"}
-                          alt="Hackathon"
-                          className="w-full h-48 object-cover rounded-lg"
-                        />
-                        <Button
-                          type="button"
-                          onClick={() => handleInputChange("image_url", "")}
-                          className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white"
-                          size="sm"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="border-2 border-dashed border-gray-700 rounded-lg p-6 text-center">
-                        <ImageIcon className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                        <p className="text-gray-400 mb-4">Upload hackathon image</p>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageUpload}
-                          className="hidden"
-                          id="image-upload"
-                        />
-                        <Button
-                          type="button"
-                          onClick={() => document.getElementById("image-upload")?.click()}
-                          disabled={uploadingImage}
-                          className="bg-purple-400 hover:bg-purple-500 text-black"
-                        >
-                          <Upload className="w-4 h-4 mr-2" />
-                          {uploadingImage ? "Uploading..." : "Choose Image"}
-                        </Button>
-                      </div>
+                  <Input
+                    id="organizer"
+                    name="organizer"
+                    value={formData.organizer}
+                    onChange={handleInputChange}
+                    required
+                    className="bg-gray-800 border-gray-700 text-white"
+                    placeholder="Enter organizer name"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="description" className="text-gray-300">
+                  Description *
+                </Label>
+                <Textarea
+                  id="description"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  required
+                  rows={4}
+                  className="bg-gray-800 border-gray-700 text-white"
+                  placeholder="Enter detailed hackathon description"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="short_description" className="text-gray-300">
+                  Short Description (for link previews) *
+                </Label>
+                <Textarea
+                  id="short_description"
+                  name="short_description"
+                  value={formData.short_description}
+                  onChange={handleInputChange}
+                  required
+                  rows={2}
+                  maxLength={200}
+                  className="bg-gray-800 border-gray-700 text-white"
+                  placeholder="Brief description for social media previews (max 200 characters)"
+                />
+                <p className="text-sm text-gray-400 mt-1">{formData.short_description.length}/200 characters</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="hackathon_type" className="text-gray-300">
+                    Hackathon Type *
+                  </Label>
+                  <select
+                    id="hackathon_type"
+                    name="hackathon_type"
+                    value={formData.hackathon_type}
+                    onChange={handleInputChange}
+                    className="w-full bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2"
+                  >
+                    <option value="apna_coding">Apna Coding Hosted</option>
+                    <option value="external">External Platform</option>
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="status" className="text-gray-300">
+                    Status
+                  </Label>
+                  <select
+                    id="status"
+                    name="status"
+                    value={formData.status}
+                    onChange={handleInputChange}
+                    className="w-full bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2"
+                  >
+                    <option value="upcoming">Upcoming</option>
+                    <option value="ongoing">Ongoing</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="difficulty" className="text-gray-300">
+                    Difficulty
+                  </Label>
+                  <select
+                    id="difficulty"
+                    name="difficulty"
+                    value={formData.difficulty}
+                    onChange={handleInputChange}
+                    className="w-full bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2"
+                  >
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="advanced">Advanced</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <input
+                  type="checkbox"
+                  id="featured"
+                  name="featured"
+                  checked={formData.featured}
+                  onChange={handleInputChange}
+                  className="w-4 h-4 text-yellow-400 bg-gray-800 border-gray-700 rounded"
+                />
+                <Label htmlFor="featured" className="text-gray-300">
+                  Featured Hackathon
+                </Label>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Images */}
+          <Card className="bg-gray-900 border-gray-800">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <ImageIcon className="w-5 h-5 text-yellow-400" />
+                Images & Media
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="image_upload" className="text-gray-300">
+                    Main Image (for previews)
+                  </Label>
+                  <div className="space-y-2">
+                    <Input
+                      id="image_upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleImageUpload(e, "image_url")}
+                      className="bg-gray-800 border-gray-700 text-white"
+                    />
+                    {formData.image_url && (
+                      <img
+                        src={formData.image_url || "/placeholder.svg"}
+                        alt="Preview"
+                        className="w-full h-32 object-cover rounded-lg"
+                      />
                     )}
                   </div>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="hackathon_type" className="text-gray-300">
-                      Type *
-                    </Label>
-                    <select
-                      id="hackathon_type"
-                      value={formData.hackathon_type}
-                      onChange={(e) =>
-                        handleInputChange("hackathon_type", e.target.value as "external" | "apna_coding")
-                      }
-                      className="w-full bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2"
-                    >
-                      <option value="apna_coding">Apna Coding Hosted</option>
-                      <option value="external">External Platform</option>
-                    </select>
-                  </div>
-                  <div>
-                    <Label htmlFor="status" className="text-gray-300">
-                      Status *
-                    </Label>
-                    <select
-                      id="status"
-                      value={formData.status}
-                      onChange={(e) => handleInputChange("status", e.target.value)}
-                      className="w-full bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2"
-                    >
-                      <option value="upcoming">Upcoming</option>
-                      <option value="ongoing">Ongoing</option>
-                      <option value="completed">Completed</option>
-                      <option value="cancelled">Cancelled</option>
-                    </select>
-                  </div>
-                </div>
-
-                {formData.hackathon_type === "external" && (
-                  <div>
-                    <Label htmlFor="platform_url" className="text-gray-300">
-                      Platform URL *
-                    </Label>
+                <div>
+                  <Label htmlFor="banner_upload" className="text-gray-300">
+                    Banner Image
+                  </Label>
+                  <div className="space-y-2">
                     <Input
-                      id="platform_url"
-                      type="url"
-                      value={formData.platform_url}
-                      onChange={(e) => handleInputChange("platform_url", e.target.value)}
-                      className={`bg-gray-800 border-gray-700 text-white ${errors.platform_url ? "border-red-500" : ""}`}
-                      placeholder="https://devpost.com/..."
+                      id="banner_upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleImageUpload(e, "banner_url")}
+                      className="bg-gray-800 border-gray-700 text-white"
                     />
-                    {errors.platform_url && <p className="text-red-400 text-sm mt-1">{errors.platform_url}</p>}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Date and Location */}
-            <Card className="bg-gray-900 border-gray-800">
-              <CardHeader>
-                <CardTitle className="text-white">Date and Location</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="start_date" className="text-gray-300">
-                      Start Date *
-                    </Label>
-                    <Input
-                      id="start_date"
-                      type="datetime-local"
-                      value={formData.start_date}
-                      onChange={(e) => handleInputChange("start_date", e.target.value)}
-                      className={`bg-gray-800 border-gray-700 text-white ${errors.start_date ? "border-red-500" : ""}`}
-                    />
-                    {errors.start_date && <p className="text-red-400 text-sm mt-1">{errors.start_date}</p>}
-                  </div>
-                  <div>
-                    <Label htmlFor="end_date" className="text-gray-300">
-                      End Date *
-                    </Label>
-                    <Input
-                      id="end_date"
-                      type="datetime-local"
-                      value={formData.end_date}
-                      onChange={(e) => handleInputChange("end_date", e.target.value)}
-                      className={`bg-gray-800 border-gray-700 text-white ${errors.end_date ? "border-red-500" : ""}`}
-                    />
-                    {errors.end_date && <p className="text-red-400 text-sm mt-1">{errors.end_date}</p>}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="registration_deadline" className="text-gray-300">
-                      Registration Deadline
-                    </Label>
-                    <Input
-                      id="registration_deadline"
-                      type="datetime-local"
-                      value={formData.registration_deadline}
-                      onChange={(e) => handleInputChange("registration_deadline", e.target.value)}
-                      className={`bg-gray-800 border-gray-700 text-white ${errors.registration_deadline ? "border-red-500" : ""}`}
-                    />
-                    {errors.registration_deadline && (
-                      <p className="text-red-400 text-sm mt-1">{errors.registration_deadline}</p>
+                    {formData.banner_url && (
+                      <img
+                        src={formData.banner_url || "/placeholder.svg"}
+                        alt="Banner Preview"
+                        className="w-full h-32 object-cover rounded-lg"
+                      />
                     )}
                   </div>
-                  <div>
-                    <Label htmlFor="location" className="text-gray-300">
-                      Location *
-                    </Label>
-                    <Input
-                      id="location"
-                      value={formData.location}
-                      onChange={(e) => handleInputChange("location", e.target.value)}
-                      className={`bg-gray-800 border-gray-700 text-white ${errors.location ? "border-red-500" : ""}`}
-                      placeholder="Online, Delhi, Mumbai, etc."
-                    />
-                    {errors.location && <p className="text-red-400 text-sm mt-1">{errors.location}</p>}
-                  </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* Prize and Team Settings */}
-            <Card className="bg-gray-900 border-gray-800">
-              <CardHeader>
-                <CardTitle className="text-white">Prize and Team Settings</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+          {/* Event Details */}
+          <Card className="bg-gray-900 border-gray-800">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-yellow-400" />
+                Event Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="start_date" className="text-gray-300">
+                    Start Date & Time *
+                  </Label>
+                  <Input
+                    id="start_date"
+                    name="start_date"
+                    type="datetime-local"
+                    value={formData.start_date}
+                    onChange={handleInputChange}
+                    required
+                    className="bg-gray-800 border-gray-700 text-white"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="end_date" className="text-gray-300">
+                    End Date & Time *
+                  </Label>
+                  <Input
+                    id="end_date"
+                    name="end_date"
+                    type="datetime-local"
+                    value={formData.end_date}
+                    onChange={handleInputChange}
+                    required
+                    className="bg-gray-800 border-gray-700 text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="registration_deadline" className="text-gray-300">
+                    Registration Deadline
+                  </Label>
+                  <Input
+                    id="registration_deadline"
+                    name="registration_deadline"
+                    type="datetime-local"
+                    value={formData.registration_deadline}
+                    onChange={handleInputChange}
+                    className="bg-gray-800 border-gray-700 text-white"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="team_formation_deadline" className="text-gray-300">
+                    Team Formation Deadline
+                  </Label>
+                  <Input
+                    id="team_formation_deadline"
+                    name="team_formation_deadline"
+                    type="datetime-local"
+                    value={formData.team_formation_deadline}
+                    onChange={handleInputChange}
+                    className="bg-gray-800 border-gray-700 text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="location" className="text-gray-300">
+                    Location *
+                  </Label>
+                  <Input
+                    id="location"
+                    name="location"
+                    value={formData.location}
+                    onChange={handleInputChange}
+                    required
+                    className="bg-gray-800 border-gray-700 text-white"
+                    placeholder="Enter location"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="mode" className="text-gray-300">
+                    Mode
+                  </Label>
+                  <select
+                    id="mode"
+                    name="mode"
+                    value={formData.mode}
+                    onChange={handleInputChange}
+                    className="w-full bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2"
+                  >
+                    <option value="online">Online</option>
+                    <option value="offline">Offline</option>
+                    <option value="hybrid">Hybrid</option>
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="entry_fee" className="text-gray-300">
+                    Entry Fee ($)
+                  </Label>
+                  <Input
+                    id="entry_fee"
+                    name="entry_fee"
+                    type="number"
+                    step="0.01"
+                    value={formData.entry_fee}
+                    onChange={handleInputChange}
+                    className="bg-gray-800 border-gray-700 text-white"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Team & Participation */}
+          <Card className="bg-gray-900 border-gray-800">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Trophy className="w-5 h-5 text-yellow-400" />
+                Team & Participation Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <Label htmlFor="min_team_size" className="text-gray-300">
+                    Min Team Size
+                  </Label>
+                  <Input
+                    id="min_team_size"
+                    name="min_team_size"
+                    type="number"
+                    value={formData.min_team_size}
+                    onChange={handleInputChange}
+                    className="bg-gray-800 border-gray-700 text-white"
+                    placeholder="1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="max_team_size" className="text-gray-300">
+                    Max Team Size
+                  </Label>
+                  <Input
+                    id="max_team_size"
+                    name="max_team_size"
+                    type="number"
+                    value={formData.max_team_size}
+                    onChange={handleInputChange}
+                    className="bg-gray-800 border-gray-700 text-white"
+                    placeholder="4"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="max_participants" className="text-gray-300">
+                    Max Participants
+                  </Label>
+                  <Input
+                    id="max_participants"
+                    name="max_participants"
+                    type="number"
+                    value={formData.max_participants}
+                    onChange={handleInputChange}
+                    className="bg-gray-800 border-gray-700 text-white"
+                    placeholder="1000"
+                  />
+                </div>
                 <div>
                   <Label htmlFor="prize_pool" className="text-gray-300">
                     Prize Pool *
                   </Label>
                   <Input
                     id="prize_pool"
+                    name="prize_pool"
                     value={formData.prize_pool}
-                    onChange={(e) => handleInputChange("prize_pool", e.target.value)}
-                    className={`bg-gray-800 border-gray-700 text-white ${errors.prize_pool ? "border-red-500" : ""}`}
-                    placeholder="$10,000, ₹50,000, etc."
-                  />
-                  {errors.prize_pool && <p className="text-red-400 text-sm mt-1">{errors.prize_pool}</p>}
-                </div>
-
-                {formData.hackathon_type === "apna_coding" && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <Label htmlFor="min_team_members" className="text-gray-300">
-                        Min Team Size
-                      </Label>
-                      <Input
-                        id="min_team_members"
-                        type="number"
-                        min="1"
-                        value={formData.min_team_members}
-                        onChange={(e) => handleInputChange("min_team_members", Number.parseInt(e.target.value))}
-                        className="bg-gray-800 border-gray-700 text-white"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="max_team_members" className="text-gray-300">
-                        Max Team Size
-                      </Label>
-                      <Input
-                        id="max_team_members"
-                        type="number"
-                        min="1"
-                        value={formData.max_team_members}
-                        onChange={(e) => handleInputChange("max_team_members", Number.parseInt(e.target.value))}
-                        className={`bg-gray-800 border-gray-700 text-white ${errors.max_team_members ? "border-red-500" : ""}`}
-                      />
-                      {errors.max_team_members && (
-                        <p className="text-red-400 text-sm mt-1">{errors.max_team_members}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center space-x-2 pt-6">
-                      <input
-                        type="checkbox"
-                        id="allow_individual"
-                        checked={formData.allow_individual}
-                        onChange={(e) => handleInputChange("allow_individual", e.target.checked)}
-                        className="w-4 h-4 text-purple-400 bg-gray-800 border-gray-700 rounded"
-                      />
-                      <Label htmlFor="allow_individual" className="text-gray-300">
-                        Allow Individual
-                      </Label>
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <Label htmlFor="technologies" className="text-gray-300">
-                    Technologies (comma-separated)
-                  </Label>
-                  <Input
-                    id="technologies"
-                    value={formData.technologies}
-                    onChange={(e) => handleInputChange("technologies", e.target.value)}
+                    onChange={handleInputChange}
+                    required
                     className="bg-gray-800 border-gray-700 text-white"
-                    placeholder="React, Node.js, Python, MongoDB"
+                    placeholder="$10,000"
                   />
                 </div>
+              </div>
 
-                {formData.hackathon_type === "apna_coding" && (
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="submissions_open"
-                        checked={formData.submissions_open}
-                        onChange={(e) => handleInputChange("submissions_open", e.target.checked)}
-                        className="w-4 h-4 text-purple-400 bg-gray-800 border-gray-700 rounded"
-                      />
-                      <Label htmlFor="submissions_open" className="text-gray-300">
-                        Submissions Open
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="featured"
-                        checked={formData.featured}
-                        onChange={(e) => handleInputChange("featured", e.target.checked)}
-                        className="w-4 h-4 text-purple-400 bg-gray-800 border-gray-700 rounded"
-                      />
-                      <Label htmlFor="featured" className="text-gray-300">
-                        Featured
-                      </Label>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+              <div className="flex flex-wrap gap-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="certificate_provided"
+                    name="certificate_provided"
+                    checked={formData.certificate_provided}
+                    onChange={handleInputChange}
+                    className="w-4 h-4 text-yellow-400 bg-gray-800 border-gray-700 rounded"
+                  />
+                  <Label htmlFor="certificate_provided" className="text-gray-300">
+                    Certificate Provided
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="live_streaming"
+                    name="live_streaming"
+                    checked={formData.live_streaming}
+                    onChange={handleInputChange}
+                    className="w-4 h-4 text-yellow-400 bg-gray-800 border-gray-700 rounded"
+                  />
+                  <Label htmlFor="live_streaming" className="text-gray-300">
+                    Live Streaming
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="recording_available"
+                    name="recording_available"
+                    checked={formData.recording_available}
+                    onChange={handleInputChange}
+                    className="w-4 h-4 text-yellow-400 bg-gray-800 border-gray-700 rounded"
+                  />
+                  <Label htmlFor="recording_available" className="text-gray-300">
+                    Recording Available
+                  </Label>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* Problem Statements */}
-            {formData.hackathon_type === "apna_coding" && (
-              <Card className="bg-gray-900 border-gray-800">
-                <CardHeader>
+          {/* Technologies */}
+          <Card className="bg-gray-900 border-gray-800">
+            <CardHeader>
+              <CardTitle className="text-white">Technologies</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                <Input
+                  value={newTech}
+                  onChange={(e) => setNewTech(e.target.value)}
+                  placeholder="Add technology"
+                  className="bg-gray-800 border-gray-700 text-white"
+                  onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addTechnology())}
+                />
+                <Button type="button" onClick={addTechnology} className="bg-yellow-400 hover:bg-yellow-500 text-black">
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {technologies.map((tech, index) => (
+                  <Badge key={index} variant="outline" className="border-yellow-400 text-yellow-400">
+                    {tech}
+                    <button
+                      type="button"
+                      onClick={() => removeTechnology(tech)}
+                      className="ml-2 text-red-400 hover:text-red-300"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Problem Statements */}
+          <Card className="bg-gray-900 border-gray-800">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center justify-between">
+                Problem Statements
+                <Button
+                  type="button"
+                  onClick={addProblemStatement}
+                  className="bg-yellow-400 hover:bg-yellow-500 text-black"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Problem
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {problemStatements.map((problem, index) => (
+                <div key={index} className="p-4 border border-gray-700 rounded-lg space-y-4">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-white">Problem Statements</CardTitle>
+                    <h4 className="text-lg font-semibold text-white">Problem {index + 1}</h4>
                     <Button
                       type="button"
-                      onClick={addProblemStatement}
-                      className="bg-green-400 hover:bg-green-500 text-black"
+                      onClick={() => removeProblemStatement(index)}
+                      variant="outline"
                       size="sm"
+                      className="border-red-400 text-red-400 hover:bg-red-400 hover:text-black"
                     >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Problem
+                      <X className="w-4 h-4" />
                     </Button>
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {problemStatements.map((problem, index) => (
-                    <div key={index} className="p-4 bg-gray-800 rounded-lg space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-white font-medium">Problem Statement {index + 1}</h4>
-                        {problemStatements.length > 1 && (
-                          <Button
-                            type="button"
-                            onClick={() => removeProblemStatement(index)}
-                            className="bg-red-500 hover:bg-red-600 text-white"
-                            size="sm"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-gray-300">Title</Label>
-                          <Input
-                            value={problem.title}
-                            onChange={(e) => updateProblemStatement(index, "title", e.target.value)}
-                            className="bg-gray-700 border-gray-600 text-white"
-                            placeholder="Problem title"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-gray-300">Difficulty</Label>
-                          <select
-                            value={problem.difficulty_level}
-                            onChange={(e) => updateProblemStatement(index, "difficulty_level", e.target.value)}
-                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-md px-3 py-2"
-                          >
-                            <option value="easy">Easy</option>
-                            <option value="medium">Medium</option>
-                            <option value="hard">Hard</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label className="text-gray-300">Description</Label>
-                        <Textarea
-                          value={problem.description}
-                          onChange={(e) => updateProblemStatement(index, "description", e.target.value)}
-                          className="bg-gray-700 border-gray-600 text-white"
-                          placeholder="Problem description"
-                          rows={3}
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-gray-300">Max Points</Label>
-                          <Input
-                            type="number"
-                            value={problem.max_points}
-                            onChange={(e) =>
-                              updateProblemStatement(index, "max_points", Number.parseInt(e.target.value))
-                            }
-                            className="bg-gray-700 border-gray-600 text-white"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-gray-300">Resources (comma-separated)</Label>
-                          <Input
-                            value={problem.resources}
-                            onChange={(e) => updateProblemStatement(index, "resources", e.target.value)}
-                            className="bg-gray-700 border-gray-600 text-white"
-                            placeholder="API docs, tutorials, etc."
-                          />
-                        </div>
-                      </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-gray-300">Title *</Label>
+                      <Input
+                        value={problem.title}
+                        onChange={(e) => updateProblemStatement(index, "title", e.target.value)}
+                        className="bg-gray-800 border-gray-700 text-white"
+                        placeholder="Problem title"
+                      />
                     </div>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Partnerships */}
-            <Card className="bg-gray-900 border-gray-800">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-white">Partnerships & Sponsors</CardTitle>
-                  <Button
-                    type="button"
-                    onClick={addPartnership}
-                    className="bg-blue-400 hover:bg-blue-500 text-black"
-                    size="sm"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Partner
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {partnerships.map((partnership, index) => (
-                  <div key={index} className="p-4 bg-gray-800 rounded-lg space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-white font-medium">Partner {index + 1}</h4>
-                      {partnerships.length > 1 && (
-                        <Button
-                          type="button"
-                          onClick={() => removePartnership(index)}
-                          className="bg-red-500 hover:bg-red-600 text-white"
-                          size="sm"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-gray-300">Partner Name</Label>
-                        <Input
-                          value={partnership.partner_name}
-                          onChange={(e) => updatePartnership(index, "partner_name", e.target.value)}
-                          className="bg-gray-700 border-gray-600 text-white"
-                          placeholder="Company/Organization name"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-gray-300">Partnership Type</Label>
-                        <select
-                          value={partnership.partnership_type}
-                          onChange={(e) => updatePartnership(index, "partnership_type", e.target.value)}
-                          className="w-full bg-gray-700 border border-gray-600 text-white rounded-md px-3 py-2"
-                        >
-                          <option value="sponsor">Sponsor</option>
-                          <option value="organizer">Organizer</option>
-                          <option value="supporter">Supporter</option>
-                          <option value="media">Media Partner</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-gray-300">Website</Label>
-                        <Input
-                          type="url"
-                          value={partnership.partner_website}
-                          onChange={(e) => updatePartnership(index, "partner_website", e.target.value)}
-                          className="bg-gray-700 border-gray-600 text-white"
-                          placeholder="https://partner-website.com"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-gray-300">Contribution Amount</Label>
-                        <Input
-                          value={partnership.contribution_amount}
-                          onChange={(e) => updatePartnership(index, "contribution_amount", e.target.value)}
-                          className="bg-gray-700 border-gray-600 text-white"
-                          placeholder="$5,000, ₹50,000, etc."
-                        />
-                      </div>
+                    <div>
+                      <Label className="text-gray-300">Difficulty</Label>
+                      <select
+                        value={problem.difficulty}
+                        onChange={(e) => updateProblemStatement(index, "difficulty", e.target.value)}
+                        className="w-full bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2"
+                      >
+                        <option value="easy">Easy</option>
+                        <option value="medium">Medium</option>
+                        <option value="hard">Hard</option>
+                      </select>
                     </div>
                   </div>
-                ))}
+
+                  <div>
+                    <Label className="text-gray-300">Description *</Label>
+                    <Textarea
+                      value={problem.description}
+                      onChange={(e) => updateProblemStatement(index, "description", e.target.value)}
+                      rows={4}
+                      className="bg-gray-800 border-gray-700 text-white"
+                      placeholder="Detailed problem description"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-gray-300">Sample Input</Label>
+                      <Textarea
+                        value={problem.sample_input || ""}
+                        onChange={(e) => updateProblemStatement(index, "sample_input", e.target.value)}
+                        rows={3}
+                        className="bg-gray-800 border-gray-700 text-white"
+                        placeholder="Sample input data"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-gray-300">Sample Output</Label>
+                      <Textarea
+                        value={problem.sample_output || ""}
+                        onChange={(e) => updateProblemStatement(index, "sample_output", e.target.value)}
+                        rows={3}
+                        className="bg-gray-800 border-gray-700 text-white"
+                        placeholder="Expected output"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Partnerships */}
+          <Card className="bg-gray-900 border-gray-800">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center justify-between">
+                Partnerships & Sponsors
+                <Button type="button" onClick={addPartnership} className="bg-yellow-400 hover:bg-yellow-500 text-black">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Partner
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {partnerships.map((partnership, index) => (
+                <div key={index} className="p-4 border border-gray-700 rounded-lg space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-lg font-semibold text-white">Partner {index + 1}</h4>
+                    <Button
+                      type="button"
+                      onClick={() => removePartnership(index)}
+                      variant="outline"
+                      size="sm"
+                      className="border-red-400 text-red-400 hover:bg-red-400 hover:text-black"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-gray-300">Partner Name *</Label>
+                      <Input
+                        value={partnership.name}
+                        onChange={(e) => updatePartnership(index, "name", e.target.value)}
+                        className="bg-gray-800 border-gray-700 text-white"
+                        placeholder="Partner name"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-gray-300">Type</Label>
+                      <select
+                        value={partnership.type}
+                        onChange={(e) => updatePartnership(index, "type", e.target.value)}
+                        className="w-full bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2"
+                      >
+                        <option value="sponsor">Sponsor</option>
+                        <option value="organizer">Organizer</option>
+                        <option value="supporter">Supporter</option>
+                        <option value="media">Media Partner</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-gray-300">Website</Label>
+                      <Input
+                        value={partnership.website || ""}
+                        onChange={(e) => updatePartnership(index, "website", e.target.value)}
+                        className="bg-gray-800 border-gray-700 text-white"
+                        placeholder="https://partner-website.com"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-gray-300">Contact Email</Label>
+                      <Input
+                        value={partnership.contact_email || ""}
+                        onChange={(e) => updatePartnership(index, "contact_email", e.target.value)}
+                        className="bg-gray-800 border-gray-700 text-white"
+                        placeholder="contact@partner.com"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-gray-300">Contribution</Label>
+                    <Textarea
+                      value={partnership.contribution || ""}
+                      onChange={(e) => updatePartnership(index, "contribution", e.target.value)}
+                      rows={2}
+                      className="bg-gray-800 border-gray-700 text-white"
+                      placeholder="What does this partner contribute?"
+                    />
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Links */}
+          <Card className="bg-gray-900 border-gray-800">
+            <CardHeader>
+              <CardTitle className="text-white">Links & Communication</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {formData.hackathon_type === "external" && (
+                <div>
+                  <Label htmlFor="registration_link" className="text-gray-300">
+                    External Registration Link
+                  </Label>
+                  <Input
+                    id="registration_link"
+                    name="registration_link"
+                    type="url"
+                    value={formData.registration_link}
+                    onChange={handleInputChange}
+                    className="bg-gray-800 border-gray-700 text-white"
+                    placeholder="https://external-platform.com/register"
+                  />
+                </div>
+              )}
+
+              <div>
+                <Label htmlFor="whatsapp_link" className="text-gray-300">
+                  WhatsApp Group Link
+                </Label>
+                <Input
+                  id="whatsapp_link"
+                  name="whatsapp_link"
+                  type="url"
+                  value={formData.whatsapp_link}
+                  onChange={handleInputChange}
+                  className="bg-gray-800 border-gray-700 text-white"
+                  placeholder="https://chat.whatsapp.com/..."
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Submission Period (for Apna Coding hosted) */}
+          {formData.hackathon_type === "apna_coding" && (
+            <Card className="bg-gray-900 border-gray-800">
+              <CardHeader>
+                <CardTitle className="text-white">Submission Period</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="submission_start" className="text-gray-300">
+                      Submission Start
+                    </Label>
+                    <Input
+                      id="submission_start"
+                      name="submission_start"
+                      type="datetime-local"
+                      value={formData.submission_start}
+                      onChange={handleInputChange}
+                      className="bg-gray-800 border-gray-700 text-white"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="submission_end" className="text-gray-300">
+                      Submission End
+                    </Label>
+                    <Input
+                      id="submission_end"
+                      name="submission_end"
+                      type="datetime-local"
+                      value={formData.submission_end}
+                      onChange={handleInputChange}
+                      className="bg-gray-800 border-gray-700 text-white"
+                    />
+                  </div>
+                </div>
               </CardContent>
             </Card>
+          )}
 
-            {/* Submit Buttons */}
-            <div className="flex justify-end gap-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.push("/admin/hackathons/enhanced")}
-                className="border-gray-700 text-white hover:bg-gray-800"
-              >
-                <X className="w-4 h-4 mr-2" />
-                Cancel
-              </Button>
-              <Button type="submit" disabled={saving} className="bg-purple-400 hover:bg-purple-500 text-black">
-                <Save className="w-4 h-4 mr-2" />
-                {saving ? "Creating..." : "Create Hackathon"}
-              </Button>
-            </div>
+          {/* Submit Button */}
+          <div className="flex justify-end gap-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.push("/admin/hackathons/enhanced")}
+              className="border-gray-700 text-white hover:bg-gray-800"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={loading || imageUploading}
+              className="bg-yellow-400 hover:bg-yellow-500 text-black"
+            >
+              {loading ? (
+                "Creating..."
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Create Enhanced Hackathon
+                </>
+              )}
+            </Button>
           </div>
         </form>
       </div>

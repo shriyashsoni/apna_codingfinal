@@ -2,79 +2,74 @@ import { supabase } from "./supabase"
 
 // Enhanced types for the hackathon system
 export interface EnhancedHackathon {
-  id: string
+  id?: string
   title: string
   description: string
-  hackathon_type: "external" | "apna_coding"
-  platform_url?: string
-  start_date: string
-  end_date: string
-  registration_deadline?: string
+  short_description: string
+  start_date: string | null
+  end_date: string | null
+  registration_deadline?: string | null
   location: string
-  prize_pool: string
+  mode: "online" | "offline" | "hybrid"
   status: "upcoming" | "ongoing" | "completed" | "cancelled"
-  max_team_members: number
-  min_team_members: number
-  allow_individual: boolean
-  submissions_open: boolean
-  results_published: boolean
-  total_participants: number
-  total_teams: number
-  total_submissions: number
-  technologies: string[]
+  prize_pool: string
+  max_team_size?: number | null
+  min_team_size?: number | null
+  difficulty: "beginner" | "intermediate" | "advanced"
   organizer: string
-  created_by?: string
-  created_at: string
-  updated_at: string
-  featured?: boolean
-  image_url?: string
+  registration_link?: string | null
+  whatsapp_link?: string | null
+  image_url?: string | null
+  banner_url?: string | null
+  featured: boolean
+  hackathon_type: "external" | "apna_coding"
+  submission_start?: string | null
+  submission_end?: string | null
+  team_formation_deadline?: string | null
+  max_participants?: number | null
+  entry_fee?: number
+  certificate_provided: boolean
+  live_streaming: boolean
+  recording_available: boolean
+  technologies: string[]
+  problem_statements: ProblemStatement[]
+  partnerships: Partnership[]
+  participants_count: number
   slug?: string
+  created_at?: string
+  updated_at?: string
+  created_by?: string
 }
 
 export interface ProblemStatement {
-  id: string
-  hackathon_id: string
+  id?: string
   title: string
   description: string
-  difficulty_level: "easy" | "medium" | "hard"
-  max_points: number
+  difficulty: "easy" | "medium" | "hard"
   resources: string[]
   constraints: string[]
   evaluation_criteria: string[]
   sample_input?: string
   sample_output?: string
-  created_by?: string
-  created_at: string
-  updated_at: string
 }
 
-export interface HackathonPartnership {
-  id: string
-  hackathon_id: string
-  partner_name: string
-  partner_logo_url?: string
-  partner_website?: string
-  partnership_type: "sponsor" | "organizer" | "supporter" | "media"
-  contribution_amount?: string
-  benefits: string[]
-  contact_person?: string
+export interface Partnership {
+  id?: string
+  name: string
+  type: "sponsor" | "organizer" | "supporter" | "media"
+  logo_url?: string
+  website?: string
   contact_email?: string
-  status: "active" | "inactive"
-  created_at: string
-  updated_at: string
+  contribution?: string
 }
 
-export interface HackathonTeam {
+export interface Team {
   id: string
+  name: string
   hackathon_id: string
-  team_name: string
-  team_leader_id: string
+  leader_id: string
+  members: TeamMember[]
   invite_code: string
-  description?: string
-  current_members: number
-  max_members: number
-  is_full: boolean
-  status: "active" | "inactive" | "disqualified"
   created_at: string
   updated_at: string
 }
@@ -85,142 +80,109 @@ export interface TeamMember {
   user_id: string
   role: "leader" | "member"
   joined_at: string
-  status: "pending" | "active" | "left" | "removed"
-  invited_by?: string
-  created_at: string
-  users?: {
-    id: string
-    full_name: string
-    email: string
-    avatar_url?: string
-  }
 }
 
-export interface HackathonParticipant {
+export interface Submission {
+  id: string
+  team_id: string
+  hackathon_id: string
+  title: string
+  description: string
+  github_url?: string
+  demo_url?: string
+  video_url?: string
+  presentation_url?: string
+  additional_links: { [key: string]: string }
+  submitted_at: string
+  updated_at: string
+}
+
+export interface Registration {
   id: string
   hackathon_id: string
   user_id: string
   team_id?: string
-  participation_type: "individual" | "team"
-  registration_status: "registered" | "confirmed" | "cancelled" | "disqualified"
-  additional_info: any
   registered_at: string
-  confirmed_at?: string
-  created_at: string
-  updated_at: string
-  users?: {
-    id: string
-    full_name: string
-    email: string
-    avatar_url?: string
-  }
-  hackathon_teams?: {
-    id: string
-    team_name: string
-  }
-}
-
-export interface HackathonSubmission {
-  id: string
-  hackathon_id: string
-  team_id: string
-  problem_statement_id?: string
-  submitted_by: string
-  project_title: string
-  project_description: string
-  github_repository_url?: string
-  live_demo_url?: string
-  presentation_url?: string
-  video_demo_url?: string
-  documentation_url?: string
-  technologies_used: string[]
-  challenges_faced?: string
-  future_improvements?: string
-  submission_status: "draft" | "submitted" | "under_review" | "approved" | "rejected"
-  score: number
-  feedback?: string
-  reviewed_by?: string
-  reviewed_at?: string
-  submitted_at?: string
-  created_at: string
-  updated_at: string
+  status: "registered" | "team_formed" | "submitted" | "cancelled"
 }
 
 // Enhanced hackathon functions
 export const createEnhancedHackathon = async (
-  hackathon: Omit<
-    EnhancedHackathon,
-    "id" | "created_at" | "updated_at" | "total_participants" | "total_teams" | "total_submissions"
-  >,
+  hackathonData: Omit<EnhancedHackathon, "id" | "created_at" | "updated_at" | "slug">,
 ) => {
   try {
-    const currentUser = await supabase.auth.getUser()
-
     // Generate slug from title
-    const slug = hackathon.title
+    const slug = hackathonData.title
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "")
+      .replace(/[^a-z0-9 -]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .trim()
 
-    // Prepare the data with proper date handling
-    const hackathonData = {
-      ...hackathon,
-      slug,
-      created_by: currentUser.data.user?.id,
-      total_participants: 0,
-      total_teams: 0,
-      total_submissions: 0,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+    const { data, error } = await supabase
+      .from("enhanced_hackathons")
+      .insert([
+        {
+          ...hackathonData,
+          slug,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ])
+      .select()
+      .single()
+
+    if (error) {
+      console.error("Database error:", error)
+      return { success: false, error: error.message }
     }
 
-    // Ensure dates are properly formatted
-    if (hackathonData.start_date) {
-      hackathonData.start_date = new Date(hackathonData.start_date).toISOString()
-    }
-    if (hackathonData.end_date) {
-      hackathonData.end_date = new Date(hackathonData.end_date).toISOString()
-    }
-    if (hackathonData.registration_deadline) {
-      hackathonData.registration_deadline = new Date(hackathonData.registration_deadline).toISOString()
-    }
-
-    const { data, error } = await supabase.from("hackathons").insert([hackathonData]).select().single()
-
-    return { data, error }
+    return { success: true, data }
   } catch (error) {
-    console.error("Error creating hackathon:", error)
-    return {
-      data: null,
-      error: { message: "Failed to create hackathon: " + (error instanceof Error ? error.message : "Unknown error") },
-    }
+    console.error("Error creating enhanced hackathon:", error)
+    return { success: false, error: "Failed to create hackathon" }
   }
 }
 
 export const getEnhancedHackathons = async () => {
   try {
-    const { data, error } = await supabase.from("hackathons").select("*").order("start_date", { ascending: true })
-    return { data: data || [], error }
+    const { data, error } = await supabase
+      .from("enhanced_hackathons")
+      .select("*")
+      .order("created_at", { ascending: false })
+
+    if (error) {
+      console.error("Error fetching hackathons:", error)
+      return { success: false, error: error.message, data: [] }
+    }
+
+    return { success: true, data: data || [] }
   } catch (error) {
     console.error("Error fetching hackathons:", error)
-    return { data: [], error: { message: "Failed to fetch hackathons" } }
+    return { success: false, error: "Failed to fetch hackathons", data: [] }
   }
 }
 
 export const getEnhancedHackathonById = async (id: string) => {
   try {
-    const { data, error } = await supabase.from("hackathons").select("*").eq("id", id).single()
-    return { data, error }
+    const { data, error } = await supabase.from("enhanced_hackathons").select("*").eq("id", id).single()
+
+    if (error) {
+      console.error("Error fetching hackathon:", error)
+      return { success: false, error: error.message, data: null }
+    }
+
+    return { success: true, data }
   } catch (error) {
     console.error("Error fetching hackathon:", error)
-    return { data: null, error: { message: "Failed to fetch hackathon" } }
+    return { success: false, error: "Failed to fetch hackathon", data: null }
   }
 }
 
 export const updateEnhancedHackathon = async (id: string, updates: Partial<EnhancedHackathon>) => {
   try {
     const { data, error } = await supabase
-      .from("hackathons")
+      .from("enhanced_hackathons")
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq("id", id)
       .select()
@@ -234,7 +196,7 @@ export const updateEnhancedHackathon = async (id: string, updates: Partial<Enhan
 
 export const deleteEnhancedHackathon = async (id: string) => {
   try {
-    const { data, error } = await supabase.from("hackathons").delete().eq("id", id)
+    const { data, error } = await supabase.from("enhanced_hackathons").delete().eq("id", id)
     return { data, error }
   } catch (error) {
     console.error("Error deleting hackathon:", error)
@@ -243,17 +205,13 @@ export const deleteEnhancedHackathon = async (id: string) => {
 }
 
 // Problem Statement Functions
-export const createProblemStatement = async (
-  problemStatement: Omit<ProblemStatement, "id" | "created_at" | "updated_at">,
-) => {
+export const createProblemStatement = async (problemStatement: Omit<ProblemStatement, "id">) => {
   try {
-    const currentUser = await supabase.auth.getUser()
     const { data, error } = await supabase
       .from("hackathon_problem_statements")
       .insert([
         {
           ...problemStatement,
-          created_by: currentUser.data.user?.id,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
@@ -305,9 +263,7 @@ export const deleteProblemStatement = async (id: string) => {
 }
 
 // Partnership Functions
-export const createHackathonPartnership = async (
-  partnership: Omit<HackathonPartnership, "id" | "created_at" | "updated_at">,
-) => {
+export const createHackathonPartnership = async (partnership: Omit<Partnership, "id">) => {
   try {
     const { data, error } = await supabase
       .from("hackathon_partnerships")
@@ -332,7 +288,6 @@ export const getHackathonPartnerships = async (hackathonId: string) => {
       .from("hackathon_partnerships")
       .select("*")
       .eq("hackathon_id", hackathonId)
-      .eq("status", "active")
       .order("created_at", { ascending: true })
     return { data: data || [], error }
   } catch (error) {
@@ -342,29 +297,19 @@ export const getHackathonPartnerships = async (hackathonId: string) => {
 }
 
 // Team Management Functions
-export const createTeam = async (hackathonId: string, teamName: string, description?: string) => {
+export const createTeam = async (hackathonId: string, leaderId: string, teamName: string) => {
   try {
-    const currentUser = await supabase.auth.getUser()
-    if (!currentUser.data.user) {
-      return { data: null, error: { message: "Not authenticated" } }
-    }
-
-    // Generate a simple invite code
-    const inviteCode = Math.random().toString(36).substring(2, 10).toUpperCase()
+    // Generate unique invite code
+    const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase()
 
     const { data: team, error: teamError } = await supabase
-      .from("hackathon_teams")
+      .from("enhanced_teams")
       .insert([
         {
+          name: teamName,
           hackathon_id: hackathonId,
-          team_name: teamName,
-          team_leader_id: currentUser.data.user.id,
+          leader_id: leaderId,
           invite_code: inviteCode,
-          description,
-          current_members: 1,
-          max_members: 5,
-          is_full: false,
-          status: "active",
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
@@ -373,325 +318,305 @@ export const createTeam = async (hackathonId: string, teamName: string, descript
       .single()
 
     if (teamError) {
-      return { data: null, error: teamError }
+      console.error("Team creation error:", teamError)
+      return { success: false, error: teamError.message }
     }
 
-    // Add team leader as first member
-    const { error: memberError } = await supabase.from("team_members").insert([
+    // Add leader as team member
+    const { error: memberError } = await supabase.from("enhanced_team_members").insert([
       {
         team_id: team.id,
-        user_id: currentUser.data.user.id,
+        user_id: leaderId,
         role: "leader",
-        status: "active",
         joined_at: new Date().toISOString(),
-        created_at: new Date().toISOString(),
       },
     ])
 
     if (memberError) {
-      // Rollback team creation
-      await supabase.from("hackathon_teams").delete().eq("id", team.id)
-      return { data: null, error: memberError }
+      console.error("Team member error:", memberError)
+      return { success: false, error: memberError.message }
     }
 
-    return { data: team, error: null }
+    // Update registration status
+    await supabase
+      .from("enhanced_registrations")
+      .update({ team_id: team.id, status: "team_formed" })
+      .eq("hackathon_id", hackathonId)
+      .eq("user_id", leaderId)
+
+    return { success: true, data: team }
   } catch (error) {
     console.error("Error creating team:", error)
-    return { data: null, error: { message: "Failed to create team" } }
+    return { success: false, error: "Failed to create team" }
   }
 }
 
-export const joinTeamByInviteCode = async (inviteCode: string) => {
+export const joinTeam = async (inviteCode: string, userId: string) => {
   try {
-    const currentUser = await supabase.auth.getUser()
-    if (!currentUser.data.user) {
-      return { data: null, error: { message: "Not authenticated" } }
-    }
-
-    // Get team by invite code
+    // Find team by invite code
     const { data: team, error: teamError } = await supabase
-      .from("hackathon_teams")
+      .from("enhanced_teams")
       .select("*")
       .eq("invite_code", inviteCode)
-      .eq("status", "active")
       .single()
 
     if (teamError || !team) {
-      return { data: null, error: { message: "Invalid invite code or team not found" } }
+      return { success: false, error: "Invalid invite code" }
     }
 
-    if (team.is_full) {
-      return { data: null, error: { message: "Team is full" } }
-    }
-
-    // Check if user is already in this team
+    // Check if user is already in a team for this hackathon
     const { data: existingMember } = await supabase
-      .from("team_members")
-      .select("id")
-      .eq("team_id", team.id)
-      .eq("user_id", currentUser.data.user.id)
+      .from("enhanced_team_members")
+      .select("team_id, enhanced_teams!inner(hackathon_id)")
+      .eq("user_id", userId)
+      .eq("enhanced_teams.hackathon_id", team.hackathon_id)
       .single()
 
     if (existingMember) {
-      return { data: null, error: { message: "You are already a member of this team" } }
+      return { success: false, error: "Already in a team for this hackathon" }
+    }
+
+    // Check team size limit
+    const { data: hackathon } = await supabase
+      .from("enhanced_hackathons")
+      .select("max_team_size")
+      .eq("id", team.hackathon_id)
+      .single()
+
+    if (hackathon?.max_team_size) {
+      const { count } = await supabase
+        .from("enhanced_team_members")
+        .select("*", { count: "exact" })
+        .eq("team_id", team.id)
+
+      if (count && count >= hackathon.max_team_size) {
+        return { success: false, error: "Team is full" }
+      }
     }
 
     // Add user to team
-    const { data: member, error: memberError } = await supabase
-      .from("team_members")
-      .insert([
-        {
-          team_id: team.id,
-          user_id: currentUser.data.user.id,
-          role: "member",
-          status: "active",
-          joined_at: new Date().toISOString(),
-          created_at: new Date().toISOString(),
-        },
-      ])
-      .select()
-      .single()
+    const { error: memberError } = await supabase.from("enhanced_team_members").insert([
+      {
+        team_id: team.id,
+        user_id: userId,
+        role: "member",
+        joined_at: new Date().toISOString(),
+      },
+    ])
 
-    return { data: member, error: memberError }
+    if (memberError) {
+      console.error("Join team error:", memberError)
+      return { success: false, error: memberError.message }
+    }
+
+    // Update registration status
+    await supabase
+      .from("enhanced_registrations")
+      .update({ team_id: team.id, status: "team_formed" })
+      .eq("hackathon_id", team.hackathon_id)
+      .eq("user_id", userId)
+
+    return { success: true, data: team }
   } catch (error) {
     console.error("Error joining team:", error)
-    return { data: null, error: { message: "Failed to join team" } }
+    return { success: false, error: "Failed to join team" }
   }
 }
 
-export const getTeamsByHackathon = async (hackathonId: string) => {
+export const getUserTeamsForHackathon = async (userId: string, hackathonId: string) => {
   try {
     const { data, error } = await supabase
-      .from("hackathon_teams")
+      .from("enhanced_team_members")
       .select(`
         *,
-        team_members (
-          id,
-          user_id,
-          role,
-          status,
-          joined_at,
-          users (
-            id,
-            full_name,
-            email,
-            avatar_url
-          )
-        )
-      `)
-      .eq("hackathon_id", hackathonId)
-      .eq("status", "active")
-      .order("created_at", { ascending: false })
-    return { data: data || [], error }
-  } catch (error) {
-    console.error("Error fetching teams:", error)
-    return { data: [], error: { message: "Failed to fetch teams" } }
-  }
-}
-
-export const getUserTeamForHackathon = async (hackathonId: string, userId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from("team_members")
-      .select(`
-        *,
-        hackathon_teams!inner (
-          *
+        enhanced_teams!inner(
+          *,
+          enhanced_hackathons!inner(id)
         )
       `)
       .eq("user_id", userId)
-      .eq("status", "active")
-      .eq("hackathon_teams.hackathon_id", hackathonId)
-      .single()
-    return { data, error }
+      .eq("enhanced_teams.hackathon_id", hackathonId)
+
+    if (error) {
+      console.error("Error fetching user teams:", error)
+      return { success: false, error: error.message, data: [] }
+    }
+
+    return { success: true, data: data || [] }
   } catch (error) {
-    console.error("Error fetching user team:", error)
-    return { data: null, error: { message: "Failed to fetch user team" } }
+    console.error("Error fetching user teams:", error)
+    return { success: false, error: "Failed to fetch teams", data: [] }
+  }
+}
+
+export const getTeamDetails = async (teamId: string) => {
+  try {
+    const { data: team, error: teamError } = await supabase.from("enhanced_teams").select("*").eq("id", teamId).single()
+
+    if (teamError) {
+      return { success: false, error: teamError.message, data: null }
+    }
+
+    const { data: members, error: membersError } = await supabase
+      .from("enhanced_team_members")
+      .select(`
+        *,
+        users(id, full_name, email, avatar_url)
+      `)
+      .eq("team_id", teamId)
+
+    if (membersError) {
+      return { success: false, error: membersError.message, data: null }
+    }
+
+    const { data: submission } = await supabase.from("enhanced_submissions").select("*").eq("team_id", teamId).single()
+
+    return {
+      success: true,
+      data: {
+        ...team,
+        members: members || [],
+        submission,
+      },
+    }
+  } catch (error) {
+    console.error("Error fetching team details:", error)
+    return { success: false, error: "Failed to fetch team details", data: null }
   }
 }
 
 // Participation Functions - Fixed for direct registration on Apna Coding
-export const registerForHackathon = async (hackathonId: string, participationType: "individual" | "team" = "team") => {
+export const registerForEnhancedHackathon = async (hackathonId: string, userId: string) => {
   try {
-    const currentUser = await supabase.auth.getUser()
-    if (!currentUser.data.user) {
-      return { data: null, error: { message: "Not authenticated" } }
-    }
-
     // Check if already registered
-    const { data: existing } = await supabase
-      .from("hackathon_participants")
+    const { data: existingRegistration } = await supabase
+      .from("enhanced_registrations")
       .select("id")
       .eq("hackathon_id", hackathonId)
-      .eq("user_id", currentUser.data.user.id)
+      .eq("user_id", userId)
       .single()
 
-    if (existing) {
-      return { data: null, error: { message: "Already registered for this hackathon" } }
+    if (existingRegistration) {
+      return { success: false, error: "Already registered for this hackathon" }
     }
 
+    // Register user
     const { data, error } = await supabase
-      .from("hackathon_participants")
+      .from("enhanced_registrations")
       .insert([
         {
           hackathon_id: hackathonId,
-          user_id: currentUser.data.user.id,
-          participation_type: participationType,
-          registration_status: "registered",
-          additional_info: {},
+          user_id: userId,
           registered_at: new Date().toISOString(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          status: "registered",
         },
       ])
       .select()
       .single()
 
-    return { data, error }
+    if (error) {
+      console.error("Registration error:", error)
+      return { success: false, error: error.message }
+    }
+
+    // Update participant count
+    await supabase.rpc("increment_enhanced_hackathon_participants", {
+      hackathon_id: hackathonId,
+    })
+
+    return { success: true, data }
   } catch (error) {
     console.error("Error registering for hackathon:", error)
-    return { data: null, error: { message: "Failed to register for hackathon" } }
+    return { success: false, error: "Failed to register" }
   }
 }
 
-export const getHackathonParticipants = async (hackathonId: string) => {
+export const checkEnhancedHackathonRegistration = async (hackathonId: string, userId: string) => {
   try {
     const { data, error } = await supabase
-      .from("hackathon_participants")
-      .select(`
-        *,
-        users (
-          id,
-          full_name,
-          email,
-          avatar_url
-        ),
-        hackathon_teams (
-          id,
-          team_name
-        )
-      `)
+      .from("enhanced_registrations")
+      .select("*")
       .eq("hackathon_id", hackathonId)
-      .order("registered_at", { ascending: false })
-    return { data: data || [], error }
-  } catch (error) {
-    console.error("Error fetching participants:", error)
-    return { data: [], error: { message: "Failed to fetch participants" } }
-  }
-}
+      .eq("user_id", userId)
+      .single()
 
-// Statistics Functions
-export const getHackathonStatistics = async (hackathonId: string) => {
-  try {
-    const [hackathonResult, participantsResult, teamsResult, submissionsResult] = await Promise.all([
-      supabase
-        .from("hackathons")
-        .select("total_participants, total_teams, total_submissions")
-        .eq("id", hackathonId)
-        .single(),
-      supabase.from("hackathon_participants").select("id, registration_status").eq("hackathon_id", hackathonId),
-      supabase.from("hackathon_teams").select("id, status, current_members").eq("hackathon_id", hackathonId),
-      supabase.from("hackathon_submissions").select("id, submission_status, score").eq("hackathon_id", hackathonId),
-    ])
-
-    const participants = participantsResult.data || []
-    const teams = teamsResult.data || []
-    const submissions = submissionsResult.data || []
-
-    return {
-      total_participants: hackathonResult.data?.total_participants || 0,
-      total_teams: hackathonResult.data?.total_teams || 0,
-      total_submissions: hackathonResult.data?.total_submissions || 0,
-      registered_participants: participants.filter((p) => p.registration_status === "registered").length,
-      confirmed_participants: participants.filter((p) => p.registration_status === "confirmed").length,
-      active_teams: teams.filter((t) => t.status === "active").length,
-      submitted_projects: submissions.filter((s) => s.submission_status === "submitted").length,
-      reviewed_projects: submissions.filter(
-        (s) => s.submission_status === "approved" || s.submission_status === "rejected",
-      ).length,
-      average_score:
-        submissions.length > 0 ? submissions.reduce((sum, s) => sum + (s.score || 0), 0) / submissions.length : 0,
+    if (error && error.code !== "PGRST116") {
+      console.error("Error checking registration:", error)
+      return { registered: false, data: null }
     }
+
+    return { registered: !!data, data }
   } catch (error) {
-    console.error("Error fetching hackathon statistics:", error)
-    return {
-      total_participants: 0,
-      total_teams: 0,
-      total_submissions: 0,
-      registered_participants: 0,
-      confirmed_participants: 0,
-      active_teams: 0,
-      submitted_projects: 0,
-      reviewed_projects: 0,
-      average_score: 0,
-    }
+    console.error("Error checking registration:", error)
+    return { registered: false, data: null }
   }
 }
 
 // Submission Functions
-export const createSubmission = async (submission: Omit<HackathonSubmission, "id" | "created_at" | "updated_at">) => {
+export const submitProject = async (
+  teamId: string,
+  hackathonId: string,
+  submissionData: {
+    title: string
+    description: string
+    github_url?: string
+    demo_url?: string
+    video_url?: string
+    presentation_url?: string
+    additional_links?: { [key: string]: string }
+  },
+) => {
   try {
-    const currentUser = await supabase.auth.getUser()
     const { data, error } = await supabase
-      .from("hackathon_submissions")
-      .insert([
+      .from("enhanced_submissions")
+      .upsert([
         {
-          ...submission,
-          submitted_by: currentUser.data.user?.id,
-          created_at: new Date().toISOString(),
+          team_id: teamId,
+          hackathon_id: hackathonId,
+          ...submissionData,
+          additional_links: submissionData.additional_links || {},
+          submitted_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
       ])
       .select()
       .single()
-    return { data, error }
-  } catch (error) {
-    console.error("Error creating submission:", error)
-    return { data: null, error: { message: "Failed to create submission" } }
-  }
-}
 
-export const getTeamSubmissions = async (teamId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from("hackathon_submissions")
-      .select(`
-        *,
-        hackathon_problem_statements (
-          title,
-          difficulty_level,
-          max_points
-        ),
-        users!hackathon_submissions_submitted_by_fkey (
-          full_name,
-          email
-        )
-      `)
+    if (error) {
+      console.error("Submission error:", error)
+      return { success: false, error: error.message }
+    }
+
+    // Update registration status
+    await supabase
+      .from("enhanced_registrations")
+      .update({ status: "submitted" })
+      .eq("hackathon_id", hackathonId)
       .eq("team_id", teamId)
-      .order("created_at", { ascending: false })
-    return { data: data || [], error }
+
+    return { success: true, data }
   } catch (error) {
-    console.error("Error fetching team submissions:", error)
-    return { data: [], error: { message: "Failed to fetch team submissions" } }
+    console.error("Error submitting project:", error)
+    return { success: false, error: "Failed to submit project" }
   }
 }
 
 export const getHackathonSubmissions = async (hackathonId: string) => {
   try {
     const { data, error } = await supabase
-      .from("hackathon_submissions")
+      .from("enhanced_submissions")
       .select(`
         *,
-        hackathon_teams (
-          team_name,
-          team_leader_id
+        enhanced_teams (
+          name,
+          leader_id
         ),
         hackathon_problem_statements (
           title,
-          difficulty_level,
+          difficulty,
           max_points
         ),
-        users!hackathon_submissions_submitted_by_fkey (
+        users!enhanced_submissions_submitted_by_fkey (
           full_name,
           email
         )
@@ -702,6 +627,33 @@ export const getHackathonSubmissions = async (hackathonId: string) => {
   } catch (error) {
     console.error("Error fetching hackathon submissions:", error)
     return { data: [], error: { message: "Failed to fetch hackathon submissions" } }
+  }
+}
+
+// Statistics Functions
+export const getHackathonStatistics = async (hackathonId: string) => {
+  try {
+    const [registrationsResult, teamsResult, submissionsResult] = await Promise.all([
+      supabase.from("enhanced_registrations").select("*", { count: "exact" }).eq("hackathon_id", hackathonId),
+      supabase.from("enhanced_teams").select("*", { count: "exact" }).eq("hackathon_id", hackathonId),
+      supabase.from("enhanced_submissions").select("*", { count: "exact" }).eq("hackathon_id", hackathonId),
+    ])
+
+    return {
+      success: true,
+      data: {
+        totalRegistrations: registrationsResult.count || 0,
+        totalTeams: teamsResult.count || 0,
+        totalSubmissions: submissionsResult.count || 0,
+      },
+    }
+  } catch (error) {
+    console.error("Error fetching statistics:", error)
+    return {
+      success: false,
+      error: "Failed to fetch statistics",
+      data: { totalRegistrations: 0, totalTeams: 0, totalSubmissions: 0 },
+    }
   }
 }
 

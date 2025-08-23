@@ -1,156 +1,333 @@
--- Enhanced Hackathon System Database Schema
-
--- Create hackathons table with image support
-DROP TABLE IF EXISTS hackathons CASCADE;
-CREATE TABLE hackathons (
+-- Create enhanced hackathons table
+CREATE TABLE IF NOT EXISTS enhanced_hackathons (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
-    slug VARCHAR(255) UNIQUE,
     description TEXT NOT NULL,
-    hackathon_type VARCHAR(20) NOT NULL CHECK (hackathon_type IN ('external', 'apna_coding')),
-    platform_url TEXT,
-    image_url TEXT,
+    short_description VARCHAR(200) NOT NULL,
     start_date TIMESTAMP WITH TIME ZONE NOT NULL,
     end_date TIMESTAMP WITH TIME ZONE NOT NULL,
     registration_deadline TIMESTAMP WITH TIME ZONE,
     location VARCHAR(255) NOT NULL,
+    mode VARCHAR(20) CHECK (mode IN ('online', 'offline', 'hybrid')) DEFAULT 'hybrid',
+    status VARCHAR(20) CHECK (status IN ('upcoming', 'ongoing', 'completed', 'cancelled')) DEFAULT 'upcoming',
     prize_pool VARCHAR(100) NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'upcoming' CHECK (status IN ('upcoming', 'ongoing', 'completed', 'cancelled')),
-    max_team_members INTEGER DEFAULT 5,
-    min_team_members INTEGER DEFAULT 1,
-    allow_individual BOOLEAN DEFAULT true,
-    submissions_open BOOLEAN DEFAULT false,
-    results_published BOOLEAN DEFAULT false,
-    total_participants INTEGER DEFAULT 0,
-    total_teams INTEGER DEFAULT 0,
-    total_submissions INTEGER DEFAULT 0,
-    technologies TEXT[] DEFAULT '{}',
+    max_team_size INTEGER,
+    min_team_size INTEGER DEFAULT 1,
+    difficulty VARCHAR(20) CHECK (difficulty IN ('beginner', 'intermediate', 'advanced')) DEFAULT 'intermediate',
     organizer VARCHAR(255) NOT NULL,
-    featured BOOLEAN DEFAULT false,
-    created_by UUID REFERENCES auth.users(id),
+    registration_link TEXT,
+    whatsapp_link TEXT,
+    image_url TEXT,
+    banner_url TEXT,
+    featured BOOLEAN DEFAULT FALSE,
+    hackathon_type VARCHAR(20) CHECK (hackathon_type IN ('external', 'apna_coding')) DEFAULT 'apna_coding',
+    submission_start TIMESTAMP WITH TIME ZONE,
+    submission_end TIMESTAMP WITH TIME ZONE,
+    team_formation_deadline TIMESTAMP WITH TIME ZONE,
+    max_participants INTEGER,
+    entry_fee DECIMAL(10,2) DEFAULT 0,
+    certificate_provided BOOLEAN DEFAULT TRUE,
+    live_streaming BOOLEAN DEFAULT FALSE,
+    recording_available BOOLEAN DEFAULT FALSE,
+    technologies JSONB DEFAULT '[]'::jsonb,
+    problem_statements JSONB DEFAULT '[]'::jsonb,
+    partnerships JSONB DEFAULT '[]'::jsonb,
+    participants_count INTEGER DEFAULT 0,
+    slug VARCHAR(255) UNIQUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_by UUID REFERENCES auth.users(id)
 );
 
--- Create hackathon_problem_statements table
-CREATE TABLE IF NOT EXISTS hackathon_problem_statements (
+-- Create enhanced registrations table
+CREATE TABLE IF NOT EXISTS enhanced_registrations (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    hackathon_id UUID REFERENCES hackathons(id) ON DELETE CASCADE,
-    title VARCHAR(255) NOT NULL,
-    description TEXT NOT NULL,
-    difficulty_level VARCHAR(10) NOT NULL CHECK (difficulty_level IN ('easy', 'medium', 'hard')),
-    max_points INTEGER DEFAULT 100,
-    resources TEXT[] DEFAULT '{}',
-    constraints TEXT[] DEFAULT '{}',
-    evaluation_criteria TEXT[] DEFAULT '{}',
-    sample_input TEXT,
-    sample_output TEXT,
-    created_by UUID REFERENCES auth.users(id),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Create hackathon_partnerships table
-CREATE TABLE IF NOT EXISTS hackathon_partnerships (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    hackathon_id UUID REFERENCES hackathons(id) ON DELETE CASCADE,
-    partner_name VARCHAR(255) NOT NULL,
-    partner_logo_url TEXT,
-    partner_website TEXT,
-    partnership_type VARCHAR(20) NOT NULL CHECK (partnership_type IN ('sponsor', 'organizer', 'supporter', 'media')),
-    contribution_amount VARCHAR(100),
-    benefits TEXT[] DEFAULT '{}',
-    contact_person VARCHAR(255),
-    contact_email VARCHAR(255),
-    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Create hackathon_teams table
-CREATE TABLE IF NOT EXISTS hackathon_teams (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    hackathon_id UUID REFERENCES hackathons(id) ON DELETE CASCADE,
-    team_name VARCHAR(255) NOT NULL,
-    team_leader_id UUID REFERENCES auth.users(id),
-    invite_code VARCHAR(20) UNIQUE NOT NULL,
-    description TEXT,
-    current_members INTEGER DEFAULT 1,
-    max_members INTEGER DEFAULT 5,
-    is_full BOOLEAN DEFAULT false,
-    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'disqualified')),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Create team_members table
-CREATE TABLE IF NOT EXISTS team_members (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    team_id UUID REFERENCES hackathon_teams(id) ON DELETE CASCADE,
-    user_id UUID REFERENCES auth.users(id),
-    role VARCHAR(20) NOT NULL CHECK (role IN ('leader', 'member')),
-    joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('pending', 'active', 'left', 'removed')),
-    invited_by UUID REFERENCES auth.users(id),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(team_id, user_id)
-);
-
--- Create hackathon_participants table
-CREATE TABLE IF NOT EXISTS hackathon_participants (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    hackathon_id UUID REFERENCES hackathons(id) ON DELETE CASCADE,
-    user_id UUID REFERENCES auth.users(id),
-    team_id UUID REFERENCES hackathon_teams(id),
-    participation_type VARCHAR(20) NOT NULL CHECK (participation_type IN ('individual', 'team')),
-    registration_status VARCHAR(20) DEFAULT 'registered' CHECK (registration_status IN ('registered', 'confirmed', 'cancelled', 'disqualified')),
-    additional_info JSONB DEFAULT '{}',
+    hackathon_id UUID REFERENCES enhanced_hackathons(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    team_id UUID,
     registered_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    confirmed_at TIMESTAMP WITH TIME ZONE,
+    status VARCHAR(20) CHECK (status IN ('registered', 'team_formed', 'submitted', 'cancelled')) DEFAULT 'registered',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(hackathon_id, user_id)
 );
 
--- Create hackathon_submissions table
-CREATE TABLE IF NOT EXISTS hackathon_submissions (
+-- Create enhanced teams table
+CREATE TABLE IF NOT EXISTS enhanced_teams (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    hackathon_id UUID REFERENCES hackathons(id) ON DELETE CASCADE,
-    team_id UUID REFERENCES hackathon_teams(id),
-    problem_statement_id UUID REFERENCES hackathon_problem_statements(id),
-    submitted_by UUID REFERENCES auth.users(id),
-    project_title VARCHAR(255) NOT NULL,
-    project_description TEXT NOT NULL,
-    github_repository_url TEXT,
-    live_demo_url TEXT,
-    presentation_url TEXT,
-    video_demo_url TEXT,
-    documentation_url TEXT,
-    technologies_used TEXT[] DEFAULT '{}',
-    challenges_faced TEXT,
-    future_improvements TEXT,
-    submission_status VARCHAR(20) DEFAULT 'draft' CHECK (submission_status IN ('draft', 'submitted', 'under_review', 'approved', 'rejected')),
-    score INTEGER DEFAULT 0,
-    feedback TEXT,
-    reviewed_by UUID REFERENCES auth.users(id),
-    reviewed_at TIMESTAMP WITH TIME ZONE,
-    submitted_at TIMESTAMP WITH TIME ZONE,
+    name VARCHAR(255) NOT NULL,
+    hackathon_id UUID REFERENCES enhanced_hackathons(id) ON DELETE CASCADE,
+    leader_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    invite_code VARCHAR(10) UNIQUE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Create enhanced team members table
+CREATE TABLE IF NOT EXISTS enhanced_team_members (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    team_id UUID REFERENCES enhanced_teams(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    role VARCHAR(20) CHECK (role IN ('leader', 'member')) DEFAULT 'member',
+    joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(team_id, user_id)
+);
+
+-- Create enhanced submissions table
+CREATE TABLE IF NOT EXISTS enhanced_submissions (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    team_id UUID REFERENCES enhanced_teams(id) ON DELETE CASCADE,
+    hackathon_id UUID REFERENCES enhanced_hackathons(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    github_url TEXT,
+    demo_url TEXT,
+    video_url TEXT,
+    presentation_url TEXT,
+    additional_links JSONB DEFAULT '{}'::jsonb,
+    submitted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(team_id, hackathon_id)
+);
+
 -- Create indexes for better performance
-CREATE INDEX IF NOT EXISTS idx_hackathons_status ON hackathons(status);
-CREATE INDEX IF NOT EXISTS idx_hackathons_type ON hackathons(hackathon_type);
-CREATE INDEX IF NOT EXISTS idx_hackathons_start_date ON hackathons(start_date);
-CREATE INDEX IF NOT EXISTS idx_hackathons_featured ON hackathons(featured);
-CREATE INDEX IF NOT EXISTS idx_hackathon_teams_hackathon_id ON hackathon_teams(hackathon_id);
-CREATE INDEX IF NOT EXISTS idx_team_members_team_id ON team_members(team_id);
-CREATE INDEX IF NOT EXISTS idx_team_members_user_id ON team_members(user_id);
-CREATE INDEX IF NOT EXISTS idx_hackathon_participants_hackathon_id ON hackathon_participants(hackathon_id);
-CREATE INDEX IF NOT EXISTS idx_hackathon_participants_user_id ON hackathon_participants(user_id);
-CREATE INDEX IF NOT EXISTS idx_hackathon_submissions_hackathon_id ON hackathon_submissions(hackathon_id);
-CREATE INDEX IF NOT EXISTS idx_hackathon_submissions_team_id ON hackathon_submissions(team_id);
+CREATE INDEX IF NOT EXISTS idx_enhanced_hackathons_status ON enhanced_hackathons(status);
+CREATE INDEX IF NOT EXISTS idx_enhanced_hackathons_featured ON enhanced_hackathons(featured);
+CREATE INDEX IF NOT EXISTS idx_enhanced_hackathons_start_date ON enhanced_hackathons(start_date);
+CREATE INDEX IF NOT EXISTS idx_enhanced_hackathons_slug ON enhanced_hackathons(slug);
+CREATE INDEX IF NOT EXISTS idx_enhanced_registrations_hackathon ON enhanced_registrations(hackathon_id);
+CREATE INDEX IF NOT EXISTS idx_enhanced_registrations_user ON enhanced_registrations(user_id);
+CREATE INDEX IF NOT EXISTS idx_enhanced_teams_hackathon ON enhanced_teams(hackathon_id);
+CREATE INDEX IF NOT EXISTS idx_enhanced_teams_invite_code ON enhanced_teams(invite_code);
+CREATE INDEX IF NOT EXISTS idx_enhanced_team_members_team ON enhanced_team_members(team_id);
+CREATE INDEX IF NOT EXISTS idx_enhanced_team_members_user ON enhanced_team_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_enhanced_submissions_hackathon ON enhanced_submissions(hackathon_id);
+CREATE INDEX IF NOT EXISTS idx_enhanced_submissions_team ON enhanced_submissions(team_id);
+
+-- Create function to increment participant count
+CREATE OR REPLACE FUNCTION increment_enhanced_hackathon_participants(hackathon_id UUID)
+RETURNS void AS $$
+BEGIN
+    UPDATE enhanced_hackathons 
+    SET participants_count = participants_count + 1,
+        updated_at = NOW()
+    WHERE id = hackathon_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create function to decrement participant count
+CREATE OR REPLACE FUNCTION decrement_enhanced_hackathon_participants(hackathon_id UUID)
+RETURNS void AS $$
+BEGIN
+    UPDATE enhanced_hackathons 
+    SET participants_count = GREATEST(participants_count - 1, 0),
+        updated_at = NOW()
+    WHERE id = hackathon_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create function to auto-generate slug
+CREATE OR REPLACE FUNCTION generate_hackathon_slug()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.slug IS NULL OR NEW.slug = '' THEN
+        NEW.slug := lower(regexp_replace(NEW.title, '[^a-zA-Z0-9\s]', '', 'g'));
+        NEW.slug := regexp_replace(NEW.slug, '\s+', '-', 'g');
+        NEW.slug := NEW.slug || '-' || substring(NEW.id::text from 1 for 8);
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger for auto-generating slug
+DROP TRIGGER IF EXISTS trigger_generate_hackathon_slug ON enhanced_hackathons;
+CREATE TRIGGER trigger_generate_hackathon_slug
+    BEFORE INSERT ON enhanced_hackathons
+    FOR EACH ROW
+    EXECUTE FUNCTION generate_hackathon_slug();
+
+-- Create function to update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create triggers for updating updated_at
+CREATE TRIGGER trigger_enhanced_hackathons_updated_at
+    BEFORE UPDATE ON enhanced_hackathons
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_enhanced_registrations_updated_at
+    BEFORE UPDATE ON enhanced_registrations
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_enhanced_teams_updated_at
+    BEFORE UPDATE ON enhanced_teams
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_enhanced_submissions_updated_at
+    BEFORE UPDATE ON enhanced_submissions
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Enable Row Level Security
+ALTER TABLE enhanced_hackathons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE enhanced_registrations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE enhanced_teams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE enhanced_team_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE enhanced_submissions ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for enhanced_hackathons
+CREATE POLICY "Enhanced hackathons are viewable by everyone" ON enhanced_hackathons
+    FOR SELECT USING (true);
+
+CREATE POLICY "Enhanced hackathons can be created by authenticated users" ON enhanced_hackathons
+    FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Enhanced hackathons can be updated by creator or admin" ON enhanced_hackathons
+    FOR UPDATE USING (
+        auth.uid() = created_by OR 
+        EXISTS (
+            SELECT 1 FROM users 
+            WHERE users.id = auth.uid() 
+            AND users.role = 'admin'
+        )
+    );
+
+CREATE POLICY "Enhanced hackathons can be deleted by creator or admin" ON enhanced_hackathons
+    FOR DELETE USING (
+        auth.uid() = created_by OR 
+        EXISTS (
+            SELECT 1 FROM users 
+            WHERE users.id = auth.uid() 
+            AND users.role = 'admin'
+        )
+    );
+
+-- RLS Policies for enhanced_registrations
+CREATE POLICY "Registrations are viewable by participant and admins" ON enhanced_registrations
+    FOR SELECT USING (
+        auth.uid() = user_id OR 
+        EXISTS (
+            SELECT 1 FROM users 
+            WHERE users.id = auth.uid() 
+            AND users.role = 'admin'
+        )
+    );
+
+CREATE POLICY "Users can register themselves" ON enhanced_registrations
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own registrations" ON enhanced_registrations
+    FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can cancel their own registrations" ON enhanced_registrations
+    FOR DELETE USING (auth.uid() = user_id);
+
+-- RLS Policies for enhanced_teams
+CREATE POLICY "Teams are viewable by members and admins" ON enhanced_teams
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM enhanced_team_members 
+            WHERE enhanced_team_members.team_id = enhanced_teams.id 
+            AND enhanced_team_members.user_id = auth.uid()
+        ) OR
+        EXISTS (
+            SELECT 1 FROM users 
+            WHERE users.id = auth.uid() 
+            AND users.role = 'admin'
+        )
+    );
+
+CREATE POLICY "Teams can be created by registered users" ON enhanced_teams
+    FOR INSERT WITH CHECK (
+        auth.uid() = leader_id AND
+        EXISTS (
+            SELECT 1 FROM enhanced_registrations 
+            WHERE enhanced_registrations.hackathon_id = enhanced_teams.hackathon_id 
+            AND enhanced_registrations.user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Teams can be updated by team leader" ON enhanced_teams
+    FOR UPDATE USING (auth.uid() = leader_id);
+
+CREATE POLICY "Teams can be deleted by team leader" ON enhanced_teams
+    FOR DELETE USING (auth.uid() = leader_id);
+
+-- RLS Policies for enhanced_team_members
+CREATE POLICY "Team members are viewable by team members and admins" ON enhanced_team_members
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM enhanced_team_members tm 
+            WHERE tm.team_id = enhanced_team_members.team_id 
+            AND tm.user_id = auth.uid()
+        ) OR
+        EXISTS (
+            SELECT 1 FROM users 
+            WHERE users.id = auth.uid() 
+            AND users.role = 'admin'
+        )
+    );
+
+CREATE POLICY "Team members can be added by team leader or themselves" ON enhanced_team_members
+    FOR INSERT WITH CHECK (
+        auth.uid() = user_id OR
+        EXISTS (
+            SELECT 1 FROM enhanced_teams 
+            WHERE enhanced_teams.id = enhanced_team_members.team_id 
+            AND enhanced_teams.leader_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Team members can be removed by team leader or themselves" ON enhanced_team_members
+    FOR DELETE USING (
+        auth.uid() = user_id OR
+        EXISTS (
+            SELECT 1 FROM enhanced_teams 
+            WHERE enhanced_teams.id = enhanced_team_members.team_id 
+            AND enhanced_teams.leader_id = auth.uid()
+        )
+    );
+
+-- RLS Policies for enhanced_submissions
+CREATE POLICY "Submissions are viewable by team members and admins" ON enhanced_submissions
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM enhanced_team_members 
+            WHERE enhanced_team_members.team_id = enhanced_submissions.team_id 
+            AND enhanced_team_members.user_id = auth.uid()
+        ) OR
+        EXISTS (
+            SELECT 1 FROM users 
+            WHERE users.id = auth.uid() 
+            AND users.role = 'admin'
+        )
+    );
+
+CREATE POLICY "Submissions can be created by team members" ON enhanced_submissions
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM enhanced_team_members 
+            WHERE enhanced_team_members.team_id = enhanced_submissions.team_id 
+            AND enhanced_team_members.user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Submissions can be updated by team members" ON enhanced_submissions
+    FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM enhanced_team_members 
+            WHERE enhanced_team_members.team_id = enhanced_submissions.team_id 
+            AND enhanced_team_members.user_id = auth.uid()
+        )
+    );
 
 -- Create storage bucket for hackathon images
 INSERT INTO storage.buckets (id, name, public) 
@@ -158,222 +335,23 @@ VALUES ('hackathon-images', 'hackathon-images', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- Create storage policy for hackathon images
-CREATE POLICY "Anyone can view hackathon images" ON storage.objects
-FOR SELECT USING (bucket_id = 'hackathon-images');
+CREATE POLICY "Hackathon images are publicly viewable" ON storage.objects
+    FOR SELECT USING (bucket_id = 'hackathon-images');
 
 CREATE POLICY "Authenticated users can upload hackathon images" ON storage.objects
-FOR INSERT WITH CHECK (bucket_id = 'hackathon-images' AND auth.role() = 'authenticated');
+    FOR INSERT WITH CHECK (
+        bucket_id = 'hackathon-images' AND 
+        auth.uid() IS NOT NULL
+    );
 
 CREATE POLICY "Users can update their own hackathon images" ON storage.objects
-FOR UPDATE USING (bucket_id = 'hackathon-images' AND auth.role() = 'authenticated');
+    FOR UPDATE USING (
+        bucket_id = 'hackathon-images' AND 
+        auth.uid()::text = (storage.foldername(name))[1]
+    );
 
--- Enable RLS on all tables
-ALTER TABLE hackathons ENABLE ROW LEVEL SECURITY;
-ALTER TABLE hackathon_problem_statements ENABLE ROW LEVEL SECURITY;
-ALTER TABLE hackathon_partnerships ENABLE ROW LEVEL SECURITY;
-ALTER TABLE hackathon_teams ENABLE ROW LEVEL SECURITY;
-ALTER TABLE team_members ENABLE ROW LEVEL SECURITY;
-ALTER TABLE hackathon_participants ENABLE ROW LEVEL SECURITY;
-ALTER TABLE hackathon_submissions ENABLE ROW LEVEL SECURITY;
-
--- RLS Policies for hackathons
-CREATE POLICY "Anyone can view hackathons" ON hackathons FOR SELECT USING (true);
-CREATE POLICY "Admins and organizers can manage hackathons" ON hackathons FOR ALL USING (
-    EXISTS (
-        SELECT 1 FROM user_permissions 
-        WHERE user_id = auth.uid() 
-        AND permission_type IN ('admin', 'hackathon_organizer')
-        AND is_active = true
-    )
-);
-
--- RLS Policies for problem statements
-CREATE POLICY "Anyone can view problem statements" ON hackathon_problem_statements FOR SELECT USING (true);
-CREATE POLICY "Admins and organizers can manage problem statements" ON hackathon_problem_statements FOR ALL USING (
-    EXISTS (
-        SELECT 1 FROM user_permissions 
-        WHERE user_id = auth.uid() 
-        AND permission_type IN ('admin', 'hackathon_organizer')
-        AND is_active = true
-    )
-);
-
--- RLS Policies for partnerships
-CREATE POLICY "Anyone can view partnerships" ON hackathon_partnerships FOR SELECT USING (true);
-CREATE POLICY "Admins and organizers can manage partnerships" ON hackathon_partnerships FOR ALL USING (
-    EXISTS (
-        SELECT 1 FROM user_permissions 
-        WHERE user_id = auth.uid() 
-        AND permission_type IN ('admin', 'hackathon_organizer')
-        AND is_active = true
-    )
-);
-
--- RLS Policies for teams
-CREATE POLICY "Anyone can view teams" ON hackathon_teams FOR SELECT USING (true);
-CREATE POLICY "Authenticated users can create teams" ON hackathon_teams FOR INSERT WITH CHECK (auth.role() = 'authenticated');
-CREATE POLICY "Team leaders can update their teams" ON hackathon_teams FOR UPDATE USING (team_leader_id = auth.uid());
-CREATE POLICY "Admins can manage all teams" ON hackathon_teams FOR ALL USING (
-    EXISTS (
-        SELECT 1 FROM user_permissions 
-        WHERE user_id = auth.uid() 
-        AND permission_type = 'admin'
-        AND is_active = true
-    )
-);
-
--- RLS Policies for team members
-CREATE POLICY "Anyone can view team members" ON team_members FOR SELECT USING (true);
-CREATE POLICY "Authenticated users can join teams" ON team_members FOR INSERT WITH CHECK (auth.role() = 'authenticated');
-CREATE POLICY "Users can update their own membership" ON team_members FOR UPDATE USING (user_id = auth.uid());
-CREATE POLICY "Team leaders can manage their team members" ON team_members FOR ALL USING (
-    EXISTS (
-        SELECT 1 FROM hackathon_teams 
-        WHERE id = team_members.team_id 
-        AND team_leader_id = auth.uid()
-    )
-);
-
--- RLS Policies for participants
-CREATE POLICY "Anyone can view participants" ON hackathon_participants FOR SELECT USING (true);
-CREATE POLICY "Authenticated users can register" ON hackathon_participants FOR INSERT WITH CHECK (auth.role() = 'authenticated');
-CREATE POLICY "Users can update their own participation" ON hackathon_participants FOR UPDATE USING (user_id = auth.uid());
-CREATE POLICY "Admins can manage all participants" ON hackathon_participants FOR ALL USING (
-    EXISTS (
-        SELECT 1 FROM user_permissions 
-        WHERE user_id = auth.uid() 
-        AND permission_type = 'admin'
-        AND is_active = true
-    )
-);
-
--- RLS Policies for submissions
-CREATE POLICY "Anyone can view submissions" ON hackathon_submissions FOR SELECT USING (true);
-CREATE POLICY "Team members can create submissions" ON hackathon_submissions FOR INSERT WITH CHECK (
-    EXISTS (
-        SELECT 1 FROM team_members 
-        WHERE team_id = hackathon_submissions.team_id 
-        AND user_id = auth.uid() 
-        AND status = 'active'
-    )
-);
-CREATE POLICY "Team members can update their submissions" ON hackathon_submissions FOR UPDATE USING (
-    EXISTS (
-        SELECT 1 FROM team_members 
-        WHERE team_id = hackathon_submissions.team_id 
-        AND user_id = auth.uid() 
-        AND status = 'active'
-    )
-);
-CREATE POLICY "Admins can manage all submissions" ON hackathon_submissions FOR ALL USING (
-    EXISTS (
-        SELECT 1 FROM user_permissions 
-        WHERE user_id = auth.uid() 
-        AND permission_type = 'admin'
-        AND is_active = true
-    )
-);
-
--- Create triggers to update statistics
-CREATE OR REPLACE FUNCTION update_hackathon_stats()
-RETURNS TRIGGER AS $$
-BEGIN
-    -- Update participant count
-    UPDATE hackathons 
-    SET total_participants = (
-        SELECT COUNT(*) FROM hackathon_participants 
-        WHERE hackathon_id = COALESCE(NEW.hackathon_id, OLD.hackathon_id)
-        AND registration_status IN ('registered', 'confirmed')
-    )
-    WHERE id = COALESCE(NEW.hackathon_id, OLD.hackathon_id);
-    
-    -- Update team count
-    UPDATE hackathons 
-    SET total_teams = (
-        SELECT COUNT(*) FROM hackathon_teams 
-        WHERE hackathon_id = COALESCE(NEW.hackathon_id, OLD.hackathon_id)
-        AND status = 'active'
-    )
-    WHERE id = COALESCE(NEW.hackathon_id, OLD.hackathon_id);
-    
-    RETURN COALESCE(NEW, OLD);
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION update_hackathon_submission_stats()
-RETURNS TRIGGER AS $$
-BEGIN
-    -- Update submission count
-    UPDATE hackathons 
-    SET total_submissions = (
-        SELECT COUNT(*) FROM hackathon_submissions 
-        WHERE hackathon_id = COALESCE(NEW.hackathon_id, OLD.hackathon_id)
-        AND submission_status = 'submitted'
-    )
-    WHERE id = COALESCE(NEW.hackathon_id, OLD.hackathon_id);
-    
-    RETURN COALESCE(NEW, OLD);
-END;
-$$ LANGUAGE plpgsql;
-
--- Create triggers
-DROP TRIGGER IF EXISTS trigger_update_hackathon_stats_participants ON hackathon_participants;
-CREATE TRIGGER trigger_update_hackathon_stats_participants
-    AFTER INSERT OR UPDATE OR DELETE ON hackathon_participants
-    FOR EACH ROW EXECUTE FUNCTION update_hackathon_stats();
-
-DROP TRIGGER IF EXISTS trigger_update_hackathon_stats_teams ON hackathon_teams;
-CREATE TRIGGER trigger_update_hackathon_stats_teams
-    AFTER INSERT OR UPDATE OR DELETE ON hackathon_teams
-    FOR EACH ROW EXECUTE FUNCTION update_hackathon_stats();
-
-DROP TRIGGER IF EXISTS trigger_update_hackathon_submission_stats ON hackathon_submissions;
-CREATE TRIGGER trigger_update_hackathon_submission_stats
-    AFTER INSERT OR UPDATE OR DELETE ON hackathon_submissions
-    FOR EACH ROW EXECUTE FUNCTION update_hackathon_submission_stats();
-
--- Function to update team member count
-CREATE OR REPLACE FUNCTION update_team_member_count()
-RETURNS TRIGGER AS $$
-BEGIN
-    -- Update current_members count
-    UPDATE hackathon_teams 
-    SET current_members = (
-        SELECT COUNT(*) FROM team_members 
-        WHERE team_id = COALESCE(NEW.team_id, OLD.team_id)
-        AND status = 'active'
-    ),
-    is_full = (
-        SELECT COUNT(*) FROM team_members 
-        WHERE team_id = COALESCE(NEW.team_id, OLD.team_id)
-        AND status = 'active'
-    ) >= max_members
-    WHERE id = COALESCE(NEW.team_id, OLD.team_id);
-    
-    RETURN COALESCE(NEW, OLD);
-END;
-$$ LANGUAGE plpgsql;
-
--- Create trigger for team member count
-DROP TRIGGER IF EXISTS trigger_update_team_member_count ON team_members;
-CREATE TRIGGER trigger_update_team_member_count
-    AFTER INSERT OR UPDATE OR DELETE ON team_members
-    FOR EACH ROW EXECUTE FUNCTION update_team_member_count();
-
--- Function to generate slug from title
-CREATE OR REPLACE FUNCTION generate_hackathon_slug()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF NEW.slug IS NULL OR NEW.slug = '' THEN
-        NEW.slug := lower(regexp_replace(NEW.title, '[^a-zA-Z0-9]+', '-', 'g'));
-        NEW.slug := trim(both '-' from NEW.slug);
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Create trigger for slug generation
-DROP TRIGGER IF EXISTS trigger_generate_hackathon_slug ON hackathons;
-CREATE TRIGGER trigger_generate_hackathon_slug
-    BEFORE INSERT OR UPDATE ON hackathons
-    FOR EACH ROW EXECUTE FUNCTION generate_hackathon_slug();
+CREATE POLICY "Users can delete their own hackathon images" ON storage.objects
+    FOR DELETE USING (
+        bucket_id = 'hackathon-images' AND 
+        auth.uid()::text = (storage.foldername(name))[1]
+    );

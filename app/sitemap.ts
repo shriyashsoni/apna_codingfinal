@@ -19,6 +19,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     },
     {
+      url: `${baseUrl}/hackathons/enhanced`,
+      lastModified: new Date(),
+      changeFrequency: "daily" as const,
+      priority: 0.9,
+    },
+    {
       url: `${baseUrl}/jobs`,
       lastModified: new Date(),
       changeFrequency: "daily" as const,
@@ -58,25 +64,35 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   try {
     // Fetch dynamic content
-    const [hackathonsResult, jobsResult, coursesResult, blogResult, mentorshipResult] = await Promise.all([
-      supabase.from("hackathons").select("slug, updated_at").order("updated_at", { ascending: false }),
-      supabase.from("jobs").select("id, title, company, updated_at").order("updated_at", { ascending: false }),
-      supabase.from("courses").select("id, title, updated_at").order("updated_at", { ascending: false }),
-      supabase
-        .from("blog_posts")
-        .select("slug, updated_at")
-        .eq("status", "published")
-        .order("updated_at", { ascending: false }),
-      supabase
-        .from("mentorship_programs")
-        .select("slug, updated_at")
-        .eq("status", "active")
-        .order("updated_at", { ascending: false }),
-    ])
+    const [hackathonsResult, enhancedHackathonsResult, jobsResult, coursesResult, blogResult, mentorshipResult] =
+      await Promise.all([
+        supabase.from("hackathons").select("slug, updated_at").order("updated_at", { ascending: false }),
+        supabase.from("enhanced_hackathons").select("id, slug, updated_at").order("updated_at", { ascending: false }),
+        supabase.from("jobs").select("id, title, company, updated_at").order("updated_at", { ascending: false }),
+        supabase.from("courses").select("id, title, updated_at").order("updated_at", { ascending: false }),
+        supabase
+          .from("blog_posts")
+          .select("slug, updated_at")
+          .eq("status", "published")
+          .order("updated_at", { ascending: false }),
+        supabase
+          .from("mentorship_programs")
+          .select("slug, updated_at")
+          .eq("status", "active")
+          .order("updated_at", { ascending: false }),
+      ])
 
     // Generate hackathon pages
     const hackathonPages = (hackathonsResult.data || []).map((hackathon) => ({
       url: `${baseUrl}/hackathons/${hackathon.slug}`,
+      lastModified: new Date(hackathon.updated_at),
+      changeFrequency: "weekly" as const,
+      priority: 0.8,
+    }))
+
+    // Generate enhanced hackathon pages
+    const enhancedHackathonPages = (enhancedHackathonsResult.data || []).map((hackathon) => ({
+      url: `${baseUrl}/hackathons/enhanced/${hackathon.id}`,
       lastModified: new Date(hackathon.updated_at),
       changeFrequency: "weekly" as const,
       priority: 0.8,
@@ -120,7 +136,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     }))
 
-    return [...staticPages, ...hackathonPages, ...jobPages, ...coursePages, ...blogPages, ...mentorshipPages]
+    return [
+      ...staticPages,
+      ...hackathonPages,
+      ...enhancedHackathonPages,
+      ...jobPages,
+      ...coursePages,
+      ...blogPages,
+      ...mentorshipPages,
+    ]
   } catch (error) {
     console.error("Error generating sitemap:", error)
     return staticPages
