@@ -206,8 +206,30 @@ export default function NewEnhancedHackathon() {
     if (formData.start_date && formData.end_date) {
       const startDate = new Date(formData.start_date)
       const endDate = new Date(formData.end_date)
+
+      // Check if dates are valid
+      if (isNaN(startDate.getTime())) {
+        newErrors.start_date = "Invalid start date"
+      }
+      if (isNaN(endDate.getTime())) {
+        newErrors.end_date = "Invalid end date"
+      }
+
       if (startDate >= endDate) {
         newErrors.end_date = "End date must be after start date"
+      }
+    }
+
+    // Validate registration deadline if provided
+    if (formData.registration_deadline) {
+      const regDeadline = new Date(formData.registration_deadline)
+      if (isNaN(regDeadline.getTime())) {
+        newErrors.registration_deadline = "Invalid registration deadline"
+      } else if (formData.start_date) {
+        const startDate = new Date(formData.start_date)
+        if (regDeadline > startDate) {
+          newErrors.registration_deadline = "Registration deadline must be before start date"
+        }
       }
     }
 
@@ -233,11 +255,24 @@ export default function NewEnhancedHackathon() {
         .map((tech) => tech.trim())
         .filter((tech) => tech.length > 0)
 
-      const { data: hackathon, error } = await createEnhancedHackathon({
+      // Format dates properly and handle empty registration deadline
+      const hackathonData = {
         ...formData,
         technologies: technologiesArray,
         results_published: false,
-      })
+        // Only include registration_deadline if it's not empty
+        registration_deadline: formData.registration_deadline || null,
+        // Ensure dates are properly formatted
+        start_date: new Date(formData.start_date).toISOString(),
+        end_date: new Date(formData.end_date).toISOString(),
+      }
+
+      // Remove registration_deadline if it's null to avoid sending empty string
+      if (!hackathonData.registration_deadline) {
+        delete hackathonData.registration_deadline
+      }
+
+      const { data: hackathon, error } = await createEnhancedHackathon(hackathonData)
 
       if (error || !hackathon) {
         alert("Error creating hackathon: " + (error?.message || "Unknown error"))
@@ -296,7 +331,7 @@ export default function NewEnhancedHackathon() {
       router.push("/admin/hackathons/enhanced")
     } catch (error) {
       console.error("Error creating hackathon:", error)
-      alert("Error creating hackathon")
+      alert("Error creating hackathon: " + (error instanceof Error ? error.message : "Unknown error"))
     } finally {
       setSaving(false)
     }
@@ -551,8 +586,11 @@ export default function NewEnhancedHackathon() {
                       type="datetime-local"
                       value={formData.registration_deadline}
                       onChange={(e) => handleInputChange("registration_deadline", e.target.value)}
-                      className="bg-gray-800 border-gray-700 text-white"
+                      className={`bg-gray-800 border-gray-700 text-white ${errors.registration_deadline ? "border-red-500" : ""}`}
                     />
+                    {errors.registration_deadline && (
+                      <p className="text-red-400 text-sm mt-1">{errors.registration_deadline}</p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="location" className="text-gray-300">

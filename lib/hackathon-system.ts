@@ -162,26 +162,38 @@ export const createEnhancedHackathon = async (
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "")
 
-    const { data, error } = await supabase
-      .from("hackathons")
-      .insert([
-        {
-          ...hackathon,
-          slug,
-          created_by: currentUser.data.user?.id,
-          total_participants: 0,
-          total_teams: 0,
-          total_submissions: 0,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-      ])
-      .select()
-      .single()
+    // Prepare the data with proper date handling
+    const hackathonData = {
+      ...hackathon,
+      slug,
+      created_by: currentUser.data.user?.id,
+      total_participants: 0,
+      total_teams: 0,
+      total_submissions: 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+
+    // Ensure dates are properly formatted
+    if (hackathonData.start_date) {
+      hackathonData.start_date = new Date(hackathonData.start_date).toISOString()
+    }
+    if (hackathonData.end_date) {
+      hackathonData.end_date = new Date(hackathonData.end_date).toISOString()
+    }
+    if (hackathonData.registration_deadline) {
+      hackathonData.registration_deadline = new Date(hackathonData.registration_deadline).toISOString()
+    }
+
+    const { data, error } = await supabase.from("hackathons").insert([hackathonData]).select().single()
+
     return { data, error }
   } catch (error) {
     console.error("Error creating hackathon:", error)
-    return { data: null, error: { message: "Failed to create hackathon" } }
+    return {
+      data: null,
+      error: { message: "Failed to create hackathon: " + (error instanceof Error ? error.message : "Unknown error") },
+    }
   }
 }
 

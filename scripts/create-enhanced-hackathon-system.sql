@@ -1,7 +1,8 @@
 -- Enhanced Hackathon System Database Schema
 
 -- Create hackathons table with image support
-CREATE TABLE IF NOT EXISTS hackathons (
+DROP TABLE IF EXISTS hackathons CASCADE;
+CREATE TABLE hackathons (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
     slug VARCHAR(255) UNIQUE,
