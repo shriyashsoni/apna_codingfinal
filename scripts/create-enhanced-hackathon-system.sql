@@ -1,35 +1,24 @@
--- Enhanced Hackathon System with Team Management and Submissions
+-- Enhanced Hackathon System Database Schema
+-- This script creates all necessary tables, functions, and policies for the enhanced hackathon system
 
--- Drop existing tables if they exist (in correct order due to foreign keys)
+-- Drop existing tables if they exist (in correct order due to foreign key constraints)
 DROP TABLE IF EXISTS hackathon_submissions CASCADE;
 DROP TABLE IF EXISTS team_members CASCADE;
 DROP TABLE IF EXISTS hackathon_teams CASCADE;
 DROP TABLE IF EXISTS hackathon_participants CASCADE;
 DROP TABLE IF EXISTS hackathon_problem_statements CASCADE;
 
--- Update hackathons table to support both external and internal hackathons
-ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS hackathon_type VARCHAR(20) DEFAULT 'external' CHECK (hackathon_type IN ('external', 'apna_coding'));
-ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS platform_url TEXT;
-ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS max_team_members INTEGER DEFAULT 5;
-ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS min_team_members INTEGER DEFAULT 1;
-ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS allow_individual BOOLEAN DEFAULT true;
-ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS submissions_open BOOLEAN DEFAULT false;
-ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS results_published BOOLEAN DEFAULT false;
-ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS total_participants INTEGER DEFAULT 0;
-ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS total_teams INTEGER DEFAULT 0;
-ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS total_submissions INTEGER DEFAULT 0;
-
--- Problem Statements table
+-- Create hackathon_problem_statements table
 CREATE TABLE hackathon_problem_statements (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     hackathon_id UUID REFERENCES hackathons(id) ON DELETE CASCADE,
-    title VARCHAR(500) NOT NULL,
+    title TEXT NOT NULL,
     description TEXT NOT NULL,
-    difficulty_level VARCHAR(20) DEFAULT 'medium' CHECK (difficulty_level IN ('easy', 'medium', 'hard')),
+    difficulty_level TEXT CHECK (difficulty_level IN ('easy', 'medium', 'hard')) DEFAULT 'medium',
     max_points INTEGER DEFAULT 100,
-    resources TEXT[], -- Array of resource links
-    constraints TEXT[], -- Array of constraints
-    evaluation_criteria TEXT[], -- Array of evaluation criteria
+    resources TEXT[] DEFAULT '{}',
+    constraints TEXT[] DEFAULT '{}',
+    evaluation_criteria TEXT[] DEFAULT '{}',
     sample_input TEXT,
     sample_output TEXT,
     created_by UUID REFERENCES users(id),
@@ -37,44 +26,43 @@ CREATE TABLE hackathon_problem_statements (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Teams table for Apna Coding hackathons
+-- Create hackathon_teams table
 CREATE TABLE hackathon_teams (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     hackathon_id UUID REFERENCES hackathons(id) ON DELETE CASCADE,
-    team_name VARCHAR(255) NOT NULL,
+    team_name TEXT NOT NULL,
     team_leader_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    invite_code VARCHAR(10) UNIQUE NOT NULL,
+    invite_code TEXT UNIQUE NOT NULL,
     description TEXT,
     current_members INTEGER DEFAULT 1,
     max_members INTEGER DEFAULT 5,
-    is_full BOOLEAN DEFAULT false,
-    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'disqualified')),
+    is_full BOOLEAN DEFAULT FALSE,
+    status TEXT CHECK (status IN ('active', 'inactive', 'disqualified')) DEFAULT 'active',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(hackathon_id, team_name)
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Team Members table
+-- Create team_members table
 CREATE TABLE team_members (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     team_id UUID REFERENCES hackathon_teams(id) ON DELETE CASCADE,
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    role VARCHAR(20) DEFAULT 'member' CHECK (role IN ('leader', 'member')),
+    role TEXT CHECK (role IN ('leader', 'member')) DEFAULT 'member',
     joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('pending', 'active', 'left', 'removed')),
+    status TEXT CHECK (status IN ('pending', 'active', 'left', 'removed')) DEFAULT 'active',
     invited_by UUID REFERENCES users(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(team_id, user_id)
 );
 
--- Enhanced Participants table
+-- Create hackathon_participants table
 CREATE TABLE hackathon_participants (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     hackathon_id UUID REFERENCES hackathons(id) ON DELETE CASCADE,
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     team_id UUID REFERENCES hackathon_teams(id) ON DELETE SET NULL,
-    participation_type VARCHAR(20) DEFAULT 'individual' CHECK (participation_type IN ('individual', 'team')),
-    registration_status VARCHAR(20) DEFAULT 'registered' CHECK (registration_status IN ('registered', 'confirmed', 'cancelled', 'disqualified')),
+    participation_type TEXT CHECK (participation_type IN ('individual', 'team')) DEFAULT 'team',
+    registration_status TEXT CHECK (registration_status IN ('registered', 'confirmed', 'cancelled', 'disqualified')) DEFAULT 'registered',
     additional_info JSONB DEFAULT '{}',
     registered_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     confirmed_at TIMESTAMP WITH TIME ZONE,
@@ -83,14 +71,14 @@ CREATE TABLE hackathon_participants (
     UNIQUE(hackathon_id, user_id)
 );
 
--- Submissions table
+-- Create hackathon_submissions table
 CREATE TABLE hackathon_submissions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     hackathon_id UUID REFERENCES hackathons(id) ON DELETE CASCADE,
     team_id UUID REFERENCES hackathon_teams(id) ON DELETE CASCADE,
     problem_statement_id UUID REFERENCES hackathon_problem_statements(id) ON DELETE SET NULL,
     submitted_by UUID REFERENCES users(id) ON DELETE CASCADE,
-    project_title VARCHAR(500) NOT NULL,
+    project_title TEXT NOT NULL,
     project_description TEXT NOT NULL,
     github_repository_url TEXT,
     live_demo_url TEXT,
@@ -100,7 +88,7 @@ CREATE TABLE hackathon_submissions (
     technologies_used TEXT[] DEFAULT '{}',
     challenges_faced TEXT,
     future_improvements TEXT,
-    submission_status VARCHAR(20) DEFAULT 'draft' CHECK (submission_status IN ('draft', 'submitted', 'under_review', 'approved', 'rejected')),
+    submission_status TEXT CHECK (submission_status IN ('draft', 'submitted', 'under_review', 'approved', 'rejected')) DEFAULT 'draft',
     score INTEGER DEFAULT 0,
     feedback TEXT,
     reviewed_by UUID REFERENCES users(id),
@@ -110,225 +98,220 @@ CREATE TABLE hackathon_submissions (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create indexes for better performance
-CREATE INDEX idx_hackathon_problem_statements_hackathon_id ON hackathon_problem_statements(hackathon_id);
-CREATE INDEX idx_hackathon_teams_hackathon_id ON hackathon_teams(hackathon_id);
-CREATE INDEX idx_hackathon_teams_invite_code ON hackathon_teams(invite_code);
-CREATE INDEX idx_team_members_team_id ON team_members(team_id);
-CREATE INDEX idx_team_members_user_id ON team_members(user_id);
-CREATE INDEX idx_hackathon_participants_hackathon_id ON hackathon_participants(hackathon_id);
-CREATE INDEX idx_hackathon_participants_user_id ON hackathon_participants(user_id);
-CREATE INDEX idx_hackathon_submissions_hackathon_id ON hackathon_submissions(hackathon_id);
-CREATE INDEX idx_hackathon_submissions_team_id ON hackathon_submissions(team_id);
+-- Add new columns to existing hackathons table
+ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS hackathon_type TEXT CHECK (hackathon_type IN ('external', 'apna_coding')) DEFAULT 'external';
+ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS platform_url TEXT;
+ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS max_team_members INTEGER DEFAULT 5;
+ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS min_team_members INTEGER DEFAULT 1;
+ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS allow_individual BOOLEAN DEFAULT TRUE;
+ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS submissions_open BOOLEAN DEFAULT FALSE;
+ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS results_published BOOLEAN DEFAULT FALSE;
+ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS total_participants INTEGER DEFAULT 0;
+ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS total_teams INTEGER DEFAULT 0;
+ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS total_submissions INTEGER DEFAULT 0;
 
--- Functions for team management
+-- Create function to generate team invite codes
 CREATE OR REPLACE FUNCTION generate_team_invite_code()
 RETURNS TEXT AS $$
 DECLARE
     code TEXT;
-    exists BOOLEAN;
+    exists_check INTEGER;
 BEGIN
     LOOP
+        -- Generate a random 8-character code
         code := upper(substring(md5(random()::text) from 1 for 8));
-        SELECT EXISTS(SELECT 1 FROM hackathon_teams WHERE invite_code = code) INTO exists;
-        IF NOT exists THEN
-            EXIT;
+        
+        -- Check if code already exists
+        SELECT COUNT(*) INTO exists_check FROM hackathon_teams WHERE invite_code = code;
+        
+        -- If code doesn't exist, return it
+        IF exists_check = 0 THEN
+            RETURN code;
         END IF;
     END LOOP;
-    RETURN code;
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to update team member count
+-- Create function to update team member count
 CREATE OR REPLACE FUNCTION update_team_member_count()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF TG_OP = 'INSERT' THEN
+    IF TG_OP = 'INSERT' AND NEW.status = 'active' THEN
         UPDATE hackathon_teams 
-        SET current_members = (
-            SELECT COUNT(*) FROM team_members 
-            WHERE team_id = NEW.team_id AND status = 'active'
-        ),
-        is_full = (
-            SELECT COUNT(*) FROM team_members 
-            WHERE team_id = NEW.team_id AND status = 'active'
-        ) >= max_members,
-        updated_at = NOW()
+        SET current_members = current_members + 1,
+            is_full = (current_members + 1 >= max_members),
+            updated_at = NOW()
         WHERE id = NEW.team_id;
-        RETURN NEW;
     ELSIF TG_OP = 'UPDATE' THEN
+        IF OLD.status = 'active' AND NEW.status != 'active' THEN
+            UPDATE hackathon_teams 
+            SET current_members = current_members - 1,
+                is_full = FALSE,
+                updated_at = NOW()
+            WHERE id = NEW.team_id;
+        ELSIF OLD.status != 'active' AND NEW.status = 'active' THEN
+            UPDATE hackathon_teams 
+            SET current_members = current_members + 1,
+                is_full = (current_members + 1 >= max_members),
+                updated_at = NOW()
+            WHERE id = NEW.team_id;
+        END IF;
+    ELSIF TG_OP = 'DELETE' AND OLD.status = 'active' THEN
         UPDATE hackathon_teams 
-        SET current_members = (
-            SELECT COUNT(*) FROM team_members 
-            WHERE team_id = NEW.team_id AND status = 'active'
-        ),
-        is_full = (
-            SELECT COUNT(*) FROM team_members 
-            WHERE team_id = NEW.team_id AND status = 'active'
-        ) >= max_members,
-        updated_at = NOW()
-        WHERE id = NEW.team_id;
-        RETURN NEW;
-    ELSIF TG_OP = 'DELETE' THEN
-        UPDATE hackathon_teams 
-        SET current_members = (
-            SELECT COUNT(*) FROM team_members 
-            WHERE team_id = OLD.team_id AND status = 'active'
-        ),
-        is_full = (
-            SELECT COUNT(*) FROM team_members 
-            WHERE team_id = OLD.team_id AND status = 'active'
-        ) >= max_members,
-        updated_at = NOW()
+        SET current_members = current_members - 1,
+            is_full = FALSE,
+            updated_at = NOW()
         WHERE id = OLD.team_id;
-        RETURN OLD;
     END IF;
-    RETURN NULL;
+    
+    RETURN COALESCE(NEW, OLD);
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to update hackathon statistics
-CREATE OR REPLACE FUNCTION update_hackathon_stats()
+-- Create function to update hackathon statistics
+CREATE OR REPLACE FUNCTION update_hackathon_statistics()
 RETURNS TRIGGER AS $$
+DECLARE
+    hackathon_id_val UUID;
 BEGIN
-    IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' OR TG_OP = 'DELETE' THEN
-        -- Update participants count
-        UPDATE hackathons 
-        SET total_participants = (
+    -- Get hackathon_id based on the table
+    IF TG_TABLE_NAME = 'hackathon_participants' THEN
+        hackathon_id_val := COALESCE(NEW.hackathon_id, OLD.hackathon_id);
+    ELSIF TG_TABLE_NAME = 'hackathon_teams' THEN
+        hackathon_id_val := COALESCE(NEW.hackathon_id, OLD.hackathon_id);
+    ELSIF TG_TABLE_NAME = 'hackathon_submissions' THEN
+        hackathon_id_val := COALESCE(NEW.hackathon_id, OLD.hackathon_id);
+    END IF;
+    
+    -- Update hackathon statistics
+    UPDATE hackathons SET
+        total_participants = (
             SELECT COUNT(*) FROM hackathon_participants 
-            WHERE hackathon_id = COALESCE(NEW.hackathon_id, OLD.hackathon_id)
-            AND registration_status IN ('registered', 'confirmed')
+            WHERE hackathon_id = hackathon_id_val AND registration_status = 'registered'
         ),
         total_teams = (
             SELECT COUNT(*) FROM hackathon_teams 
-            WHERE hackathon_id = COALESCE(NEW.hackathon_id, OLD.hackathon_id)
-            AND status = 'active'
+            WHERE hackathon_id = hackathon_id_val AND status = 'active'
         ),
         total_submissions = (
             SELECT COUNT(*) FROM hackathon_submissions 
-            WHERE hackathon_id = COALESCE(NEW.hackathon_id, OLD.hackathon_id)
-            AND submission_status = 'submitted'
+            WHERE hackathon_id = hackathon_id_val AND submission_status = 'submitted'
         ),
         updated_at = NOW()
-        WHERE id = COALESCE(NEW.hackathon_id, OLD.hackathon_id);
-    END IF;
+    WHERE id = hackathon_id_val;
     
-    IF TG_OP = 'DELETE' THEN
-        RETURN OLD;
-    END IF;
-    RETURN NEW;
+    RETURN COALESCE(NEW, OLD);
 END;
 $$ LANGUAGE plpgsql;
 
 -- Create triggers
+DROP TRIGGER IF EXISTS trigger_update_team_member_count ON team_members;
 CREATE TRIGGER trigger_update_team_member_count
     AFTER INSERT OR UPDATE OR DELETE ON team_members
     FOR EACH ROW EXECUTE FUNCTION update_team_member_count();
 
+DROP TRIGGER IF EXISTS trigger_update_hackathon_stats_participants ON hackathon_participants;
 CREATE TRIGGER trigger_update_hackathon_stats_participants
     AFTER INSERT OR UPDATE OR DELETE ON hackathon_participants
-    FOR EACH ROW EXECUTE FUNCTION update_hackathon_stats();
+    FOR EACH ROW EXECUTE FUNCTION update_hackathon_statistics();
 
+DROP TRIGGER IF EXISTS trigger_update_hackathon_stats_teams ON hackathon_teams;
 CREATE TRIGGER trigger_update_hackathon_stats_teams
     AFTER INSERT OR UPDATE OR DELETE ON hackathon_teams
-    FOR EACH ROW EXECUTE FUNCTION update_hackathon_stats();
+    FOR EACH ROW EXECUTE FUNCTION update_hackathon_statistics();
 
+DROP TRIGGER IF EXISTS trigger_update_hackathon_stats_submissions ON hackathon_submissions;
 CREATE TRIGGER trigger_update_hackathon_stats_submissions
     AFTER INSERT OR UPDATE OR DELETE ON hackathon_submissions
-    FOR EACH ROW EXECUTE FUNCTION update_hackathon_stats();
+    FOR EACH ROW EXECUTE FUNCTION update_hackathon_statistics();
 
--- RLS Policies
+-- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_hackathon_problem_statements_hackathon_id ON hackathon_problem_statements(hackathon_id);
+CREATE INDEX IF NOT EXISTS idx_hackathon_teams_hackathon_id ON hackathon_teams(hackathon_id);
+CREATE INDEX IF NOT EXISTS idx_hackathon_teams_invite_code ON hackathon_teams(invite_code);
+CREATE INDEX IF NOT EXISTS idx_team_members_team_id ON team_members(team_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_user_id ON team_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_hackathon_participants_hackathon_id ON hackathon_participants(hackathon_id);
+CREATE INDEX IF NOT EXISTS idx_hackathon_participants_user_id ON hackathon_participants(user_id);
+CREATE INDEX IF NOT EXISTS idx_hackathon_submissions_hackathon_id ON hackathon_submissions(hackathon_id);
+CREATE INDEX IF NOT EXISTS idx_hackathon_submissions_team_id ON hackathon_submissions(team_id);
+CREATE INDEX IF NOT EXISTS idx_hackathons_type ON hackathons(hackathon_type);
 
--- Problem Statements policies
+-- Enable Row Level Security
 ALTER TABLE hackathon_problem_statements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE hackathon_teams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE team_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE hackathon_participants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE hackathon_submissions ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Anyone can view problem statements" ON hackathon_problem_statements
+-- Create RLS Policies
+
+-- Problem Statements: Everyone can read, only admins/organizers can write
+DROP POLICY IF EXISTS "Everyone can view problem statements" ON hackathon_problem_statements;
+CREATE POLICY "Everyone can view problem statements" ON hackathon_problem_statements
     FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Admins and organizers can manage problem statements" ON hackathon_problem_statements;
 CREATE POLICY "Admins and organizers can manage problem statements" ON hackathon_problem_statements
     FOR ALL USING (
         EXISTS (
             SELECT 1 FROM users 
             WHERE users.id = auth.uid() 
-            AND (users.role = 'admin' OR 
-                 EXISTS (SELECT 1 FROM organizer_roles WHERE user_id = auth.uid() AND role_name = 'hackathon_organizer' AND is_active = true))
+            AND (users.role = 'admin' OR EXISTS (
+                SELECT 1 FROM organizer_roles 
+                WHERE organizer_roles.user_id = auth.uid() 
+                AND organizer_roles.is_active = true
+            ))
         )
     );
 
--- Teams policies
-ALTER TABLE hackathon_teams ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Anyone can view teams" ON hackathon_teams
+-- Teams: Everyone can read, authenticated users can create/join
+DROP POLICY IF EXISTS "Everyone can view teams" ON hackathon_teams;
+CREATE POLICY "Everyone can view teams" ON hackathon_teams
     FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Authenticated users can create teams" ON hackathon_teams;
+CREATE POLICY "Authenticated users can create teams" ON hackathon_teams
+    FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+
+DROP POLICY IF EXISTS "Team leaders can update their teams" ON hackathon_teams;
 CREATE POLICY "Team leaders can update their teams" ON hackathon_teams
     FOR UPDATE USING (team_leader_id = auth.uid());
 
-CREATE POLICY "Authenticated users can create teams" ON hackathon_teams
-    FOR INSERT WITH CHECK (auth.uid() IS NOT NULL AND team_leader_id = auth.uid());
-
-CREATE POLICY "Admins and organizers can manage all teams" ON hackathon_teams
-    FOR ALL USING (
-        EXISTS (
-            SELECT 1 FROM users 
-            WHERE users.id = auth.uid() 
-            AND (users.role = 'admin' OR 
-                 EXISTS (SELECT 1 FROM organizer_roles WHERE user_id = auth.uid() AND role_name = 'hackathon_organizer' AND is_active = true))
-        )
-    );
-
--- Team Members policies
-ALTER TABLE team_members ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Anyone can view team members" ON team_members
+-- Team Members: Everyone can read, authenticated users can join
+DROP POLICY IF EXISTS "Everyone can view team members" ON team_members;
+CREATE POLICY "Everyone can view team members" ON team_members
     FOR SELECT USING (true);
 
-CREATE POLICY "Users can manage their own team membership" ON team_members
-    FOR ALL USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "Authenticated users can join teams" ON team_members;
+CREATE POLICY "Authenticated users can join teams" ON team_members
+    FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
-CREATE POLICY "Team leaders can manage their team members" ON team_members
-    FOR ALL USING (
-        EXISTS (
-            SELECT 1 FROM hackathon_teams 
-            WHERE hackathon_teams.id = team_members.team_id 
-            AND hackathon_teams.team_leader_id = auth.uid()
-        )
-    );
+DROP POLICY IF EXISTS "Users can update their own membership" ON team_members;
+CREATE POLICY "Users can update their own membership" ON team_members
+    FOR UPDATE USING (user_id = auth.uid());
 
-CREATE POLICY "Admins and organizers can manage all team members" ON team_members
-    FOR ALL USING (
-        EXISTS (
-            SELECT 1 FROM users 
-            WHERE users.id = auth.uid() 
-            AND (users.role = 'admin' OR 
-                 EXISTS (SELECT 1 FROM organizer_roles WHERE user_id = auth.uid() AND role_name = 'hackathon_organizer' AND is_active = true))
-        )
-    );
-
--- Participants policies
-ALTER TABLE hackathon_participants ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Anyone can view participants" ON hackathon_participants
+-- Participants: Everyone can read, authenticated users can register
+DROP POLICY IF EXISTS "Everyone can view participants" ON hackathon_participants;
+CREATE POLICY "Everyone can view participants" ON hackathon_participants
     FOR SELECT USING (true);
 
-CREATE POLICY "Users can manage their own participation" ON hackathon_participants
-    FOR ALL USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "Authenticated users can register" ON hackathon_participants;
+CREATE POLICY "Authenticated users can register" ON hackathon_participants
+    FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
-CREATE POLICY "Admins and organizers can manage all participants" ON hackathon_participants
-    FOR ALL USING (
-        EXISTS (
-            SELECT 1 FROM users 
-            WHERE users.id = auth.uid() 
-            AND (users.role = 'admin' OR 
-                 EXISTS (SELECT 1 FROM organizer_roles WHERE user_id = auth.uid() AND role_name = 'hackathon_organizer' AND is_active = true))
-        )
-    );
+DROP POLICY IF EXISTS "Users can update their own participation" ON hackathon_participants;
+CREATE POLICY "Users can update their own participation" ON hackathon_participants
+    FOR UPDATE USING (user_id = auth.uid());
 
--- Submissions policies
-ALTER TABLE hackathon_submissions ENABLE ROW LEVEL SECURITY;
+-- Submissions: Team members can manage their submissions
+DROP POLICY IF EXISTS "Everyone can view submissions" ON hackathon_submissions;
+CREATE POLICY "Everyone can view submissions" ON hackathon_submissions
+    FOR SELECT USING (true);
 
-CREATE POLICY "Team members can view their team submissions" ON hackathon_submissions
-    FOR SELECT USING (
+DROP POLICY IF EXISTS "Team members can create submissions" ON hackathon_submissions;
+CREATE POLICY "Team members can create submissions" ON hackathon_submissions
+    FOR INSERT WITH CHECK (
         EXISTS (
             SELECT 1 FROM team_members 
             WHERE team_members.team_id = hackathon_submissions.team_id 
@@ -337,8 +320,9 @@ CREATE POLICY "Team members can view their team submissions" ON hackathon_submis
         )
     );
 
-CREATE POLICY "Team members can manage their team submissions" ON hackathon_submissions
-    FOR ALL USING (
+DROP POLICY IF EXISTS "Team members can update their submissions" ON hackathon_submissions;
+CREATE POLICY "Team members can update their submissions" ON hackathon_submissions
+    FOR UPDATE USING (
         EXISTS (
             SELECT 1 FROM team_members 
             WHERE team_members.team_id = hackathon_submissions.team_id 
@@ -347,21 +331,72 @@ CREATE POLICY "Team members can manage their team submissions" ON hackathon_subm
         )
     );
 
-CREATE POLICY "Admins and organizers can manage all submissions" ON hackathon_submissions
-    FOR ALL USING (
-        EXISTS (
-            SELECT 1 FROM users 
-            WHERE users.id = auth.uid() 
-            AND (users.role = 'admin' OR 
-                 EXISTS (SELECT 1 FROM organizer_roles WHERE user_id = auth.uid() AND role_name = 'hackathon_organizer' AND is_active = true))
-        )
-    );
+-- Grant necessary permissions
+GRANT ALL ON hackathon_problem_statements TO authenticated;
+GRANT ALL ON hackathon_teams TO authenticated;
+GRANT ALL ON team_members TO authenticated;
+GRANT ALL ON hackathon_participants TO authenticated;
+GRANT ALL ON hackathon_submissions TO authenticated;
 
--- Update existing hackathons to set default type
-UPDATE hackathons SET hackathon_type = 'external' WHERE hackathon_type IS NULL;
+GRANT ALL ON hackathon_problem_statements TO anon;
+GRANT ALL ON hackathon_teams TO anon;
+GRANT ALL ON team_members TO anon;
+GRANT ALL ON hackathon_participants TO anon;
+GRANT ALL ON hackathon_submissions TO anon;
 
--- Create updated_at triggers for new tables
-CREATE TRIGGER update_hackathon_problem_statements_updated_at BEFORE UPDATE ON hackathon_problem_statements FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_hackathon_teams_updated_at BEFORE UPDATE ON hackathon_teams FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_hackathon_participants_updated_at BEFORE UPDATE ON hackathon_participants FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_hackathon_submissions_updated_at BEFORE UPDATE ON hackathon_submissions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- Insert sample data for testing
+INSERT INTO hackathons (
+    title, description, hackathon_type, start_date, end_date, location, 
+    prize_pool, status, organizer, technologies, max_team_members, 
+    min_team_members, allow_individual, submissions_open
+) VALUES 
+(
+    'Apna Coding AI Challenge 2024',
+    'Build innovative AI solutions to solve real-world problems. Teams will work on machine learning, natural language processing, and computer vision challenges.',
+    'apna_coding',
+    '2024-03-15 09:00:00+00',
+    '2024-03-17 18:00:00+00',
+    'Online',
+    '₹50,000',
+    'upcoming',
+    'Apna Coding Team',
+    ARRAY['Python', 'TensorFlow', 'PyTorch', 'Machine Learning', 'AI'],
+    5,
+    2,
+    false,
+    true
+),
+(
+    'Web3 Innovation Hackathon',
+    'Create decentralized applications and blockchain solutions. Focus on DeFi, NFTs, and Web3 infrastructure.',
+    'apna_coding',
+    '2024-04-01 10:00:00+00',
+    '2024-04-03 20:00:00+00',
+    'Hybrid - Delhi & Online',
+    '₹1,00,000',
+    'upcoming',
+    'Apna Coding Team',
+    ARRAY['Solidity', 'React', 'Node.js', 'Blockchain', 'Web3'],
+    4,
+    1,
+    true,
+    false
+),
+(
+    'DevPost Global Hackathon',
+    'Join developers worldwide in this massive coding competition hosted on DevPost platform.',
+    'external',
+    '2024-02-20 00:00:00+00',
+    '2024-02-25 23:59:00+00',
+    'Global - Online',
+    '$25,000 USD',
+    'ongoing',
+    'DevPost',
+    ARRAY['JavaScript', 'Python', 'Java', 'React', 'Node.js'],
+    6,
+    1,
+    true,
+    true
+) ON CONFLICT DO NOTHING;
+
+COMMIT;
