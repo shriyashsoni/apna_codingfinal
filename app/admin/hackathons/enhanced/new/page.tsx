@@ -9,9 +9,14 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowLeft, Calendar, Save, X } from "lucide-react"
+import { ArrowLeft, Calendar, Save, X, Upload, Plus, Trash2, ImageIcon } from "lucide-react"
 import { getCurrentUser, isAdmin, getUserOrganizerStatus, type User } from "@/lib/supabase"
-import { createEnhancedHackathon } from "@/lib/hackathon-system"
+import {
+  createEnhancedHackathon,
+  uploadHackathonImage,
+  createProblemStatement,
+  createHackathonPartnership,
+} from "@/lib/hackathon-system"
 
 export default function NewEnhancedHackathon() {
   const [user, setUser] = useState<User | null>(null)
@@ -19,6 +24,7 @@ export default function NewEnhancedHackathon() {
   const [saving, setSaving] = useState(false)
   const [adminAccess, setAdminAccess] = useState(false)
   const [organizerStatus, setOrganizerStatus] = useState({ is_organizer: false, organizer_types: [] })
+  const [uploadingImage, setUploadingImage] = useState(false)
   const router = useRouter()
 
   const [formData, setFormData] = useState({
@@ -26,6 +32,7 @@ export default function NewEnhancedHackathon() {
     description: "",
     hackathon_type: "apna_coding" as "external" | "apna_coding",
     platform_url: "",
+    image_url: "",
     start_date: "",
     end_date: "",
     registration_deadline: "",
@@ -40,6 +47,33 @@ export default function NewEnhancedHackathon() {
     technologies: "",
     featured: false,
   })
+
+  const [problemStatements, setProblemStatements] = useState([
+    {
+      title: "",
+      description: "",
+      difficulty_level: "medium" as "easy" | "medium" | "hard",
+      max_points: 100,
+      resources: "",
+      constraints: "",
+      evaluation_criteria: "",
+      sample_input: "",
+      sample_output: "",
+    },
+  ])
+
+  const [partnerships, setPartnerships] = useState([
+    {
+      partner_name: "",
+      partner_logo_url: "",
+      partner_website: "",
+      partnership_type: "sponsor" as "sponsor" | "organizer" | "supporter" | "media",
+      contribution_amount: "",
+      benefits: "",
+      contact_person: "",
+      contact_email: "",
+    },
+  ])
 
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -78,6 +112,80 @@ export default function NewEnhancedHackathon() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploadingImage(true)
+    try {
+      const { data, error } = await uploadHackathonImage(file, "temp")
+      if (error) {
+        alert("Error uploading image: " + error.message)
+        return
+      }
+
+      setFormData((prev) => ({ ...prev, image_url: data.publicUrl }))
+    } catch (error) {
+      console.error("Error uploading image:", error)
+      alert("Error uploading image")
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
+  const addProblemStatement = () => {
+    setProblemStatements([
+      ...problemStatements,
+      {
+        title: "",
+        description: "",
+        difficulty_level: "medium" as "easy" | "medium" | "hard",
+        max_points: 100,
+        resources: "",
+        constraints: "",
+        evaluation_criteria: "",
+        sample_input: "",
+        sample_output: "",
+      },
+    ])
+  }
+
+  const removeProblemStatement = (index: number) => {
+    setProblemStatements(problemStatements.filter((_, i) => i !== index))
+  }
+
+  const updateProblemStatement = (index: number, field: string, value: any) => {
+    const updated = [...problemStatements]
+    updated[index] = { ...updated[index], [field]: value }
+    setProblemStatements(updated)
+  }
+
+  const addPartnership = () => {
+    setPartnerships([
+      ...partnerships,
+      {
+        partner_name: "",
+        partner_logo_url: "",
+        partner_website: "",
+        partnership_type: "sponsor" as "sponsor" | "organizer" | "supporter" | "media",
+        contribution_amount: "",
+        benefits: "",
+        contact_person: "",
+        contact_email: "",
+      },
+    ])
+  }
+
+  const removePartnership = (index: number) => {
+    setPartnerships(partnerships.filter((_, i) => i !== index))
+  }
+
+  const updatePartnership = (index: number, field: string, value: any) => {
+    const updated = [...partnerships]
+    updated[index] = { ...updated[index], [field]: value }
+    setPartnerships(updated)
   }
 
   const validateForm = () => {
@@ -125,15 +233,63 @@ export default function NewEnhancedHackathon() {
         .map((tech) => tech.trim())
         .filter((tech) => tech.length > 0)
 
-      const { data, error } = await createEnhancedHackathon({
+      const { data: hackathon, error } = await createEnhancedHackathon({
         ...formData,
         technologies: technologiesArray,
         results_published: false,
       })
 
-      if (error) {
-        alert("Error creating hackathon: " + error.message)
+      if (error || !hackathon) {
+        alert("Error creating hackathon: " + (error?.message || "Unknown error"))
         return
+      }
+
+      // Create problem statements
+      for (const problem of problemStatements) {
+        if (problem.title.trim() && problem.description.trim()) {
+          await createProblemStatement({
+            hackathon_id: hackathon.id,
+            title: problem.title,
+            description: problem.description,
+            difficulty_level: problem.difficulty_level,
+            max_points: problem.max_points,
+            resources: problem.resources
+              .split(",")
+              .map((r) => r.trim())
+              .filter((r) => r),
+            constraints: problem.constraints
+              .split(",")
+              .map((c) => c.trim())
+              .filter((c) => c),
+            evaluation_criteria: problem.evaluation_criteria
+              .split(",")
+              .map((e) => e.trim())
+              .filter((e) => e),
+            sample_input: problem.sample_input,
+            sample_output: problem.sample_output,
+          })
+        }
+      }
+
+      // Create partnerships
+      for (const partnership of partnerships) {
+        if (partnership.partner_name.trim()) {
+          await createHackathonPartnership({
+            hackathon_id: hackathon.id,
+            partner_name: partnership.partner_name,
+            partner_logo_url: partnership.partner_logo_url,
+            partner_website: partnership.partner_website,
+            partnership_type: partnership.partnership_type,
+            contribution_amount: partnership.contribution_amount,
+            benefits: partnership.benefits
+              .split(",")
+              .map((b) => b.trim())
+              .filter((b) => b),
+            contact_person: partnership.contact_person,
+            contact_email: partnership.contact_email,
+            status: "active",
+          })
+        }
       }
 
       alert("Hackathon created successfully!")
@@ -185,7 +341,7 @@ export default function NewEnhancedHackathon() {
               <Calendar className="w-8 h-8 text-purple-400" />
               Create New Hackathon
             </h1>
-            <p className="text-gray-400 mt-1">Set up a new hackathon event</p>
+            <p className="text-gray-400 mt-1">Set up a new hackathon event with all features</p>
           </div>
           <Button
             onClick={() => router.push("/admin/hackathons/enhanced")}
@@ -247,6 +403,53 @@ export default function NewEnhancedHackathon() {
                     rows={4}
                   />
                   {errors.description && <p className="text-red-400 text-sm mt-1">{errors.description}</p>}
+                </div>
+
+                {/* Image Upload */}
+                <div>
+                  <Label htmlFor="image" className="text-gray-300">
+                    Hackathon Image
+                  </Label>
+                  <div className="mt-2">
+                    {formData.image_url ? (
+                      <div className="relative">
+                        <img
+                          src={formData.image_url || "/placeholder.svg"}
+                          alt="Hackathon"
+                          className="w-full h-48 object-cover rounded-lg"
+                        />
+                        <Button
+                          type="button"
+                          onClick={() => handleInputChange("image_url", "")}
+                          className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white"
+                          size="sm"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="border-2 border-dashed border-gray-700 rounded-lg p-6 text-center">
+                        <ImageIcon className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                        <p className="text-gray-400 mb-4">Upload hackathon image</p>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          className="hidden"
+                          id="image-upload"
+                        />
+                        <Button
+                          type="button"
+                          onClick={() => document.getElementById("image-upload")?.click()}
+                          disabled={uploadingImage}
+                          className="bg-purple-400 hover:bg-purple-500 text-black"
+                        >
+                          <Upload className="w-4 h-4 mr-2" />
+                          {uploadingImage ? "Uploading..." : "Choose Image"}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -475,6 +678,187 @@ export default function NewEnhancedHackathon() {
                     </div>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Problem Statements */}
+            {formData.hackathon_type === "apna_coding" && (
+              <Card className="bg-gray-900 border-gray-800">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-white">Problem Statements</CardTitle>
+                    <Button
+                      type="button"
+                      onClick={addProblemStatement}
+                      className="bg-green-400 hover:bg-green-500 text-black"
+                      size="sm"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Problem
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {problemStatements.map((problem, index) => (
+                    <div key={index} className="p-4 bg-gray-800 rounded-lg space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-white font-medium">Problem Statement {index + 1}</h4>
+                        {problemStatements.length > 1 && (
+                          <Button
+                            type="button"
+                            onClick={() => removeProblemStatement(index)}
+                            className="bg-red-500 hover:bg-red-600 text-white"
+                            size="sm"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-gray-300">Title</Label>
+                          <Input
+                            value={problem.title}
+                            onChange={(e) => updateProblemStatement(index, "title", e.target.value)}
+                            className="bg-gray-700 border-gray-600 text-white"
+                            placeholder="Problem title"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-gray-300">Difficulty</Label>
+                          <select
+                            value={problem.difficulty_level}
+                            onChange={(e) => updateProblemStatement(index, "difficulty_level", e.target.value)}
+                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-md px-3 py-2"
+                          >
+                            <option value="easy">Easy</option>
+                            <option value="medium">Medium</option>
+                            <option value="hard">Hard</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label className="text-gray-300">Description</Label>
+                        <Textarea
+                          value={problem.description}
+                          onChange={(e) => updateProblemStatement(index, "description", e.target.value)}
+                          className="bg-gray-700 border-gray-600 text-white"
+                          placeholder="Problem description"
+                          rows={3}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-gray-300">Max Points</Label>
+                          <Input
+                            type="number"
+                            value={problem.max_points}
+                            onChange={(e) =>
+                              updateProblemStatement(index, "max_points", Number.parseInt(e.target.value))
+                            }
+                            className="bg-gray-700 border-gray-600 text-white"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-gray-300">Resources (comma-separated)</Label>
+                          <Input
+                            value={problem.resources}
+                            onChange={(e) => updateProblemStatement(index, "resources", e.target.value)}
+                            className="bg-gray-700 border-gray-600 text-white"
+                            placeholder="API docs, tutorials, etc."
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Partnerships */}
+            <Card className="bg-gray-900 border-gray-800">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-white">Partnerships & Sponsors</CardTitle>
+                  <Button
+                    type="button"
+                    onClick={addPartnership}
+                    className="bg-blue-400 hover:bg-blue-500 text-black"
+                    size="sm"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Partner
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {partnerships.map((partnership, index) => (
+                  <div key={index} className="p-4 bg-gray-800 rounded-lg space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-white font-medium">Partner {index + 1}</h4>
+                      {partnerships.length > 1 && (
+                        <Button
+                          type="button"
+                          onClick={() => removePartnership(index)}
+                          className="bg-red-500 hover:bg-red-600 text-white"
+                          size="sm"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-gray-300">Partner Name</Label>
+                        <Input
+                          value={partnership.partner_name}
+                          onChange={(e) => updatePartnership(index, "partner_name", e.target.value)}
+                          className="bg-gray-700 border-gray-600 text-white"
+                          placeholder="Company/Organization name"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-gray-300">Partnership Type</Label>
+                        <select
+                          value={partnership.partnership_type}
+                          onChange={(e) => updatePartnership(index, "partnership_type", e.target.value)}
+                          className="w-full bg-gray-700 border border-gray-600 text-white rounded-md px-3 py-2"
+                        >
+                          <option value="sponsor">Sponsor</option>
+                          <option value="organizer">Organizer</option>
+                          <option value="supporter">Supporter</option>
+                          <option value="media">Media Partner</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-gray-300">Website</Label>
+                        <Input
+                          type="url"
+                          value={partnership.partner_website}
+                          onChange={(e) => updatePartnership(index, "partner_website", e.target.value)}
+                          className="bg-gray-700 border-gray-600 text-white"
+                          placeholder="https://partner-website.com"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-gray-300">Contribution Amount</Label>
+                        <Input
+                          value={partnership.contribution_amount}
+                          onChange={(e) => updatePartnership(index, "contribution_amount", e.target.value)}
+                          className="bg-gray-700 border-gray-600 text-white"
+                          placeholder="$5,000, ₹50,000, etc."
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </CardContent>
             </Card>
 

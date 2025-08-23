@@ -22,6 +22,7 @@ import {
   Filter,
   Clock,
   Target,
+  ImageIcon,
 } from "lucide-react"
 import { getCurrentUser, type User } from "@/lib/supabase"
 import { getEnhancedHackathons, type EnhancedHackathon } from "@/lib/hackathon-system"
@@ -106,16 +107,6 @@ export default function EnhancedHackathonsPage() {
       month: "short",
       day: "numeric",
       year: "numeric",
-    })
-  }
-
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
     })
   }
 
@@ -391,29 +382,45 @@ function HackathonGrid({
       {hackathons.map((hackathon) => (
         <Card
           key={hackathon.id}
-          className="bg-gray-900 border-gray-800 hover:border-purple-400 transition-all duration-300 cursor-pointer group"
+          className="bg-gray-900 border-gray-800 hover:border-purple-400 transition-all duration-300 cursor-pointer group overflow-hidden"
           onClick={() => onHackathonClick(hackathon)}
         >
-          <CardHeader>
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex gap-2">
-                <Badge className={getStatusColor(hackathon.status)}>
-                  {hackathon.status.charAt(0).toUpperCase() + hackathon.status.slice(1)}
-                </Badge>
-                <Badge variant="outline" className={getTypeColor(hackathon.hackathon_type)}>
-                  {getTypeIcon(hackathon.hackathon_type)}
-                  <span className="ml-1">{hackathon.hackathon_type === "external" ? "External" : "Apna Coding"}</span>
-                </Badge>
+          {/* Hackathon Image */}
+          <div className="relative h-48 bg-gradient-to-br from-purple-900/20 to-blue-900/20">
+            {hackathon.image_url ? (
+              <img
+                src={hackathon.image_url || "/placeholder.svg"}
+                alt={hackathon.title}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <ImageIcon className="w-16 h-16 text-gray-600" />
               </div>
-              {hackathon.hackathon_type === "external" && (
-                <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-blue-400 transition-colors" />
-              )}
+            )}
+            <div className="absolute top-4 left-4 flex gap-2">
+              <Badge className={getStatusColor(hackathon.status)}>
+                {hackathon.status.charAt(0).toUpperCase() + hackathon.status.slice(1)}
+              </Badge>
+              <Badge variant="outline" className={getTypeColor(hackathon.hackathon_type)}>
+                {getTypeIcon(hackathon.hackathon_type)}
+                <span className="ml-1">{hackathon.hackathon_type === "external" ? "External" : "Apna Coding"}</span>
+              </Badge>
             </div>
+            {hackathon.hackathon_type === "external" && (
+              <div className="absolute top-4 right-4">
+                <ExternalLink className="w-4 h-4 text-white group-hover:text-blue-400 transition-colors" />
+              </div>
+            )}
+          </div>
+
+          <CardHeader>
             <CardTitle className="text-white text-lg mb-2 group-hover:text-purple-400 transition-colors">
               {hackathon.title}
             </CardTitle>
             <CardDescription className="text-gray-400 line-clamp-2">{hackathon.description}</CardDescription>
           </CardHeader>
+
           <CardContent>
             <div className="space-y-3">
               <div className="flex items-center text-gray-300 text-sm">

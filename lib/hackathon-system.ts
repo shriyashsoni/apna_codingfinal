@@ -27,6 +27,8 @@ export interface EnhancedHackathon {
   created_at: string
   updated_at: string
   featured?: boolean
+  image_url?: string
+  slug?: string
 }
 
 export interface ProblemStatement {
@@ -42,6 +44,22 @@ export interface ProblemStatement {
   sample_input?: string
   sample_output?: string
   created_by?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface HackathonPartnership {
+  id: string
+  hackathon_id: string
+  partner_name: string
+  partner_logo_url?: string
+  partner_website?: string
+  partnership_type: "sponsor" | "organizer" | "supporter" | "media"
+  contribution_amount?: string
+  benefits: string[]
+  contact_person?: string
+  contact_email?: string
+  status: "active" | "inactive"
   created_at: string
   updated_at: string
 }
@@ -137,11 +155,19 @@ export const createEnhancedHackathon = async (
 ) => {
   try {
     const currentUser = await supabase.auth.getUser()
+
+    // Generate slug from title
+    const slug = hackathon.title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "")
+
     const { data, error } = await supabase
       .from("hackathons")
       .insert([
         {
           ...hackathon,
+          slug,
           created_by: currentUser.data.user?.id,
           total_participants: 0,
           total_teams: 0,
@@ -162,7 +188,7 @@ export const createEnhancedHackathon = async (
 export const getEnhancedHackathons = async () => {
   try {
     const { data, error } = await supabase.from("hackathons").select("*").order("start_date", { ascending: true })
-    return { data, error }
+    return { data: data || [], error }
   } catch (error) {
     console.error("Error fetching hackathons:", error)
     return { data: [], error: { message: "Failed to fetch hackathons" } }
@@ -239,6 +265,67 @@ export const getProblemStatements = async (hackathonId: string) => {
   } catch (error) {
     console.error("Error fetching problem statements:", error)
     return { data: [], error: { message: "Failed to fetch problem statements" } }
+  }
+}
+
+export const updateProblemStatement = async (id: string, updates: Partial<ProblemStatement>) => {
+  try {
+    const { data, error } = await supabase
+      .from("hackathon_problem_statements")
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+    return { data, error }
+  } catch (error) {
+    console.error("Error updating problem statement:", error)
+    return { data: null, error: { message: "Failed to update problem statement" } }
+  }
+}
+
+export const deleteProblemStatement = async (id: string) => {
+  try {
+    const { data, error } = await supabase.from("hackathon_problem_statements").delete().eq("id", id)
+    return { data, error }
+  } catch (error) {
+    console.error("Error deleting problem statement:", error)
+    return { data: null, error: { message: "Failed to delete problem statement" } }
+  }
+}
+
+// Partnership Functions
+export const createHackathonPartnership = async (
+  partnership: Omit<HackathonPartnership, "id" | "created_at" | "updated_at">,
+) => {
+  try {
+    const { data, error } = await supabase
+      .from("hackathon_partnerships")
+      .insert([
+        {
+          ...partnership,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ])
+      .select()
+    return { data, error }
+  } catch (error) {
+    console.error("Error creating partnership:", error)
+    return { data: null, error: { message: "Failed to create partnership" } }
+  }
+}
+
+export const getHackathonPartnerships = async (hackathonId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from("hackathon_partnerships")
+      .select("*")
+      .eq("hackathon_id", hackathonId)
+      .eq("status", "active")
+      .order("created_at", { ascending: true })
+    return { data: data || [], error }
+  } catch (error) {
+    console.error("Error fetching partnerships:", error)
+    return { data: [], error: { message: "Failed to fetch partnerships" } }
   }
 }
 
@@ -411,11 +498,8 @@ export const getUserTeamForHackathon = async (hackathonId: string, userId: strin
   }
 }
 
-// Participation Functions
-export const registerForHackathon = async (
-  hackathonId: string,
-  participationType: "individual" | "team" = "individual",
-) => {
+// Participation Functions - Fixed for direct registration on Apna Coding
+export const registerForHackathon = async (hackathonId: string, participationType: "individual" | "team" = "team") => {
   try {
     const currentUser = await supabase.auth.getUser()
     if (!currentUser.data.user) {
@@ -606,5 +690,29 @@ export const getHackathonSubmissions = async (hackathonId: string) => {
   } catch (error) {
     console.error("Error fetching hackathon submissions:", error)
     return { data: [], error: { message: "Failed to fetch hackathon submissions" } }
+  }
+}
+
+// File upload function for hackathon images
+export const uploadHackathonImage = async (file: File, hackathonId: string) => {
+  try {
+    const fileExt = file.name.split(".").pop()
+    const fileName = `hackathon-${hackathonId}-${Date.now()}.${fileExt}`
+    const filePath = `hackathons/${fileName}`
+
+    const { data, error } = await supabase.storage.from("hackathon-images").upload(filePath, file)
+
+    if (error) {
+      return { data: null, error }
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("hackathon-images").getPublicUrl(filePath)
+
+    return { data: { publicUrl }, error: null }
+  } catch (error) {
+    console.error("Error uploading image:", error)
+    return { data: null, error: { message: "Failed to upload image" } }
   }
 }
