@@ -248,6 +248,12 @@ export default function AdminDashboard() {
                     Users
                   </Button>
                 </Link>
+                <Link href="/admin/hackathons/enhanced">
+                  <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white">
+                    <Trophy className="w-4 h-4 mr-2" />
+                    Enhanced Hackathons
+                  </Button>
+                </Link>
               </div>
 
               {/* NEW: Permissions Management */}
@@ -297,6 +303,15 @@ export default function AdminDashboard() {
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       Add New Job
+                    </Button>
+                  </Link>
+                  <Link href="/admin/hackathons/enhanced/new">
+                    <Button
+                      variant="outline"
+                      className="w-full border-gray-700 text-white hover:bg-gray-800 bg-transparent"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Enhanced Hackathon
                     </Button>
                   </Link>
                 </div>

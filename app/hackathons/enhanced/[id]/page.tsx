@@ -24,6 +24,11 @@ import {
   Target,
   Award,
   Building,
+  Github,
+  Globe,
+  FileText,
+  Video,
+  Upload,
 } from "lucide-react"
 import { getCurrentUser, type User } from "@/lib/supabase"
 import {
@@ -36,10 +41,13 @@ import {
   registerForHackathon,
   getHackathonParticipants,
   getHackathonStatistics,
+  createSubmission,
+  getTeamSubmissions,
   type EnhancedHackathon,
   type ProblemStatement,
   type HackathonTeam,
   type HackathonParticipant,
+  type HackathonSubmission,
 } from "@/lib/hackathon-system"
 import SEOHead from "@/components/seo/seo-head"
 
@@ -53,14 +61,31 @@ export default function EnhancedHackathonDetailPage() {
   const [userTeam, setUserTeam] = useState<any>(null)
   const [participants, setParticipants] = useState<HackathonParticipant[]>([])
   const [statistics, setStatistics] = useState<any>(null)
+  const [submissions, setSubmissions] = useState<HackathonSubmission[]>([])
   const [loading, setLoading] = useState(true)
   const [isRegistered, setIsRegistered] = useState(false)
   const [showCreateTeam, setShowCreateTeam] = useState(false)
   const [showJoinTeam, setShowJoinTeam] = useState(false)
+  const [showSubmissionForm, setShowSubmissionForm] = useState(false)
   const [teamName, setTeamName] = useState("")
   const [teamDescription, setTeamDescription] = useState("")
   const [inviteCode, setInviteCode] = useState("")
   const [message, setMessage] = useState("")
+  const [messageType, setMessageType] = useState<"success" | "error">("success")
+
+  // Submission form state
+  const [submissionData, setSubmissionData] = useState({
+    project_title: "",
+    project_description: "",
+    github_repository_url: "",
+    live_demo_url: "",
+    presentation_url: "",
+    video_demo_url: "",
+    documentation_url: "",
+    technologies_used: [] as string[],
+    challenges_faced: "",
+    future_improvements: "",
+  })
 
   useEffect(() => {
     checkUser()
@@ -108,6 +133,12 @@ export default function EnhancedHackathonDetailPage() {
         if (userParticipation) {
           const userTeamResult = await getUserTeamForHackathon(hackathonId, user.id)
           setUserTeam(userTeamResult.data)
+
+          // Load team submissions if user has a team
+          if (userTeamResult.data) {
+            const submissionsResult = await getTeamSubmissions(userTeamResult.data.team_id)
+            setSubmissions(submissionsResult.data || [])
+          }
         }
       }
     } catch (error) {
@@ -118,38 +149,44 @@ export default function EnhancedHackathonDetailPage() {
     }
   }
 
+  const showMessage = (msg: string, type: "success" | "error" = "success") => {
+    setMessage(msg)
+    setMessageType(type)
+    setTimeout(() => setMessage(""), 5000)
+  }
+
   const handleRegister = async () => {
     if (!user) {
-      setMessage("Please login to register for hackathons!")
+      showMessage("Please login to register for hackathons!", "error")
       return
     }
 
     try {
       const { error } = await registerForHackathon(hackathon!.id, "team")
       if (error) {
-        setMessage("Registration failed: " + error.message)
+        showMessage("Registration failed: " + error.message, "error")
         return
       }
 
       setIsRegistered(true)
-      setMessage("Successfully registered for the hackathon!")
+      showMessage("Successfully registered for the hackathon!")
       loadHackathonData()
     } catch (error) {
       console.error("Registration error:", error)
-      setMessage("Registration failed. Please try again.")
+      showMessage("Registration failed. Please try again.", "error")
     }
   }
 
   const handleCreateTeam = async () => {
     if (!teamName.trim()) {
-      setMessage("Please enter a team name")
+      showMessage("Please enter a team name", "error")
       return
     }
 
     try {
       const { data, error } = await createTeam(hackathon!.id, teamName, teamDescription)
       if (error) {
-        setMessage("Failed to create team: " + error.message)
+        showMessage("Failed to create team: " + error.message, "error")
         return
       }
 
@@ -157,43 +194,91 @@ export default function EnhancedHackathonDetailPage() {
       setShowCreateTeam(false)
       setTeamName("")
       setTeamDescription("")
-      setMessage("Team created successfully!")
+      showMessage("Team created successfully!")
       loadHackathonData()
     } catch (error) {
       console.error("Error creating team:", error)
-      setMessage("Failed to create team. Please try again.")
+      showMessage("Failed to create team. Please try again.", "error")
     }
   }
 
   const handleJoinTeam = async () => {
     if (!inviteCode.trim()) {
-      setMessage("Please enter an invite code")
+      showMessage("Please enter an invite code", "error")
       return
     }
 
     try {
       const { data, error } = await joinTeamByInviteCode(inviteCode)
       if (error) {
-        setMessage("Failed to join team: " + error.message)
+        showMessage("Failed to join team: " + error.message, "error")
         return
       }
 
       setShowJoinTeam(false)
       setInviteCode("")
-      setMessage("Successfully joined the team!")
+      showMessage("Successfully joined the team!")
       loadHackathonData()
     } catch (error) {
       console.error("Error joining team:", error)
-      setMessage("Failed to join team. Please try again.")
+      showMessage("Failed to join team. Please try again.", "error")
+    }
+  }
+
+  const handleSubmitProject = async () => {
+    if (!submissionData.project_title.trim() || !submissionData.project_description.trim()) {
+      showMessage("Please fill in the required fields", "error")
+      return
+    }
+
+    if (!userTeam) {
+      showMessage("You must be in a team to submit a project", "error")
+      return
+    }
+
+    try {
+      const { data, error } = await createSubmission({
+        hackathon_id: hackathon!.id,
+        team_id: userTeam.team_id,
+        submitted_by: user!.id,
+        submission_status: "submitted",
+        score: 0,
+        ...submissionData,
+        submitted_at: new Date().toISOString(),
+      })
+
+      if (error) {
+        showMessage("Failed to submit project: " + error.message, "error")
+        return
+      }
+
+      setShowSubmissionForm(false)
+      setSubmissionData({
+        project_title: "",
+        project_description: "",
+        github_repository_url: "",
+        live_demo_url: "",
+        presentation_url: "",
+        video_demo_url: "",
+        documentation_url: "",
+        technologies_used: [],
+        challenges_faced: "",
+        future_improvements: "",
+      })
+      showMessage("Project submitted successfully!")
+      loadHackathonData()
+    } catch (error) {
+      console.error("Error submitting project:", error)
+      showMessage("Failed to submit project. Please try again.", "error")
     }
   }
 
   const copyInviteCode = async (code: string) => {
     try {
       await navigator.clipboard.writeText(code)
-      setMessage("Invite code copied to clipboard!")
+      showMessage("Invite code copied to clipboard!")
     } catch (error) {
-      setMessage("Failed to copy invite code")
+      showMessage("Failed to copy invite code", "error")
     }
   }
 
@@ -235,7 +320,7 @@ export default function EnhancedHackathonDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-yellow-400"></div>
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-400"></div>
       </div>
     )
   }
@@ -248,7 +333,7 @@ export default function EnhancedHackathonDetailPage() {
           <p className="text-gray-400 mb-6">The hackathon you're looking for doesn't exist.</p>
           <Button
             onClick={() => router.push("/hackathons/enhanced")}
-            className="bg-yellow-400 hover:bg-yellow-500 text-black"
+            className="bg-purple-400 hover:bg-purple-500 text-black"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Hackathons
@@ -288,9 +373,21 @@ export default function EnhancedHackathonDetailPage() {
 
           {/* Message Display */}
           {message && (
-            <div className="mb-6 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg text-blue-400">
-              <CheckCircle className="w-4 h-4 inline mr-2" />
-              {message}
+            <div
+              className={`mb-6 p-4 rounded-lg border ${
+                messageType === "success"
+                  ? "bg-green-900/20 border-green-500/30 text-green-400"
+                  : "bg-red-900/20 border-red-500/30 text-red-400"
+              }`}
+            >
+              <div className="flex items-center">
+                {messageType === "success" ? (
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 mr-2" />
+                )}
+                {message}
+              </div>
             </div>
           )}
 
@@ -313,28 +410,28 @@ export default function EnhancedHackathonDetailPage() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="flex items-center gap-3 p-3 bg-gray-800 rounded-lg">
-                    <Calendar className="w-5 h-5 text-yellow-400" />
+                    <Calendar className="w-5 h-5 text-purple-400" />
                     <div>
                       <p className="text-gray-400 text-sm">Start Date</p>
                       <p className="text-white font-medium">{formatDateTime(hackathon.start_date)}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-3 bg-gray-800 rounded-lg">
-                    <Clock className="w-5 h-5 text-yellow-400" />
+                    <Clock className="w-5 h-5 text-purple-400" />
                     <div>
                       <p className="text-gray-400 text-sm">End Date</p>
                       <p className="text-white font-medium">{formatDateTime(hackathon.end_date)}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-3 bg-gray-800 rounded-lg">
-                    <MapPin className="w-5 h-5 text-yellow-400" />
+                    <MapPin className="w-5 h-5 text-purple-400" />
                     <div>
                       <p className="text-gray-400 text-sm">Location</p>
                       <p className="text-white font-medium">{hackathon.location}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-3 bg-gray-800 rounded-lg">
-                    <Trophy className="w-5 h-5 text-yellow-400" />
+                    <Trophy className="w-5 h-5 text-purple-400" />
                     <div>
                       <p className="text-gray-400 text-sm">Prize Pool</p>
                       <p className="text-green-400 font-bold">{hackathon.prize_pool}</p>
@@ -350,11 +447,12 @@ export default function EnhancedHackathonDetailPage() {
             {/* Left Column - Main Content */}
             <div className="lg:col-span-2 space-y-8">
               <Tabs defaultValue="overview" className="w-full">
-                <TabsList className="grid w-full grid-cols-4 bg-gray-900 border-gray-800">
+                <TabsList className="grid w-full grid-cols-5 bg-gray-900 border-gray-800">
                   <TabsTrigger value="overview">Overview</TabsTrigger>
                   <TabsTrigger value="problems">Problems</TabsTrigger>
                   <TabsTrigger value="teams">Teams</TabsTrigger>
                   <TabsTrigger value="submissions">Submissions</TabsTrigger>
+                  <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="overview" className="mt-6">
@@ -367,7 +465,7 @@ export default function EnhancedHackathonDetailPage() {
                         <h4 className="text-white font-medium mb-2">Technologies</h4>
                         <div className="flex flex-wrap gap-2">
                           {hackathon.technologies.map((tech, index) => (
-                            <Badge key={index} variant="outline" className="border-yellow-400 text-yellow-400">
+                            <Badge key={index} variant="outline" className="border-purple-400 text-purple-400">
                               {tech}
                             </Badge>
                           ))}
@@ -504,13 +602,147 @@ export default function EnhancedHackathonDetailPage() {
                 <TabsContent value="submissions" className="mt-6">
                   <Card className="bg-gray-900 border-gray-800">
                     <CardHeader>
-                      <CardTitle className="text-white">Project Submissions</CardTitle>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-white">Project Submissions</CardTitle>
+                        {userTeam && hackathon.submissions_open && (
+                          <Button
+                            onClick={() => setShowSubmissionForm(true)}
+                            className="bg-purple-400 hover:bg-purple-500 text-black"
+                          >
+                            <Upload className="w-4 h-4 mr-2" />
+                            Submit Project
+                          </Button>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {submissions.length > 0 ? (
+                        <div className="space-y-4">
+                          {submissions.map((submission) => (
+                            <div key={submission.id} className="p-4 bg-gray-800 rounded-lg">
+                              <div className="flex items-start justify-between mb-3">
+                                <div>
+                                  <h4 className="text-white font-medium">{submission.project_title}</h4>
+                                  <p className="text-gray-400 text-sm mt-1">{submission.project_description}</p>
+                                </div>
+                                <Badge
+                                  variant="outline"
+                                  className={
+                                    submission.submission_status === "submitted"
+                                      ? "border-green-400 text-green-400"
+                                      : submission.submission_status === "under_review"
+                                        ? "border-yellow-400 text-yellow-400"
+                                        : "border-gray-400 text-gray-400"
+                                  }
+                                >
+                                  {submission.submission_status.replace("_", " ")}
+                                </Badge>
+                              </div>
+
+                              <div className="flex flex-wrap gap-2 mb-3">
+                                {submission.technologies_used.map((tech, index) => (
+                                  <Badge
+                                    key={index}
+                                    variant="outline"
+                                    className="border-purple-400 text-purple-400 text-xs"
+                                  >
+                                    {tech}
+                                  </Badge>
+                                ))}
+                              </div>
+
+                              <div className="flex items-center gap-4 text-sm">
+                                {submission.github_repository_url && (
+                                  <a
+                                    href={submission.github_repository_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1 text-blue-400 hover:text-blue-300"
+                                  >
+                                    <Github className="w-4 h-4" />
+                                    GitHub
+                                  </a>
+                                )}
+                                {submission.live_demo_url && (
+                                  <a
+                                    href={submission.live_demo_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1 text-green-400 hover:text-green-300"
+                                  >
+                                    <Globe className="w-4 h-4" />
+                                    Live Demo
+                                  </a>
+                                )}
+                                {submission.presentation_url && (
+                                  <a
+                                    href={submission.presentation_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1 text-yellow-400 hover:text-yellow-300"
+                                  >
+                                    <FileText className="w-4 h-4" />
+                                    Presentation
+                                  </a>
+                                )}
+                                {submission.video_demo_url && (
+                                  <a
+                                    href={submission.video_demo_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1 text-red-400 hover:text-red-300"
+                                  >
+                                    <Video className="w-4 h-4" />
+                                    Video Demo
+                                  </a>
+                                )}
+                              </div>
+
+                              <div className="flex items-center justify-between text-xs text-gray-400 mt-3 pt-3 border-t border-gray-700">
+                                <span>
+                                  Submitted: {formatDateTime(submission.submitted_at || submission.created_at)}
+                                </span>
+                                {submission.score > 0 && (
+                                  <span className="text-purple-400 font-medium">Score: {submission.score}</span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <Code className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                          <h3 className="text-xl font-semibold text-white mb-2">No Submissions Yet</h3>
+                          <p className="text-gray-400 mb-4">
+                            {userTeam
+                              ? "Your team hasn't submitted any projects yet."
+                              : "Join a team to start submitting projects."}
+                          </p>
+                          {userTeam && hackathon.submissions_open && (
+                            <Button
+                              onClick={() => setShowSubmissionForm(true)}
+                              className="bg-purple-400 hover:bg-purple-500 text-black"
+                            >
+                              <Upload className="w-4 h-4 mr-2" />
+                              Submit Your First Project
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="leaderboard" className="mt-6">
+                  <Card className="bg-gray-900 border-gray-800">
+                    <CardHeader>
+                      <CardTitle className="text-white">Leaderboard</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="text-center py-8">
-                        <Code className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                        <h3 className="text-xl font-semibold text-white mb-2">Submissions Coming Soon</h3>
-                        <p className="text-gray-400">Project submissions will be available once teams are formed.</p>
+                        <Award className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                        <h3 className="text-xl font-semibold text-white mb-2">Leaderboard Coming Soon</h3>
+                        <p className="text-gray-400">Rankings will be available once submissions are reviewed.</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -532,7 +764,7 @@ export default function EnhancedHackathonDetailPage() {
                       <p className="text-gray-300 mb-4">Please login to participate</p>
                       <Button
                         onClick={() => router.push("/?auth=login")}
-                        className="bg-yellow-400 hover:bg-yellow-500 text-black"
+                        className="bg-purple-400 hover:bg-purple-500 text-black"
                       >
                         Login to Participate
                       </Button>
@@ -565,7 +797,7 @@ export default function EnhancedHackathonDetailPage() {
                           <Button
                             size="sm"
                             onClick={() => copyInviteCode(userTeam.hackathon_teams.invite_code)}
-                            className="bg-yellow-400 hover:bg-yellow-500 text-black"
+                            className="bg-purple-400 hover:bg-purple-500 text-black"
                           >
                             <Copy className="w-4 h-4" />
                           </Button>
@@ -603,21 +835,21 @@ export default function EnhancedHackathonDetailPage() {
                 <CardContent className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Users className="w-4 h-4 text-yellow-400" />
+                      <Users className="w-4 h-4 text-purple-400" />
                       <span className="text-gray-400">Participants</span>
                     </div>
                     <span className="text-white font-medium">{hackathon.total_participants}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <UserPlus className="w-4 h-4 text-yellow-400" />
+                      <UserPlus className="w-4 h-4 text-purple-400" />
                       <span className="text-gray-400">Teams</span>
                     </div>
                     <span className="text-white font-medium">{hackathon.total_teams}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Code className="w-4 h-4 text-yellow-400" />
+                      <Code className="w-4 h-4 text-purple-400" />
                       <span className="text-gray-400">Submissions</span>
                     </div>
                     <span className="text-white font-medium">{hackathon.total_submissions}</span>
@@ -626,14 +858,14 @@ export default function EnhancedHackathonDetailPage() {
                     <>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <CheckCircle className="w-4 h-4 text-yellow-400" />
+                          <CheckCircle className="w-4 h-4 text-purple-400" />
                           <span className="text-gray-400">Confirmed</span>
                         </div>
                         <span className="text-green-400 font-medium">{statistics.confirmed_participants}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Award className="w-4 h-4 text-yellow-400" />
+                          <Award className="w-4 h-4 text-purple-400" />
                           <span className="text-gray-400">Avg Score</span>
                         </div>
                         <span className="text-purple-400 font-medium">{statistics.average_score.toFixed(1)}</span>
@@ -725,6 +957,171 @@ export default function EnhancedHackathonDetailPage() {
                     </Button>
                     <Button onClick={handleJoinTeam} className="flex-1 bg-purple-400 hover:bg-purple-500 text-black">
                       Join Team
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Submit Project Modal */}
+          {showSubmissionForm && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <Card className="bg-gray-900 border-gray-800 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                <CardHeader>
+                  <CardTitle className="text-white">Submit Project</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="project-title" className="text-gray-300">
+                        Project Title *
+                      </Label>
+                      <Input
+                        id="project-title"
+                        value={submissionData.project_title}
+                        onChange={(e) => setSubmissionData({ ...submissionData, project_title: e.target.value })}
+                        className="bg-gray-800 border-gray-700 text-white"
+                        placeholder="Enter project title"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="technologies" className="text-gray-300">
+                        Technologies Used
+                      </Label>
+                      <Input
+                        id="technologies"
+                        value={submissionData.technologies_used.join(", ")}
+                        onChange={(e) =>
+                          setSubmissionData({
+                            ...submissionData,
+                            technologies_used: e.target.value
+                              .split(",")
+                              .map((t) => t.trim())
+                              .filter((t) => t),
+                          })
+                        }
+                        className="bg-gray-800 border-gray-700 text-white"
+                        placeholder="React, Node.js, MongoDB"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="project-description" className="text-gray-300">
+                      Project Description *
+                    </Label>
+                    <Textarea
+                      id="project-description"
+                      value={submissionData.project_description}
+                      onChange={(e) => setSubmissionData({ ...submissionData, project_description: e.target.value })}
+                      className="bg-gray-800 border-gray-700 text-white"
+                      placeholder="Describe your project"
+                      rows={4}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="github-url" className="text-gray-300">
+                        GitHub Repository URL
+                      </Label>
+                      <Input
+                        id="github-url"
+                        type="url"
+                        value={submissionData.github_repository_url}
+                        onChange={(e) =>
+                          setSubmissionData({ ...submissionData, github_repository_url: e.target.value })
+                        }
+                        className="bg-gray-800 border-gray-700 text-white"
+                        placeholder="https://github.com/..."
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="demo-url" className="text-gray-300">
+                        Live Demo URL
+                      </Label>
+                      <Input
+                        id="demo-url"
+                        type="url"
+                        value={submissionData.live_demo_url}
+                        onChange={(e) => setSubmissionData({ ...submissionData, live_demo_url: e.target.value })}
+                        className="bg-gray-800 border-gray-700 text-white"
+                        placeholder="https://your-demo.com"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="presentation-url" className="text-gray-300">
+                        Presentation URL
+                      </Label>
+                      <Input
+                        id="presentation-url"
+                        type="url"
+                        value={submissionData.presentation_url}
+                        onChange={(e) => setSubmissionData({ ...submissionData, presentation_url: e.target.value })}
+                        className="bg-gray-800 border-gray-700 text-white"
+                        placeholder="https://slides.com/..."
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="video-url" className="text-gray-300">
+                        Video Demo URL
+                      </Label>
+                      <Input
+                        id="video-url"
+                        type="url"
+                        value={submissionData.video_demo_url}
+                        onChange={(e) => setSubmissionData({ ...submissionData, video_demo_url: e.target.value })}
+                        className="bg-gray-800 border-gray-700 text-white"
+                        placeholder="https://youtube.com/..."
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="challenges" className="text-gray-300">
+                      Challenges Faced
+                    </Label>
+                    <Textarea
+                      id="challenges"
+                      value={submissionData.challenges_faced}
+                      onChange={(e) => setSubmissionData({ ...submissionData, challenges_faced: e.target.value })}
+                      className="bg-gray-800 border-gray-700 text-white"
+                      placeholder="What challenges did you face while building this project?"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="improvements" className="text-gray-300">
+                      Future Improvements
+                    </Label>
+                    <Textarea
+                      id="improvements"
+                      value={submissionData.future_improvements}
+                      onChange={(e) => setSubmissionData({ ...submissionData, future_improvements: e.target.value })}
+                      className="bg-gray-800 border-gray-700 text-white"
+                      placeholder="What would you improve or add in the future?"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => setShowSubmissionForm(false)}
+                      variant="outline"
+                      className="flex-1 border-gray-700 text-white hover:bg-gray-800"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleSubmitProject}
+                      className="flex-1 bg-purple-400 hover:bg-purple-500 text-black"
+                    >
+                      Submit Project
                     </Button>
                   </div>
                 </CardContent>
