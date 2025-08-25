@@ -147,7 +147,7 @@ export interface Partnership {
   updated_at: string
 }
 
-// Auth functions with Google OAuth
+// Auth functions with Google OAuth and Email Integration
 export const signUp = async (email: string, password: string, fullName: string) => {
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -166,6 +166,24 @@ export const signUp = async (email: string, password: string, fullName: string) 
       full_name: fullName,
       role: data.user.email === "sonishriyash@gmail.com" ? "admin" : "user",
     })
+
+    // Send welcome email
+    try {
+      await fetch("/api/emails/welcome", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: data.user.email,
+          name: fullName,
+          userId: data.user.id,
+        }),
+      })
+    } catch (emailError) {
+      console.error("Error sending welcome email:", emailError)
+      // Don't fail the signup if email fails
+    }
   }
 
   return { data, error }
@@ -246,6 +264,23 @@ export const getCurrentUser = async () => {
       if (createError) {
         console.error("Profile creation error:", createError)
         return null
+      }
+
+      // Send welcome email for new Google users
+      try {
+        await fetch("/api/emails/welcome", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: user.email,
+            name: newProfile.full_name,
+            userId: user.id,
+          }),
+        })
+      } catch (emailError) {
+        console.error("Error sending welcome email:", emailError)
       }
 
       return createdProfile
@@ -666,7 +701,7 @@ export const getCommunities = async () => {
   return { data, error }
 }
 
-// Hackathon registration functions
+// Hackathon registration functions with email integration
 export const registerForHackathon = async (hackathonId: string, userId: string) => {
   try {
     const { data, error } = await supabase
@@ -692,6 +727,55 @@ export const registerForHackathon = async (hackathonId: string, userId: string) 
 
     if (updateError) {
       console.error("Error updating participant count:", updateError)
+    }
+
+    // Send registration confirmation email
+    try {
+      const [userResult, hackathonResult] = await Promise.all([
+        supabase.from("users").select("email, full_name").eq("id", userId).single(),
+        supabase.from("hackathons").select("title, start_date").eq("id", hackathonId).single(),
+      ])
+
+      if (userResult.data && hackathonResult.data) {
+        await fetch("/api/emails/send", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            to: userResult.data.email,
+            subject: `🏆 Registration Confirmed: ${hackathonResult.data.title}`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); color: white; border-radius: 10px; overflow: hidden;">
+                <div style="padding: 40px 30px; text-align: center;">
+                  <h1 style="margin: 0 0 20px 0; font-size: 28px;">🎉 Registration Confirmed!</h1>
+                  <p style="font-size: 18px; margin: 0 0 20px 0;">Hi ${userResult.data.full_name},</p>
+                  <p style="font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+                    Congratulations! You've successfully registered for <strong>${hackathonResult.data.title}</strong>.
+                  </p>
+                  <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; margin: 30px 0;">
+                    <h3 style="margin: 0 0 15px 0;">📅 Event Details</h3>
+                    <p style="margin: 0 0 10px 0;"><strong>Event:</strong> ${hackathonResult.data.title}</p>
+                    <p style="margin: 0;"><strong>Date:</strong> ${new Date(hackathonResult.data.start_date).toLocaleDateString()}</p>
+                  </div>
+                  <a href="https://apnacoding.tech/hackathons" style="display: inline-block; background: #FFD700; color: #333; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; margin: 20px 0;">
+                    View Hackathon Details 🏆
+                  </a>
+                  <p style="font-size: 14px; margin: 30px 0 0 0; opacity: 0.8;">
+                    Good luck and happy coding!<br>
+                    Team Apna Coding
+                  </p>
+                </div>
+              </div>
+            `,
+            type: "hackathon_registration",
+            userId: userId,
+          }),
+        })
+      }
+    } catch (emailError) {
+      console.error("Error sending registration email:", emailError)
+      // Don't fail the registration if email fails
     }
 
     return { success: true, data }

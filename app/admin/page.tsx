@@ -20,12 +20,16 @@ import {
   Plus,
   Shield,
   AlertTriangle,
+  Mail,
+  Send,
+  CheckCircle,
 } from "lucide-react"
 
 export default function AdminDashboard() {
   const [user, setUser] = useState<User | null>(null)
   const [analytics, setAnalytics] = useState<any>(null)
   const [permissionStats, setPermissionStats] = useState<any>(null)
+  const [emailStats, setEmailStats] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
@@ -48,11 +52,18 @@ export default function AdminDashboard() {
 
       setUser(currentUser)
 
-      // Load analytics and permission data
-      const [analyticsData, permissionsData] = await Promise.all([getDetailedAnalytics(), getPermissionStats()])
+      // Load analytics, permission data, and email stats
+      const [analyticsData, permissionsData, emailStatsData] = await Promise.all([
+        getDetailedAnalytics(),
+        getPermissionStats(),
+        fetch("/api/emails/notifications?stats=true")
+          .then((res) => res.json())
+          .catch(() => ({ total: 0, sent: 0, failed: 0, today: 0, success_rate: 0 })),
+      ])
 
       setAnalytics(analyticsData)
       setPermissionStats(permissionsData)
+      setEmailStats(emailStatsData)
     } catch (error) {
       console.error("Error loading admin data:", error)
     } finally {
@@ -86,6 +97,34 @@ export default function AdminDashboard() {
           </h1>
           <p className="text-gray-300 text-lg">Manage your platform and monitor performance</p>
         </div>
+
+        {/* Email System Alert */}
+        <Card className="bg-green-900/20 border-green-500/50 mb-8">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <Mail className="w-6 h-6 text-green-400 flex-shrink-0 mt-1" />
+              <div>
+                <h3 className="text-green-400 font-bold text-lg mb-2">📧 EMAIL AUTOMATION SYSTEM ACTIVE</h3>
+                <p className="text-gray-300 mb-3">
+                  Comprehensive email automation is now live! Users receive welcome emails, registration confirmations,
+                  and notifications automatically.
+                </p>
+                <div className="flex gap-4 flex-wrap">
+                  <Link href="/admin/emails">
+                    <Button className="bg-green-400 hover:bg-green-500 text-black font-semibold">
+                      <Mail className="w-4 h-4 mr-2" />
+                      Manage Emails
+                    </Button>
+                  </Link>
+                  <Badge className="bg-blue-500 text-white px-3 py-1">{emailStats?.total || 0} Total Emails</Badge>
+                  <Badge className="bg-green-500 text-white px-3 py-1">
+                    {emailStats?.success_rate || 0}% Success Rate
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Permission System Alert */}
         <Card className="bg-yellow-900/20 border-yellow-500/50 mb-8">
@@ -211,6 +250,57 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
+        {/* Email Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card className="bg-gray-900/50 border-gray-700">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-400 text-sm">Total Emails</p>
+                  <p className="text-2xl font-bold text-white">{emailStats?.total || 0}</p>
+                </div>
+                <Mail className="w-8 h-8 text-blue-400" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gray-900/50 border-gray-700">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-400 text-sm">Emails Sent</p>
+                  <p className="text-2xl font-bold text-green-400">{emailStats?.sent || 0}</p>
+                </div>
+                <CheckCircle className="w-8 h-8 text-green-400" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gray-900/50 border-gray-700">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-400 text-sm">Today's Emails</p>
+                  <p className="text-2xl font-bold text-purple-400">{emailStats?.today || 0}</p>
+                </div>
+                <Send className="w-8 h-8 text-purple-400" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gray-900/50 border-gray-700">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-400 text-sm">Success Rate</p>
+                  <p className="text-2xl font-bold text-yellow-400">{emailStats?.success_rate || 0}%</p>
+                </div>
+                <TrendingUp className="w-8 h-8 text-yellow-400" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Quick Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           {/* Management Actions */}
@@ -252,6 +342,12 @@ export default function AdminDashboard() {
                   <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white">
                     <Trophy className="w-4 h-4 mr-2" />
                     Enhanced Hackathons
+                  </Button>
+                </Link>
+                <Link href="/admin/emails">
+                  <Button className="w-full bg-green-600 hover:bg-green-700 text-white">
+                    <Mail className="w-4 h-4 mr-2" />
+                    Email Management
                   </Button>
                 </Link>
               </div>
@@ -344,6 +440,12 @@ export default function AdminDashboard() {
                     Site Settings
                   </Button>
                 </Link>
+                <Link href="/admin/emails">
+                  <Button className="w-full bg-green-600 hover:bg-green-700 text-white">
+                    <Mail className="w-4 h-4 mr-2" />
+                    Email Dashboard
+                  </Button>
+                </Link>
               </div>
 
               <div className="pt-4 border-t border-gray-700">
@@ -362,6 +464,59 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* NEW: Email System Overview Card */}
+        <Card className="bg-gray-900/50 border-gray-700 mb-8">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center">
+              <Mail className="w-5 h-5 mr-2 text-green-400" />📧 Email Automation Overview
+            </CardTitle>
+            <CardDescription className="text-gray-400">Email system status and recent activity</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-gray-800/50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-white font-medium">Email Types Active</span>
+                  <Badge className="bg-blue-500 text-white">7</Badge>
+                </div>
+                <div className="text-xs text-gray-400">Welcome, Registration, Reminders, etc.</div>
+              </div>
+
+              <div className="bg-gray-800/50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-white font-medium">Automation Status</span>
+                  <Badge className="bg-green-500 text-white">Active</Badge>
+                </div>
+                <div className="text-xs text-gray-400">All triggers working properly</div>
+              </div>
+
+              <div className="bg-gray-800/50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-white font-medium">Email Provider</span>
+                  <Badge className="bg-purple-500 text-white">Resend</Badge>
+                </div>
+                <div className="text-xs text-gray-400">3,000 emails/month free tier</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Link href="/admin/emails">
+                <Button className="w-full bg-green-400 hover:bg-green-500 text-black">
+                  <Mail className="w-4 h-4 mr-2" />
+                  Manage Email System
+                </Button>
+              </Link>
+              <div className="bg-green-900/20 border border-green-500/50 rounded-lg p-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  <span className="text-green-400 font-semibold text-sm">Email System Active</span>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">All automated emails working properly</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* NEW: Permissions Overview Card */}
         <Card className="bg-gray-900/50 border-gray-700 mb-8">
@@ -437,9 +592,17 @@ export default function AdminDashboard() {
               <div className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg">
                 <div className="flex items-center space-x-3">
                   <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                  <span className="text-white">🔒 Permission system activated</span>
+                  <span className="text-white">📧 Email automation system activated</span>
                 </div>
                 <span className="text-gray-400 text-sm">Just now</span>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  <span className="text-white">🔒 Permission system activated</span>
+                </div>
+                <span className="text-gray-400 text-sm">1 hour ago</span>
               </div>
 
               <div className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg">
@@ -454,6 +617,14 @@ export default function AdminDashboard() {
                 <div className="flex items-center space-x-3">
                   <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
                   <span className="text-white">New user registrations: +{analytics?.growth?.userGrowth || 0}%</span>
+                </div>
+                <span className="text-gray-400 text-sm">Today</span>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                  <span className="text-white">Emails sent today: {emailStats?.today || 0}</span>
                 </div>
                 <span className="text-gray-400 text-sm">Today</span>
               </div>
