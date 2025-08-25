@@ -22,6 +22,8 @@ export interface EmailNotification {
     | "password_reset"
     | "hackathon_reminder"
     | "course_reminder"
+    | "bulk_announcement"
+    | "platform_update"
   status: "pending" | "sent" | "failed"
   sent_at?: string
   error_message?: string
@@ -225,6 +227,54 @@ export const emailTemplates = {
       </div>
     `,
   }),
+
+  bulkAnnouncement: (userName: string, title: string, message: string): EmailTemplate => ({
+    subject: `📢 Important Announcement: ${title}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px; overflow: hidden;">
+        <div style="padding: 40px 30px; text-align: center;">
+          <h1 style="margin: 0 0 20px 0; font-size: 28px;">📢 ${title}</h1>
+          <p style="font-size: 18px; margin: 0 0 30px 0;">Hi ${userName},</p>
+          <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; margin: 30px 0; text-align: left;">
+            <div style="font-size: 16px; line-height: 1.6;">${message}</div>
+          </div>
+          <a href="https://apnacoding.tech" style="display: inline-block; background: #FFD700; color: #333; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; margin: 20px 0;">
+            Visit Apna Coding 🚀
+          </a>
+          <p style="font-size: 14px; margin: 30px 0 0 0; opacity: 0.8;">
+            Best regards,<br>
+            Team Apna Coding
+          </p>
+        </div>
+      </div>
+    `,
+  }),
+
+  platformUpdate: (userName: string, updateTitle: string, updateDetails: string): EmailTemplate => ({
+    subject: `🚀 Platform Update: ${updateTitle}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; border-radius: 10px; overflow: hidden;">
+        <div style="padding: 40px 30px; text-align: center;">
+          <h1 style="margin: 0 0 20px 0; font-size: 28px;">🚀 Platform Update</h1>
+          <p style="font-size: 18px; margin: 0 0 20px 0;">Hi ${userName},</p>
+          <p style="font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+            We've got some exciting updates to share with you!
+          </p>
+          <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; margin: 30px 0;">
+            <h3 style="margin: 0 0 15px 0;">✨ ${updateTitle}</h3>
+            <div style="font-size: 16px; line-height: 1.6; text-align: left;">${updateDetails}</div>
+          </div>
+          <a href="https://apnacoding.tech/dashboard" style="display: inline-block; background: #FFD700; color: #333; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; margin: 20px 0;">
+            Explore Updates 🎯
+          </a>
+          <p style="font-size: 14px; margin: 30px 0 0 0; opacity: 0.8;">
+            Happy Coding!<br>
+            Team Apna Coding
+          </p>
+        </div>
+      </div>
+    `,
+  }),
 }
 
 // Send single email
@@ -300,7 +350,7 @@ export async function sendEmail(
   }
 }
 
-// Send batch emails
+// Send batch emails with rate limiting
 export async function sendBatchEmails(
   emails: Array<{
     to: string
@@ -309,7 +359,7 @@ export async function sendBatchEmails(
     type?: EmailNotification["type"]
     userId?: string
   }>,
-): Promise<{ success: boolean; results: Array<{ success: boolean; error?: string }> }> {
+): Promise<{ success: boolean; results: Array<{ success: boolean; error?: string; email?: string }> }> {
   try {
     if (!emails || emails.length === 0) {
       return { success: false, results: [{ success: false, error: "No emails provided" }] }
@@ -319,31 +369,48 @@ export async function sendBatchEmails(
     let successCount = 0
     let failureCount = 0
 
-    // Send emails individually to handle errors properly
-    for (const email of emails) {
-      try {
-        const result = await sendEmail(
-          email.to,
-          email.subject,
-          email.html,
-          email.type || "admin_notification",
-          email.userId,
-        )
+    // Process emails in batches to avoid rate limiting
+    const batchSize = 10
+    const delay = 1000 // 1 second delay between batches
 
-        if (result.success) {
-          successCount++
-          results.push({ success: true })
-        } else {
+    for (let i = 0; i < emails.length; i += batchSize) {
+      const batch = emails.slice(i, i + batchSize)
+
+      // Process batch concurrently
+      const batchPromises = batch.map(async (email) => {
+        try {
+          const result = await sendEmail(
+            email.to,
+            email.subject,
+            email.html,
+            email.type || "bulk_announcement",
+            email.userId,
+          )
+
+          if (result.success) {
+            successCount++
+            return { success: true, email: email.to }
+          } else {
+            failureCount++
+            return { success: false, error: result.error, email: email.to }
+          }
+        } catch (error) {
           failureCount++
-          results.push({ success: false, error: result.error })
+          console.error(`Error sending email to ${email.to}:`, error)
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+            email: email.to,
+          }
         }
+      })
 
-        // Add small delay to avoid rate limiting
-        await new Promise((resolve) => setTimeout(resolve, 100))
-      } catch (error) {
-        failureCount++
-        console.error(`Error sending email to ${email.to}:`, error)
-        results.push({ success: false, error: error instanceof Error ? error.message : "Unknown error" })
+      const batchResults = await Promise.all(batchPromises)
+      results.push(...batchResults)
+
+      // Add delay between batches (except for the last batch)
+      if (i + batchSize < emails.length) {
+        await new Promise((resolve) => setTimeout(resolve, delay))
       }
     }
 
@@ -353,6 +420,60 @@ export async function sendBatchEmails(
     console.error("Batch email sending error:", err)
     return {
       success: false,
+      results: [{ success: false, error: err instanceof Error ? err.message : "Unknown error" }],
+    }
+  }
+}
+
+// Send emails to all platform users
+export async function sendEmailToAllUsers(
+  subject: string,
+  html: string,
+  type: EmailNotification["type"] = "bulk_announcement",
+): Promise<{
+  success: boolean
+  totalUsers: number
+  results: Array<{ success: boolean; error?: string; email?: string }>
+}> {
+  try {
+    // Import supabase here to avoid circular dependencies
+    const { createClientComponentClient } = await import("./supabase-client")
+    const supabase = createClientComponentClient()
+
+    // Get all users from the database
+    const { data: users, error } = await supabase.from("users").select("id, email, full_name").not("email", "is", null)
+
+    if (error) {
+      console.error("Error fetching users:", error)
+      return { success: false, totalUsers: 0, results: [{ success: false, error: "Failed to fetch users" }] }
+    }
+
+    if (!users || users.length === 0) {
+      return { success: false, totalUsers: 0, results: [{ success: false, error: "No users found" }] }
+    }
+
+    // Prepare emails for all users
+    const emails = users.map((user) => ({
+      to: user.email,
+      subject,
+      html: html.replace(/\{userName\}/g, user.full_name || "User"),
+      type,
+      userId: user.id,
+    }))
+
+    // Send batch emails
+    const result = await sendBatchEmails(emails)
+
+    return {
+      success: result.success,
+      totalUsers: users.length,
+      results: result.results,
+    }
+  } catch (err) {
+    console.error("Error sending emails to all users:", err)
+    return {
+      success: false,
+      totalUsers: 0,
       results: [{ success: false, error: err instanceof Error ? err.message : "Unknown error" }],
     }
   }
@@ -421,6 +542,18 @@ export async function sendHackathonReminder(
 ) {
   const template = emailTemplates.hackathonReminder(userName, hackathonTitle, daysLeft)
   return await sendEmail(userEmail, template.subject, template.html, "hackathon_reminder", userId)
+}
+
+// Helper function to send bulk announcement
+export async function sendBulkAnnouncement(title: string, message: string) {
+  const htmlTemplate = emailTemplates.bulkAnnouncement("{userName}", title, message).html
+  return await sendEmailToAllUsers(`📢 Important Announcement: ${title}`, htmlTemplate, "bulk_announcement")
+}
+
+// Helper function to send platform update
+export async function sendPlatformUpdate(updateTitle: string, updateDetails: string) {
+  const htmlTemplate = emailTemplates.platformUpdate("{userName}", updateTitle, updateDetails).html
+  return await sendEmailToAllUsers(`🚀 Platform Update: ${updateTitle}`, htmlTemplate, "platform_update")
 }
 
 // Database logging function (will be implemented with Supabase)
@@ -500,5 +633,25 @@ export async function getEmailStats() {
       today: 0,
       success_rate: 0,
     }
+  }
+}
+
+// Get user count for bulk email estimation
+export async function getUserCount(): Promise<number> {
+  try {
+    const { createClientComponentClient } = await import("./supabase-client")
+    const supabase = createClientComponentClient()
+
+    const { count, error } = await supabase.from("users").select("id", { count: "exact" }).not("email", "is", null)
+
+    if (error) {
+      console.error("Error getting user count:", error)
+      return 0
+    }
+
+    return count || 0
+  } catch (err) {
+    console.error("Error in getUserCount:", err)
+    return 0
   }
 }
