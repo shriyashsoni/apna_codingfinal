@@ -10,6 +10,21 @@ export const createServerClient = () => {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 }
 
+// Create client component client (for use in client components)
+export function createClientComponentClient() {
+  return createClient(supabaseUrl, supabaseAnonKey)
+}
+
+// Create server component client (for use in server components)
+export function createServerComponentClient() {
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  })
+}
+
 // Database Types
 export interface User {
   id: string
@@ -149,72 +164,92 @@ export interface Partnership {
 
 // Auth functions with Google OAuth and Email Integration
 export const signUp = async (email: string, password: string, fullName: string) => {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: {
-        full_name: fullName,
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+        },
       },
-    },
-  })
-
-  // Create user profile in database
-  if (data.user && !error) {
-    await createUserProfile(data.user.id, {
-      email: data.user.email!,
-      full_name: fullName,
-      role: data.user.email === "sonishriyash@gmail.com" ? "admin" : "user",
     })
 
-    // Send welcome email
-    try {
-      await fetch("/api/emails/welcome", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: data.user.email,
-          name: fullName,
-          userId: data.user.id,
-        }),
+    // Create user profile in database
+    if (data.user && !error) {
+      await createUserProfile(data.user.id, {
+        email: data.user.email!,
+        full_name: fullName,
+        role: data.user.email === "sonishriyash@gmail.com" ? "admin" : "user",
       })
-    } catch (emailError) {
-      console.error("Error sending welcome email:", emailError)
-      // Don't fail the signup if email fails
-    }
-  }
 
-  return { data, error }
+      // Send welcome email
+      try {
+        await fetch("/api/emails/welcome", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: data.user.email,
+            name: fullName,
+            userId: data.user.id,
+          }),
+        })
+      } catch (emailError) {
+        console.error("Error sending welcome email:", emailError)
+        // Don't fail the signup if email fails
+      }
+    }
+
+    return { data, error }
+  } catch (error) {
+    console.error("Error in signUp:", error)
+    return { data: null, error }
+  }
 }
 
 // Primary signIn function - EXPORTED
 export const signIn = async (email: string, password: string) => {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  })
-  return { data, error }
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+    return { data, error }
+  } catch (error) {
+    console.error("Error in signIn:", error)
+    return { data: null, error }
+  }
 }
 
 export const signInWithGoogle = async () => {
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      redirectTo: `${window.location.origin}/auth/callback`,
-      queryParams: {
-        access_type: "offline",
-        prompt: "consent",
+  try {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: {
+          access_type: "offline",
+          prompt: "consent",
+        },
       },
-    },
-  })
-  return { data, error }
+    })
+    return { data, error }
+  } catch (error) {
+    console.error("Error in signInWithGoogle:", error)
+    return { data: null, error }
+  }
 }
 
 export const signOut = async () => {
-  const { error } = await supabase.auth.signOut()
-  if (error) {
+  try {
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      throw error
+    }
+  } catch (error) {
+    console.error("Error in signOut:", error)
     throw error
   }
 }
@@ -294,10 +329,15 @@ export const getCurrentUser = async () => {
 }
 
 export const getSession = async () => {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  return session
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    return session
+  } catch (error) {
+    console.error("Error getting session:", error)
+    return null
+  }
 }
 
 // Create user profile in database
@@ -408,24 +448,25 @@ export const updateUserProfile = async (userId: string, updates: Partial<User>) 
 
 // Admin check function with enhanced logic for sonishriyash@gmail.com
 export const isAdmin = async (email?: string) => {
-  if (!email) {
-    const user = await getCurrentUser()
-    if (!user?.email) return false
-    email = user.email
-  }
-
-  // Check if the email is the main admin
-  if (email === "sonishriyash@gmail.com") {
-    return true
-  }
-
-  // Check database for additional admins
   try {
+    if (!email) {
+      const user = await getCurrentUser()
+      if (!user?.email) return false
+      email = user.email
+    }
+
+    // Check if the email is the main admin
+    if (email === "sonishriyash@gmail.com") {
+      return true
+    }
+
+    // Check database for additional admins
     const { data, error } = await supabase.from("users").select("role").eq("email", email).single()
 
     if (error) return false
     return data?.role === "admin"
-  } catch {
+  } catch (error) {
+    console.error("Error in isAdmin:", error)
     return false
   }
 }
@@ -468,237 +509,382 @@ export const getUserOrganizerStatus = async (userId: string) => {
 
 // Database functions for Courses
 export const getCourses = async () => {
-  const { data, error } = await supabase
-    .from("courses")
-    .select("*")
-    .eq("status", "active")
-    .order("created_at", { ascending: false })
-  return { data, error }
+  try {
+    const { data, error } = await supabase
+      .from("courses")
+      .select("*")
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+    return { data, error }
+  } catch (error) {
+    console.error("Error in getCourses:", error)
+    return { data: null, error }
+  }
 }
 
 export const getAllCourses = async () => {
-  const { data, error } = await supabase.from("courses").select("*").order("created_at", { ascending: false })
-  return { data, error }
+  try {
+    const { data, error } = await supabase.from("courses").select("*").order("created_at", { ascending: false })
+    return { data, error }
+  } catch (error) {
+    console.error("Error in getAllCourses:", error)
+    return { data: null, error }
+  }
 }
 
 export const createCourse = async (course: Omit<Course, "id" | "created_at" | "updated_at">) => {
-  const currentUser = await getCurrentUser()
-  const { data, error } = await supabase
-    .from("courses")
-    .insert([
-      {
-        ...course,
-        created_by: currentUser?.id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ])
-    .select()
-  return { data, error }
+  try {
+    const currentUser = await getCurrentUser()
+    const { data, error } = await supabase
+      .from("courses")
+      .insert([
+        {
+          ...course,
+          created_by: currentUser?.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ])
+      .select()
+    return { data, error }
+  } catch (error) {
+    console.error("Error in createCourse:", error)
+    return { data: null, error }
+  }
 }
 
 export const updateCourse = async (id: string, updates: Partial<Course>) => {
-  const { data, error } = await supabase
-    .from("courses")
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq("id", id)
-    .select()
-  return { data, error }
+  try {
+    const { data, error } = await supabase
+      .from("courses")
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+    return { data, error }
+  } catch (error) {
+    console.error("Error in updateCourse:", error)
+    return { data: null, error }
+  }
 }
 
 export const deleteCourse = async (id: string) => {
-  const { data, error } = await supabase.from("courses").delete().eq("id", id)
-  return { data, error }
+  try {
+    const { data, error } = await supabase.from("courses").delete().eq("id", id)
+    return { data, error }
+  } catch (error) {
+    console.error("Error in deleteCourse:", error)
+    return { data: null, error }
+  }
 }
 
 export const getCourseById = async (id: string) => {
-  const { data, error } = await supabase.from("courses").select("*").eq("id", id).single()
-  return { data, error }
+  try {
+    const { data, error } = await supabase.from("courses").select("*").eq("id", id).single()
+    return { data, error }
+  } catch (error) {
+    console.error("Error in getCourseById:", error)
+    return { data: null, error }
+  }
 }
 
 // Database functions for Hackathons
 export const getHackathons = async () => {
-  const { data, error } = await supabase.from("hackathons").select("*").order("start_date", { ascending: true })
-  return { data, error }
+  try {
+    const { data, error } = await supabase.from("hackathons").select("*").order("start_date", { ascending: true })
+    return { data, error }
+  } catch (error) {
+    console.error("Error in getHackathons:", error)
+    return { data: null, error }
+  }
 }
 
 export const getAllHackathons = async () => {
-  const { data, error } = await supabase.from("hackathons").select("*").order("created_at", { ascending: false })
-  return { data, error }
+  try {
+    const { data, error } = await supabase.from("hackathons").select("*").order("created_at", { ascending: false })
+    return { data, error }
+  } catch (error) {
+    console.error("Error in getAllHackathons:", error)
+    return { data: null, error }
+  }
 }
 
 export const createHackathon = async (hackathon: Omit<Hackathon, "id" | "created_at" | "updated_at">) => {
-  const currentUser = await getCurrentUser()
-  const { data, error } = await supabase
-    .from("hackathons")
-    .insert([
-      {
-        ...hackathon,
-        created_by: currentUser?.id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ])
-    .select()
-  return { data, error }
+  try {
+    const currentUser = await getCurrentUser()
+    const { data, error } = await supabase
+      .from("hackathons")
+      .insert([
+        {
+          ...hackathon,
+          created_by: currentUser?.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ])
+      .select()
+    return { data, error }
+  } catch (error) {
+    console.error("Error in createHackathon:", error)
+    return { data: null, error }
+  }
 }
 
 export const updateHackathon = async (id: string, updates: Partial<Hackathon>) => {
-  const { data, error } = await supabase
-    .from("hackathons")
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq("id", id)
-    .select()
-  return { data, error }
+  try {
+    const { data, error } = await supabase
+      .from("hackathons")
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+    return { data, error }
+  } catch (error) {
+    console.error("Error in updateHackathon:", error)
+    return { data: null, error }
+  }
 }
 
 export const deleteHackathon = async (id: string) => {
-  const { data, error } = await supabase.from("hackathons").delete().eq("id", id)
-  return { data, error }
+  try {
+    const { data, error } = await supabase.from("hackathons").delete().eq("id", id)
+    return { data, error }
+  } catch (error) {
+    console.error("Error in deleteHackathon:", error)
+    return { data: null, error }
+  }
 }
 
 export const getHackathonById = async (id: string) => {
-  const { data, error } = await supabase.from("hackathons").select("*").eq("id", id).single()
-  return { data, error }
+  try {
+    const { data, error } = await supabase.from("hackathons").select("*").eq("id", id).single()
+    return { data, error }
+  } catch (error) {
+    console.error("Error in getHackathonById:", error)
+    return { data: null, error }
+  }
 }
 
 // Get hackathon by slug
 export const getHackathonBySlug = async (slug: string) => {
-  const { data, error } = await supabase.from("hackathons").select("*").eq("slug", slug).single()
-  return { data, error }
+  try {
+    const { data, error } = await supabase.from("hackathons").select("*").eq("slug", slug).single()
+    return { data, error }
+  } catch (error) {
+    console.error("Error in getHackathonBySlug:", error)
+    return { data: null, error }
+  }
 }
 
 // Database functions for Jobs
 export const getJobs = async () => {
-  const { data, error } = await supabase
-    .from("jobs")
-    .select("*")
-    .eq("status", "active")
-    .order("posted_date", { ascending: false })
-  return { data, error }
+  try {
+    const { data, error } = await supabase
+      .from("jobs")
+      .select("*")
+      .eq("status", "active")
+      .order("posted_date", { ascending: false })
+    return { data, error }
+  } catch (error) {
+    console.error("Error in getJobs:", error)
+    return { data: null, error }
+  }
 }
 
 export const getAllJobs = async () => {
-  const { data, error } = await supabase.from("jobs").select("*").order("created_at", { ascending: false })
-  return { data, error }
+  try {
+    const { data, error } = await supabase.from("jobs").select("*").order("created_at", { ascending: false })
+    return { data, error }
+  } catch (error) {
+    console.error("Error in getAllJobs:", error)
+    return { data: null, error }
+  }
 }
 
 export const createJob = async (job: Omit<Job, "id" | "created_at" | "updated_at">) => {
-  const currentUser = await getCurrentUser()
-  const { data, error } = await supabase
-    .from("jobs")
-    .insert([
-      {
-        ...job,
-        created_by: currentUser?.id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ])
-    .select()
-  return { data, error }
+  try {
+    const currentUser = await getCurrentUser()
+    const { data, error } = await supabase
+      .from("jobs")
+      .insert([
+        {
+          ...job,
+          created_by: currentUser?.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ])
+      .select()
+    return { data, error }
+  } catch (error) {
+    console.error("Error in createJob:", error)
+    return { data: null, error }
+  }
 }
 
 export const updateJob = async (id: string, updates: Partial<Job>) => {
-  const { data, error } = await supabase
-    .from("jobs")
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq("id", id)
-    .select()
-  return { data, error }
+  try {
+    const { data, error } = await supabase
+      .from("jobs")
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+    return { data, error }
+  } catch (error) {
+    console.error("Error in updateJob:", error)
+    return { data: null, error }
+  }
 }
 
 export const deleteJob = async (id: string) => {
-  const { data, error } = await supabase.from("jobs").delete().eq("id", id)
-  return { data, error }
+  try {
+    const { data, error } = await supabase.from("jobs").delete().eq("id", id)
+    return { data, error }
+  } catch (error) {
+    console.error("Error in deleteJob:", error)
+    return { data: null, error }
+  }
 }
 
 export const getJobById = async (id: string) => {
-  const { data, error } = await supabase.from("jobs").select("*").eq("id", id).single()
-  return { data, error }
+  try {
+    const { data, error } = await supabase.from("jobs").select("*").eq("id", id).single()
+    return { data, error }
+  } catch (error) {
+    console.error("Error in getJobById:", error)
+    return { data: null, error }
+  }
 }
 
 // Database functions for Partnerships
 export const getPartnerships = async () => {
-  const { data, error } = await supabase
-    .from("community_partnerships")
-    .select("*")
-    .eq("status", "active")
-    .order("priority", { ascending: false })
-  return { data, error }
+  try {
+    const { data, error } = await supabase
+      .from("community_partnerships")
+      .select("*")
+      .eq("status", "active")
+      .order("priority", { ascending: false })
+    return { data, error }
+  } catch (error) {
+    console.error("Error in getPartnerships:", error)
+    return { data: null, error }
+  }
 }
 
 export const getAllPartnerships = async () => {
-  const { data, error } = await supabase
-    .from("community_partnerships")
-    .select("*")
-    .order("created_at", { ascending: false })
-  return { data, error }
+  try {
+    const { data, error } = await supabase
+      .from("community_partnerships")
+      .select("*")
+      .order("created_at", { ascending: false })
+    return { data, error }
+  } catch (error) {
+    console.error("Error in getAllPartnerships:", error)
+    return { data: null, error }
+  }
 }
 
 export const createPartnership = async (partnership: Omit<Partnership, "id" | "created_at" | "updated_at">) => {
-  const currentUser = await getCurrentUser()
-  const { data, error } = await supabase
-    .from("community_partnerships")
-    .insert([
-      {
-        ...partnership,
-        created_by: currentUser?.id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ])
-    .select()
-  return { data, error }
+  try {
+    const currentUser = await getCurrentUser()
+    const { data, error } = await supabase
+      .from("community_partnerships")
+      .insert([
+        {
+          ...partnership,
+          created_by: currentUser?.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ])
+      .select()
+    return { data, error }
+  } catch (error) {
+    console.error("Error in createPartnership:", error)
+    return { data: null, error }
+  }
 }
 
 export const updatePartnership = async (id: string, updates: Partial<Partnership>) => {
-  const { data, error } = await supabase
-    .from("community_partnerships")
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq("id", id)
-    .select()
-  return { data, error }
+  try {
+    const { data, error } = await supabase
+      .from("community_partnerships")
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+    return { data, error }
+  } catch (error) {
+    console.error("Error in updatePartnership:", error)
+    return { data: null, error }
+  }
 }
 
 export const deletePartnership = async (id: string) => {
-  const { data, error } = await supabase.from("community_partnerships").delete().eq("id", id)
-  return { data, error }
+  try {
+    const { data, error } = await supabase.from("community_partnerships").delete().eq("id", id)
+    return { data, error }
+  } catch (error) {
+    console.error("Error in deletePartnership:", error)
+    return { data: null, error }
+  }
 }
 
 export const getPartnershipById = async (id: string) => {
-  const { data, error } = await supabase.from("community_partnerships").select("*").eq("id", id).single()
-  return { data, error }
+  try {
+    const { data, error } = await supabase.from("community_partnerships").select("*").eq("id", id).single()
+    return { data, error }
+  } catch (error) {
+    console.error("Error in getPartnershipById:", error)
+    return { data: null, error }
+  }
 }
 
 // User Management Functions
 export const getAllUsers = async () => {
-  const { data, error } = await supabase.from("users").select("*").order("created_at", { ascending: false })
-  return { data, error }
+  try {
+    const { data, error } = await supabase.from("users").select("*").order("created_at", { ascending: false })
+    return { data, error }
+  } catch (error) {
+    console.error("Error in getAllUsers:", error)
+    return { data: null, error }
+  }
 }
 
 export const updateUserRole = async (userId: string, role: "user" | "admin") => {
-  const { data, error } = await supabase
-    .from("users")
-    .update({ role, updated_at: new Date().toISOString() })
-    .eq("id", userId)
-    .select()
-  return { data, error }
+  try {
+    const { data, error } = await supabase
+      .from("users")
+      .update({ role, updated_at: new Date().toISOString() })
+      .eq("id", userId)
+      .select()
+    return { data, error }
+  } catch (error) {
+    console.error("Error in updateUserRole:", error)
+    return { data: null, error }
+  }
 }
 
 export const deleteUser = async (userId: string) => {
-  const { data, error } = await supabase.from("users").delete().eq("id", userId)
-  return { data, error }
+  try {
+    const { data, error } = await supabase.from("users").delete().eq("id", userId)
+    return { data, error }
+  } catch (error) {
+    console.error("Error in deleteUser:", error)
+    return { data: null, error }
+  }
 }
 
 // Communities
 export const getCommunities = async () => {
-  const { data, error } = await supabase
-    .from("communities")
-    .select("*")
-    .eq("status", "active")
-    .order("member_count", { ascending: false })
-  return { data, error }
+  try {
+    const { data, error } = await supabase
+      .from("communities")
+      .select("*")
+      .eq("status", "active")
+      .order("member_count", { ascending: false })
+    return { data, error }
+  } catch (error) {
+    console.error("Error in getCommunities:", error)
+    return { data: null, error }
+  }
 }
 
 // Hackathon registration functions with email integration
@@ -933,73 +1119,93 @@ export const getDetailedAnalytics = async () => {
 
 // Search functions
 export const searchCourses = async (query: string, category?: string) => {
-  let queryBuilder = supabase.from("courses").select("*").eq("status", "active")
+  try {
+    let queryBuilder = supabase.from("courses").select("*").eq("status", "active")
 
-  if (query) {
-    queryBuilder = queryBuilder.or(`title.ilike.%${query}%,description.ilike.%${query}%,technologies.cs.{${query}}`)
+    if (query) {
+      queryBuilder = queryBuilder.or(`title.ilike.%${query}%,description.ilike.%${query}%,technologies.cs.{${query}}`)
+    }
+
+    if (category && category !== "All") {
+      queryBuilder = queryBuilder.eq("category", category)
+    }
+
+    const { data, error } = await queryBuilder.order("created_at", { ascending: false })
+    return { data, error }
+  } catch (error) {
+    console.error("Error in searchCourses:", error)
+    return { data: null, error }
   }
-
-  if (category && category !== "All") {
-    queryBuilder = queryBuilder.eq("category", category)
-  }
-
-  const { data, error } = await queryBuilder.order("created_at", { ascending: false })
-  return { data, error }
 }
 
 export const searchHackathons = async (query: string, status?: string) => {
-  let queryBuilder = supabase.from("hackathons").select("*")
+  try {
+    let queryBuilder = supabase.from("hackathons").select("*")
 
-  if (query) {
-    queryBuilder = queryBuilder.or(
-      `title.ilike.%${query}%,description.ilike.%${query}%,location.ilike.%${query}%,technologies.cs.{${query}}`,
-    )
+    if (query) {
+      queryBuilder = queryBuilder.or(
+        `title.ilike.%${query}%,description.ilike.%${query}%,location.ilike.%${query}%,technologies.cs.{${query}}`,
+      )
+    }
+
+    if (status && status !== "all") {
+      queryBuilder = queryBuilder.eq("status", status)
+    }
+
+    const { data, error } = await queryBuilder.order("start_date", { ascending: true })
+    return { data, error }
+  } catch (error) {
+    console.error("Error in searchHackathons:", error)
+    return { data: null, error }
   }
-
-  if (status && status !== "all") {
-    queryBuilder = queryBuilder.eq("status", status)
-  }
-
-  const { data, error } = await queryBuilder.order("start_date", { ascending: true })
-  return { data, error }
 }
 
 export const searchJobs = async (query: string, type?: string, experience?: string) => {
-  let queryBuilder = supabase.from("jobs").select("*").eq("status", "active")
+  try {
+    let queryBuilder = supabase.from("jobs").select("*").eq("status", "active")
 
-  if (query) {
-    queryBuilder = queryBuilder.or(
-      `title.ilike.%${query}%,company.ilike.%${query}%,description.ilike.%${query}%,technologies.cs.{${query}}`,
-    )
+    if (query) {
+      queryBuilder = queryBuilder.or(
+        `title.ilike.%${query}%,company.ilike.%${query}%,description.ilike.%${query}%,technologies.cs.{${query}}`,
+      )
+    }
+
+    if (type && type !== "All") {
+      queryBuilder = queryBuilder.eq("type", type)
+    }
+
+    if (experience && experience !== "All") {
+      queryBuilder = queryBuilder.eq("experience", experience)
+    }
+
+    const { data, error } = await queryBuilder.order("posted_date", { ascending: false })
+    return { data, error }
+  } catch (error) {
+    console.error("Error in searchJobs:", error)
+    return { data: null, error }
   }
-
-  if (type && type !== "All") {
-    queryBuilder = queryBuilder.eq("type", type)
-  }
-
-  if (experience && experience !== "All") {
-    queryBuilder = queryBuilder.eq("experience", experience)
-  }
-
-  const { data, error } = await queryBuilder.order("posted_date", { ascending: false })
-  return { data, error }
 }
 
 export const searchPartnerships = async (query: string, type?: string) => {
-  let queryBuilder = supabase.from("community_partnerships").select("*").eq("status", "active")
+  try {
+    let queryBuilder = supabase.from("community_partnerships").select("*").eq("status", "active")
 
-  if (query) {
-    queryBuilder = queryBuilder.or(
-      `title.ilike.%${query}%,description.ilike.%${query}%,partner_name.ilike.%${query}%,tags.cs.{${query}}`,
-    )
+    if (query) {
+      queryBuilder = queryBuilder.or(
+        `title.ilike.%${query}%,description.ilike.%${query}%,partner_name.ilike.%${query}%,tags.cs.{${query}}`,
+      )
+    }
+
+    if (type && type !== "all") {
+      queryBuilder = queryBuilder.eq("partnership_type", type)
+    }
+
+    const { data, error } = await queryBuilder.order("priority", { ascending: false })
+    return { data, error }
+  } catch (error) {
+    console.error("Error in searchPartnerships:", error)
+    return { data: null, error }
   }
-
-  if (type && type !== "all") {
-    queryBuilder = queryBuilder.eq("partnership_type", type)
-  }
-
-  const { data, error } = await queryBuilder.order("priority", { ascending: false })
-  return { data, error }
 }
 
 // Utility function to generate slug from title

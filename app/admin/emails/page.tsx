@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -12,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { getCurrentUser, type User } from "@/lib/supabase"
 import type { EmailNotification } from "@/lib/email"
-import { Mail, Send, TrendingUp, AlertCircle, CheckCircle, Clock, Search } from "lucide-react"
+import { Mail, Send, TrendingUp, AlertCircle, CheckCircle, Clock, Search, RefreshCw, AlertTriangle } from "lucide-react"
 
 interface EmailStats {
   total: number
@@ -31,6 +30,8 @@ export default function AdminEmailsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [filterType, setFilterType] = useState<string>("all")
   const [filterStatus, setFilterStatus] = useState<string>("all")
+  const [error, setError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const router = useRouter()
 
   // Email form state
@@ -41,12 +42,17 @@ export default function AdminEmailsPage() {
     type: "admin_notification" as EmailNotification["type"],
   })
 
-  useEffect(() => {
-    loadEmailData()
+  const clearMessages = useCallback(() => {
+    setError(null)
+    setSuccessMessage(null)
   }, [])
 
-  const loadEmailData = async () => {
+  const loadEmailData = useCallback(async () => {
     try {
+      setLoading(true)
+      setError(null)
+
+      // Check authentication first
       const currentUser = await getCurrentUser()
       if (!currentUser) {
         router.push("/")
@@ -60,26 +66,91 @@ export default function AdminEmailsPage() {
 
       setUser(currentUser)
 
-      // Load email notifications and stats
-      const [notificationsData, statsData] = await Promise.all([
-        fetch("/api/emails/notifications").then((res) => res.json()),
-        fetch("/api/emails/notifications?stats=true").then((res) => res.json()),
-      ])
+      // Load email notifications and stats with proper error handling
+      try {
+        const [notificationsResponse, statsResponse] = await Promise.all([
+          fetch("/api/emails/notifications", {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }),
+          fetch("/api/emails/notifications?stats=true", {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }),
+        ])
 
-      setNotifications(notificationsData)
-      setStats(statsData)
+        // Handle notifications response
+        if (notificationsResponse.ok) {
+          const notificationsData = await notificationsResponse.json()
+          setNotifications(Array.isArray(notificationsData) ? notificationsData : [])
+        } else {
+          const errorData = await notificationsResponse.json().catch(() => ({ error: "Failed to parse response" }))
+          console.error("Failed to load notifications:", errorData)
+          setNotifications([])
+        }
+
+        // Handle stats response
+        if (statsResponse.ok) {
+          const statsData = await statsResponse.json()
+          setStats(statsData)
+        } else {
+          const errorData = await statsResponse.json().catch(() => ({ error: "Failed to parse response" }))
+          console.error("Failed to load stats:", errorData)
+          setStats({
+            total: 0,
+            sent: 0,
+            failed: 0,
+            today: 0,
+            success_rate: 0,
+          })
+        }
+      } catch (fetchError) {
+        console.error("Error fetching email data:", fetchError)
+        setError("Failed to load email data. Please check your connection and try again.")
+        setNotifications([])
+        setStats({
+          total: 0,
+          sent: 0,
+          failed: 0,
+          today: 0,
+          success_rate: 0,
+        })
+      }
     } catch (error) {
       console.error("Error loading email data:", error)
+      setError("Failed to load email management page. Please try again.")
     } finally {
       setLoading(false)
     }
-  }
+  }, [router])
+
+  useEffect(() => {
+    loadEmailData()
+  }, [loadEmailData])
 
   const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault()
     setSendingEmail(true)
+    clearMessages()
 
     try {
+      // Validate form data
+      if (!emailForm.to || !emailForm.subject || !emailForm.html) {
+        setError("Please fill in all required fields")
+        return
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(emailForm.to)) {
+        setError("Please enter a valid email address")
+        return
+      }
+
       const response = await fetch("/api/emails/send", {
         method: "POST",
         headers: {
@@ -91,20 +162,21 @@ export default function AdminEmailsPage() {
       const result = await response.json()
 
       if (result.success) {
-        alert("Email sent successfully!")
+        setSuccessMessage("Email sent successfully!")
         setEmailForm({
           to: "",
           subject: "",
           html: "",
           type: "admin_notification",
         })
-        loadEmailData() // Refresh the notifications list
+        // Refresh the notifications list
+        await loadEmailData()
       } else {
-        alert(`Failed to send email: ${result.error}`)
+        setError(`Failed to send email: ${result.error || "Unknown error"}`)
       }
     } catch (error) {
       console.error("Error sending email:", error)
-      alert("Error sending email")
+      setError("Error sending email. Please check your connection and try again.")
     } finally {
       setSendingEmail(false)
     }
@@ -124,7 +196,10 @@ export default function AdminEmailsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-black pt-20 flex items-center justify-center">
-        <div className="text-white text-xl">Loading email management...</div>
+        <div className="text-white text-xl flex items-center">
+          <RefreshCw className="w-6 h-6 mr-2 animate-spin" />
+          Loading email management...
+        </div>
       </div>
     )
   }
@@ -132,7 +207,13 @@ export default function AdminEmailsPage() {
   if (!user || user.role !== "admin") {
     return (
       <div className="min-h-screen bg-black pt-20 flex items-center justify-center">
-        <div className="text-white text-xl">Access denied. Admin privileges required.</div>
+        <div className="text-center">
+          <AlertTriangle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+          <div className="text-white text-xl mb-4">Access denied. Admin privileges required.</div>
+          <Button onClick={() => router.push("/dashboard")} className="bg-yellow-400 hover:bg-yellow-500 text-black">
+            Go to Dashboard
+          </Button>
+        </div>
       </div>
     )
   }
@@ -147,6 +228,37 @@ export default function AdminEmailsPage() {
           </h1>
           <p className="text-gray-300 text-lg">Manage email notifications and campaigns</p>
         </div>
+
+        {/* Error/Success Messages */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-900/50 border border-red-700 rounded-lg flex items-center">
+            <AlertCircle className="w-5 h-5 text-red-400 mr-2" />
+            <span className="text-red-200">{error}</span>
+            <Button
+              onClick={clearMessages}
+              variant="ghost"
+              size="sm"
+              className="ml-auto text-red-200 hover:text-red-100"
+            >
+              ×
+            </Button>
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="mb-6 p-4 bg-green-900/50 border border-green-700 rounded-lg flex items-center">
+            <CheckCircle className="w-5 h-5 text-green-400 mr-2" />
+            <span className="text-green-200">{successMessage}</span>
+            <Button
+              onClick={clearMessages}
+              variant="ghost"
+              size="sm"
+              className="ml-auto text-green-200 hover:text-green-100"
+            >
+              ×
+            </Button>
+          </div>
+        )}
 
         {/* Email Stats */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
@@ -227,7 +339,7 @@ export default function AdminEmailsPage() {
               <form onSubmit={handleSendEmail} className="space-y-4">
                 <div>
                   <Label htmlFor="to" className="text-white">
-                    To Email
+                    To Email *
                   </Label>
                   <Input
                     id="to"
@@ -248,7 +360,7 @@ export default function AdminEmailsPage() {
                     id="type"
                     value={emailForm.type}
                     onChange={(e) => setEmailForm({ ...emailForm, type: e.target.value as EmailNotification["type"] })}
-                    className="w-full p-2 bg-gray-800 border border-gray-700 text-white rounded-md"
+                    className="w-full p-2 bg-gray-800 border border-gray-700 text-white rounded-md focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
                   >
                     <option value="admin_notification">Admin Notification</option>
                     <option value="welcome">Welcome Email</option>
@@ -262,7 +374,7 @@ export default function AdminEmailsPage() {
 
                 <div>
                   <Label htmlFor="subject" className="text-white">
-                    Subject
+                    Subject *
                   </Label>
                   <Input
                     id="subject"
@@ -276,7 +388,7 @@ export default function AdminEmailsPage() {
 
                 <div>
                   <Label htmlFor="html" className="text-white">
-                    HTML Content
+                    HTML Content *
                   </Label>
                   <Textarea
                     id="html"
@@ -292,7 +404,7 @@ export default function AdminEmailsPage() {
                 <Button
                   type="submit"
                   disabled={sendingEmail}
-                  className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
+                  className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold disabled:opacity-50"
                 >
                   {sendingEmail ? (
                     <>
@@ -325,7 +437,18 @@ export default function AdminEmailsPage() {
                   setEmailForm({
                     ...emailForm,
                     subject: "🎉 Welcome to Apna Coding!",
-                    html: `<h1>Welcome!</h1><p>Thank you for joining Apna Coding. We're excited to have you!</p>`,
+                    html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px; overflow: hidden;">
+                      <div style="padding: 40px 30px; text-align: center;">
+                        <h1 style="margin: 0 0 20px 0; font-size: 28px;">Welcome to Apna Coding! 🚀</h1>
+                        <p style="font-size: 18px; margin: 0 0 30px 0;">Hi there,</p>
+                        <p style="font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+                          Thank you for joining Apna Coding! We're excited to have you as part of our community.
+                        </p>
+                        <a href="https://apnacoding.tech/dashboard" style="display: inline-block; background: #FFD700; color: #333; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold;">
+                          Get Started Now 🎯
+                        </a>
+                      </div>
+                    </div>`,
                     type: "welcome",
                   })
                 }
@@ -339,7 +462,18 @@ export default function AdminEmailsPage() {
                   setEmailForm({
                     ...emailForm,
                     subject: "🏆 Hackathon Registration Confirmed",
-                    html: `<h1>Registration Confirmed!</h1><p>You've successfully registered for the hackathon.</p>`,
+                    html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); color: white; border-radius: 10px; overflow: hidden;">
+                      <div style="padding: 40px 30px; text-align: center;">
+                        <h1 style="margin: 0 0 20px 0; font-size: 28px;">🎉 Registration Confirmed!</h1>
+                        <p style="font-size: 18px; margin: 0 0 20px 0;">Hi there,</p>
+                        <p style="font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+                          You've successfully registered for the hackathon.
+                        </p>
+                        <a href="https://apnacoding.tech/hackathons" style="display: inline-block; background: #FFD700; color: #333; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold;">
+                          View Details 🏆
+                        </a>
+                      </div>
+                    </div>`,
                     type: "hackathon_registration",
                   })
                 }
@@ -353,7 +487,18 @@ export default function AdminEmailsPage() {
                   setEmailForm({
                     ...emailForm,
                     subject: "📚 Course Enrollment Confirmed",
-                    html: `<h1>Course Enrollment!</h1><p>You've successfully enrolled in the course.</p>`,
+                    html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #10ac84 0%, #1dd1a1 100%); color: white; border-radius: 10px; overflow: hidden;">
+                      <div style="padding: 40px 30px; text-align: center;">
+                        <h1 style="margin: 0 0 20px 0; font-size: 28px;">📚 Course Enrollment!</h1>
+                        <p style="font-size: 18px; margin: 0 0 20px 0;">Hi there,</p>
+                        <p style="font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+                          You've successfully enrolled in the course.
+                        </p>
+                        <a href="https://apnacoding.tech/courses" style="display: inline-block; background: #FFD700; color: #333; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold;">
+                          Start Learning 📖
+                        </a>
+                      </div>
+                    </div>`,
                     type: "course_enrollment",
                   })
                 }
@@ -367,7 +512,18 @@ export default function AdminEmailsPage() {
                   setEmailForm({
                     ...emailForm,
                     subject: "⏰ Hackathon Reminder",
-                    html: `<h1>Reminder!</h1><p>Don't forget about the upcoming hackathon.</p>`,
+                    html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); color: white; border-radius: 10px; overflow: hidden;">
+                      <div style="padding: 40px 30px; text-align: center;">
+                        <h1 style="margin: 0 0 20px 0; font-size: 28px;">⏰ Reminder!</h1>
+                        <p style="font-size: 18px; margin: 0 0 20px 0;">Hi there,</p>
+                        <p style="font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+                          Don't forget about the upcoming hackathon.
+                        </p>
+                        <a href="https://apnacoding.tech/hackathons" style="display: inline-block; background: #FFD700; color: #333; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold;">
+                          View Details ⚡
+                        </a>
+                      </div>
+                    </div>`,
                     type: "hackathon_reminder",
                   })
                 }
@@ -388,6 +544,7 @@ export default function AdminEmailsPage() {
                 Email Notifications
               </div>
               <Button onClick={loadEmailData} className="bg-gray-700 hover:bg-gray-600 text-white">
+                <RefreshCw className="w-4 h-4 mr-2" />
                 Refresh
               </Button>
             </CardTitle>
@@ -413,7 +570,7 @@ export default function AdminEmailsPage() {
               <select
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
-                className="px-3 py-2 bg-gray-800 border border-gray-700 text-white rounded-md"
+                className="px-3 py-2 bg-gray-800 border border-gray-700 text-white rounded-md focus:ring-2 focus:ring-yellow-400"
               >
                 <option value="all">All Types</option>
                 <option value="welcome">Welcome</option>
@@ -427,7 +584,7 @@ export default function AdminEmailsPage() {
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-3 py-2 bg-gray-800 border border-gray-700 text-white rounded-md"
+                className="px-3 py-2 bg-gray-800 border border-gray-700 text-white rounded-md focus:ring-2 focus:ring-yellow-400"
               >
                 <option value="all">All Status</option>
                 <option value="sent">Sent</option>
@@ -439,7 +596,11 @@ export default function AdminEmailsPage() {
             {/* Notifications List */}
             <div className="space-y-4 max-h-96 overflow-y-auto">
               {filteredNotifications.length === 0 ? (
-                <div className="text-center py-8 text-gray-400">No email notifications found</div>
+                <div className="text-center py-8 text-gray-400">
+                  <Mail className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>No email notifications found</p>
+                  <p className="text-sm mt-2">Try adjusting your search filters</p>
+                </div>
               ) : (
                 filteredNotifications.map((notification) => (
                   <div key={notification.id} className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">

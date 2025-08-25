@@ -1,6 +1,6 @@
 import { Resend } from "resend"
 
-const resend = new Resend("re_BeEhCc1J_7xErHGLk3bqotzaoSSXJgEQU")
+const resend = new Resend(process.env.RESEND_API_KEY || "re_BeEhCc1J_7xErHGLk3bqotzaoSSXJgEQU")
 
 export interface EmailTemplate {
   subject: string
@@ -236,10 +236,15 @@ export async function sendEmail(
   userId?: string,
 ): Promise<{ success: boolean; error?: string; emailId?: string }> {
   try {
+    // Validate inputs
+    if (!to || !subject || !html) {
+      return { success: false, error: "Missing required fields: to, subject, html" }
+    }
+
     // Send email via Resend
     const { data, error } = await resend.emails.send({
-      from: "Apna Coding <onboarding@resend.dev>",
-      to,
+      from: "Apna Coding <noreply@apnacoding.tech>",
+      to: [to],
       subject,
       html,
     })
@@ -306,43 +311,44 @@ export async function sendBatchEmails(
   }>,
 ): Promise<{ success: boolean; results: Array<{ success: boolean; error?: string }> }> {
   try {
-    const batchData = emails.map((email) => ({
-      from: "Apna Coding <onboarding@resend.dev>",
-      to: email.to,
-      subject: email.subject,
-      html: email.html,
-    }))
-
-    const { data, error } = await resend.batch.send(batchData)
-
-    if (error) {
-      console.error("Batch email error:", error)
-      return { success: false, results: [{ success: false, error: error.message }] }
+    if (!emails || emails.length === 0) {
+      return { success: false, results: [{ success: false, error: "No emails provided" }] }
     }
 
-    // Log all emails to database
-    const results = await Promise.all(
-      emails.map(async (email, index) => {
-        try {
-          await logEmailNotification({
-            user_id: email.userId,
-            email: email.to,
-            subject: email.subject,
-            content: email.html,
-            type: email.type || "admin_notification",
-            status: "sent",
-            sent_at: new Date().toISOString(),
-            created_at: new Date().toISOString(),
-          })
-          return { success: true }
-        } catch (err) {
-          return { success: false, error: err instanceof Error ? err.message : "Unknown error" }
-        }
-      }),
-    )
+    const results = []
+    let successCount = 0
+    let failureCount = 0
 
-    console.log("Batch emails sent successfully:", data)
-    return { success: true, results }
+    // Send emails individually to handle errors properly
+    for (const email of emails) {
+      try {
+        const result = await sendEmail(
+          email.to,
+          email.subject,
+          email.html,
+          email.type || "admin_notification",
+          email.userId,
+        )
+
+        if (result.success) {
+          successCount++
+          results.push({ success: true })
+        } else {
+          failureCount++
+          results.push({ success: false, error: result.error })
+        }
+
+        // Add small delay to avoid rate limiting
+        await new Promise((resolve) => setTimeout(resolve, 100))
+      } catch (error) {
+        failureCount++
+        console.error(`Error sending email to ${email.to}:`, error)
+        results.push({ success: false, error: error instanceof Error ? error.message : "Unknown error" })
+      }
+    }
+
+    console.log(`Batch emails completed: ${successCount} successful, ${failureCount} failed`)
+    return { success: successCount > 0, results }
   } catch (err) {
     console.error("Batch email sending error:", err)
     return {
@@ -421,7 +427,8 @@ export async function sendHackathonReminder(
 async function logEmailNotification(notification: Omit<EmailNotification, "id">) {
   try {
     // Import supabase here to avoid circular dependencies
-    const { supabase } = await import("./supabase")
+    const { createClientComponentClient } = await import("./supabase-client")
+    const supabase = createClientComponentClient()
 
     const { data, error } = await supabase.from("email_notifications").insert([notification]).select().single()
 
@@ -440,7 +447,8 @@ async function logEmailNotification(notification: Omit<EmailNotification, "id">)
 // Get email notifications for admin dashboard
 export async function getEmailNotifications(limit = 50) {
   try {
-    const { supabase } = await import("./supabase")
+    const { createClientComponentClient } = await import("./supabase-client")
+    const supabase = createClientComponentClient()
 
     const { data, error } = await supabase
       .from("email_notifications")
@@ -463,7 +471,8 @@ export async function getEmailNotifications(limit = 50) {
 // Get email statistics
 export async function getEmailStats() {
   try {
-    const { supabase } = await import("./supabase")
+    const { createClientComponentClient } = await import("./supabase-client")
+    const supabase = createClientComponentClient()
 
     const [totalResult, sentResult, failedResult, todayResult] = await Promise.all([
       supabase.from("email_notifications").select("id", { count: "exact" }),
