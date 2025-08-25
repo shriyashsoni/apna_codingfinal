@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { getCurrentUser, type User } from "@/lib/supabase"
+import { getCurrentUser, type User, getSession } from "@/lib/supabase"
 import type { EmailNotification } from "@/lib/email"
 import { Mail, Send, TrendingUp, AlertCircle, CheckCircle, Clock, Search, RefreshCw, AlertTriangle } from "lucide-react"
 
@@ -47,6 +47,26 @@ export default function AdminEmailsPage() {
     setSuccessMessage(null)
   }, [])
 
+  const getAuthHeaders = useCallback(async () => {
+    try {
+      const session = await getSession()
+      if (session?.access_token) {
+        return {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        }
+      }
+      return {
+        "Content-Type": "application/json",
+      }
+    } catch (error) {
+      console.error("Error getting auth headers:", error)
+      return {
+        "Content-Type": "application/json",
+      }
+    }
+  }, [])
+
   const loadEmailData = useCallback(async () => {
     try {
       setLoading(true)
@@ -59,27 +79,26 @@ export default function AdminEmailsPage() {
         return
       }
 
-      if (currentUser.role !== "admin") {
+      if (currentUser.role !== "admin" && currentUser.email !== "sonishriyash@gmail.com") {
         router.push("/dashboard")
         return
       }
 
       setUser(currentUser)
 
+      // Get auth headers
+      const headers = await getAuthHeaders()
+
       // Load email notifications and stats with proper error handling
       try {
         const [notificationsResponse, statsResponse] = await Promise.all([
           fetch("/api/emails/notifications", {
             method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-            },
+            headers,
           }),
           fetch("/api/emails/notifications?stats=true", {
             method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-            },
+            headers,
           }),
         ])
 
@@ -91,6 +110,11 @@ export default function AdminEmailsPage() {
           const errorData = await notificationsResponse.json().catch(() => ({ error: "Failed to parse response" }))
           console.error("Failed to load notifications:", errorData)
           setNotifications([])
+          if (notificationsResponse.status === 401) {
+            setError("Authentication failed. Please log in again.")
+            router.push("/")
+            return
+          }
         }
 
         // Handle stats response
@@ -126,7 +150,7 @@ export default function AdminEmailsPage() {
     } finally {
       setLoading(false)
     }
-  }, [router])
+  }, [router, getAuthHeaders])
 
   useEffect(() => {
     loadEmailData()
@@ -151,11 +175,12 @@ export default function AdminEmailsPage() {
         return
       }
 
+      // Get auth headers
+      const headers = await getAuthHeaders()
+
       const response = await fetch("/api/emails/send", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify(emailForm),
       })
 
@@ -172,6 +197,11 @@ export default function AdminEmailsPage() {
         // Refresh the notifications list
         await loadEmailData()
       } else {
+        if (response.status === 401) {
+          setError("Authentication failed. Please log in again.")
+          router.push("/")
+          return
+        }
         setError(`Failed to send email: ${result.error || "Unknown error"}`)
       }
     } catch (error) {
@@ -204,7 +234,7 @@ export default function AdminEmailsPage() {
     )
   }
 
-  if (!user || user.role !== "admin") {
+  if (!user || (user.role !== "admin" && user.email !== "sonishriyash@gmail.com")) {
     return (
       <div className="min-h-screen bg-black pt-20 flex items-center justify-center">
         <div className="text-center">

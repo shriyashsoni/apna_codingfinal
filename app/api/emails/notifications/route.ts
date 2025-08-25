@@ -1,77 +1,128 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerComponentClient } from "@/lib/supabase"
+import { cookies } from "next/headers"
+import { createClient } from "@supabase/supabase-js"
 import { getEmailNotifications, getEmailStats } from "@/lib/email"
 
 export async function GET(request: NextRequest) {
   try {
-    // Get current user and verify admin access
-    const supabase = createServerComponentClient()
+    // Create Supabase client with service role for server-side operations
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
 
-    let user
-    try {
-      const {
-        data: { user: authUser },
-        error: authError,
-      } = await supabase.auth.getUser()
+    // Get the authorization header
+    const authHeader = request.headers.get("authorization")
+    let user = null
 
-      if (authError || !authUser) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.substring(7)
+      try {
+        const {
+          data: { user: authUser },
+          error: authError,
+        } = await supabase.auth.getUser(token)
+        if (!authError && authUser) {
+          user = authUser
+        }
+      } catch (tokenError) {
+        console.error("Token verification error:", tokenError)
       }
+    }
 
-      user = authUser
-    } catch (authError) {
-      console.error("Authentication error:", authError)
-      return NextResponse.json({ error: "Authentication failed" }, { status: 401 })
+    // If no user from token, try to get from cookies (for browser requests)
+    if (!user) {
+      try {
+        const cookieStore = await cookies()
+        const accessToken = cookieStore.get("sb-access-token")?.value
+
+        if (accessToken) {
+          const {
+            data: { user: cookieUser },
+            error: cookieError,
+          } = await supabase.auth.getUser(accessToken)
+          if (!cookieError && cookieUser) {
+            user = cookieUser
+          }
+        }
+      } catch (cookieError) {
+        console.error("Cookie auth error:", cookieError)
+      }
+    }
+
+    // If still no user, try client-side supabase
+    if (!user) {
+      try {
+        const clientSupabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        )
+
+        const {
+          data: { session },
+          error: sessionError,
+        } = await clientSupabase.auth.getSession()
+        if (!sessionError && session?.user) {
+          user = session.user
+        }
+      } catch (sessionError) {
+        console.error("Session error:", sessionError)
+      }
+    }
+
+    if (!user) {
+      return NextResponse.json({ success: false, error: "Unauthorized - Please log in" }, { status: 401 })
     }
 
     // Check if user is admin
     try {
       const { data: profile, error: profileError } = await supabase
         .from("users")
-        .select("role")
+        .select("role, email")
         .eq("id", user.id)
         .single()
 
-      if (profileError || !profile || profile.role !== "admin") {
-        return NextResponse.json({ error: "Admin access required" }, { status: 403 })
+      // If profile doesn't exist, check if user email is admin email
+      if (profileError || !profile) {
+        if (user.email === "sonishriyash@gmail.com") {
+          // Create admin profile if it doesn't exist
+          await supabase.from("users").upsert({
+            id: user.id,
+            email: user.email,
+            full_name: user.user_metadata?.full_name || user.user_metadata?.name || "Admin",
+            role: "admin",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+        } else {
+          return NextResponse.json({ success: false, error: "Admin access required" }, { status: 403 })
+        }
+      } else if (profile.role !== "admin" && profile.email !== "sonishriyash@gmail.com") {
+        return NextResponse.json({ success: false, error: "Admin access required" }, { status: 403 })
       }
     } catch (profileError) {
       console.error("Profile check error:", profileError)
-      return NextResponse.json({ error: "Failed to verify admin access" }, { status: 500 })
+      // If there's an error checking profile, allow if user email is admin email
+      if (user.email !== "sonishriyash@gmail.com") {
+        return NextResponse.json({ success: false, error: "Failed to verify admin access" }, { status: 500 })
+      }
     }
 
-    // Parse query parameters
+    // Check if requesting stats
     const { searchParams } = new URL(request.url)
-    const limit = Number.parseInt(searchParams.get("limit") || "50")
-    const stats = searchParams.get("stats") === "true"
+    const isStats = searchParams.get("stats") === "true"
 
-    if (stats) {
-      // Return email statistics
-      try {
-        const emailStats = await getEmailStats()
-        return NextResponse.json(emailStats)
-      } catch (statsError) {
-        console.error("Error getting email stats:", statsError)
-        return NextResponse.json({
-          total: 0,
-          sent: 0,
-          failed: 0,
-          today: 0,
-          success_rate: 0,
-        })
-      }
+    if (isStats) {
+      const stats = await getEmailStats()
+      return NextResponse.json(stats)
     } else {
-      // Return email notifications list
-      try {
-        const notifications = await getEmailNotifications(limit)
-        return NextResponse.json(notifications)
-      } catch (notificationsError) {
-        console.error("Error getting email notifications:", notificationsError)
-        return NextResponse.json([])
-      }
+      const notifications = await getEmailNotifications()
+      return NextResponse.json(notifications)
     }
   } catch (error) {
     console.error("Email notifications API error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
   }
 }
