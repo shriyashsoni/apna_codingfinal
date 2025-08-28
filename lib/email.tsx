@@ -15,7 +15,6 @@ export interface EmailNotification {
   content: string
   type:
     | "welcome"
-    | "event_registration"
     | "hackathon_registration"
     | "course_enrollment"
     | "job_application"
@@ -46,8 +45,8 @@ export const emailTemplates = {
           <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; margin: 30px 0;">
             <h3 style="margin: 0 0 15px 0;">🎯 What's Next?</h3>
             <ul style="text-align: left; padding-left: 20px; line-height: 1.8;">
-              <li>Explore our latest events and workshops</li>
-              <li>Join exciting hackathons and competitions</li>
+              <li>Explore our latest hackathons and competitions</li>
+              <li>Browse premium courses and tutorials</li>
               <li>Check out job opportunities from top companies</li>
               <li>Connect with fellow developers in our community</li>
             </ul>
@@ -64,50 +63,8 @@ export const emailTemplates = {
     `,
   }),
 
-  eventRegistration: (
-    userName: string,
-    eventTitle: string,
-    eventDate: string,
-    eventLocation: string,
-  ): EmailTemplate => ({
-    subject: `🎉 Event Registration Confirmed: ${eventTitle}`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px; overflow: hidden;">
-        <div style="padding: 40px 30px; text-align: center;">
-          <h1 style="margin: 0 0 20px 0; font-size: 28px;">🎉 Registration Confirmed!</h1>
-          <p style="font-size: 18px; margin: 0 0 20px 0;">Hi ${userName},</p>
-          <p style="font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
-            Congratulations! You've successfully registered for <strong>${eventTitle}</strong>.
-          </p>
-          <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; margin: 30px 0;">
-            <h3 style="margin: 0 0 15px 0;">📅 Event Details</h3>
-            <p style="margin: 0 0 10px 0;"><strong>Event:</strong> ${eventTitle}</p>
-            <p style="margin: 0 0 10px 0;"><strong>Date:</strong> ${eventDate}</p>
-            <p style="margin: 0;"><strong>Location:</strong> ${eventLocation}</p>
-          </div>
-          <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; margin: 30px 0;">
-            <h3 style="margin: 0 0 15px 0;">🚀 Next Steps</h3>
-            <ul style="text-align: left; padding-left: 20px; line-height: 1.8;">
-              <li>Add the event to your calendar</li>
-              <li>Prepare any required materials</li>
-              <li>Join our community for updates</li>
-              <li>Arrive 15 minutes early</li>
-            </ul>
-          </div>
-          <a href="https://apnacoding.tech/events" style="display: inline-block; background: #FFD700; color: #333; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; margin: 20px 0;">
-            View Event Details 🎉
-          </a>
-          <p style="font-size: 14px; margin: 30px 0 0 0; opacity: 0.8;">
-            See you at the event!<br>
-            Team Apna Coding
-          </p>
-        </div>
-      </div>
-    `,
-  }),
-
   hackathonRegistration: (userName: string, hackathonTitle: string, hackathonDate: string): EmailTemplate => ({
-    subject: `🏆 Hackathon Registration Confirmed: ${hackathonTitle}`,
+    subject: `🏆 Registration Confirmed: ${hackathonTitle}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); color: white; border-radius: 10px; overflow: hidden;">
         <div style="padding: 40px 30px; text-align: center;">
@@ -118,7 +75,7 @@ export const emailTemplates = {
           </p>
           <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; margin: 30px 0;">
             <h3 style="margin: 0 0 15px 0;">📅 Event Details</h3>
-            <p style="margin: 0 0 10px 0;"><strong>Hackathon:</strong> ${hackathonTitle}</p>
+            <p style="margin: 0 0 10px 0;"><strong>Event:</strong> ${hackathonTitle}</p>
             <p style="margin: 0;"><strong>Date:</strong> ${hackathonDate}</p>
           </div>
           <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; margin: 30px 0;">
@@ -141,9 +98,186 @@ export const emailTemplates = {
       </div>
     `,
   }),
+
+  courseEnrollment: (userName: string, courseTitle: string, instructor: string): EmailTemplate => ({
+    subject: `📚 Course Enrollment Confirmed: ${courseTitle}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; border-radius: 10px; overflow: hidden;">
+        <div style="padding: 40px 30px; text-align: center;">
+          <h1 style="margin: 0 0 20px 0; font-size: 28px;">📚 Course Enrollment Confirmed!</h1>
+          <p style="font-size: 18px; margin: 0 0 20px 0;">Hi ${userName},</p>
+          <p style="font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+            Great choice! You've successfully enrolled in <strong>${courseTitle}</strong>.
+          </p>
+          <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; margin: 30px 0;">
+            <h3 style="margin: 0 0 15px 0;">📖 Course Details</h3>
+            <p style="margin: 0 0 10px 0;"><strong>Course:</strong> ${courseTitle}</p>
+            <p style="margin: 0;"><strong>Instructor:</strong> ${instructor}</p>
+          </div>
+          <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; margin: 30px 0;">
+            <h3 style="margin: 0 0 15px 0;">🎯 What's Included</h3>
+            <ul style="text-align: left; padding-left: 20px; line-height: 1.8;">
+              <li>Comprehensive video lectures</li>
+              <li>Hands-on coding exercises</li>
+              <li>Real-world projects</li>
+              <li>Certificate of completion</li>
+              <li>Lifetime access to course materials</li>
+            </ul>
+          </div>
+          <a href="https://apnacoding.tech/courses" style="display: inline-block; background: #FFD700; color: #333; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; margin: 20px 0;">
+            Start Learning Now 🚀
+          </a>
+          <p style="font-size: 14px; margin: 30px 0 0 0; opacity: 0.8;">
+            Happy Learning!<br>
+            Team Apna Coding
+          </p>
+        </div>
+      </div>
+    `,
+  }),
+
+  jobApplication: (userName: string, jobTitle: string, company: string): EmailTemplate => ({
+    subject: `💼 Job Application Received: ${jobTitle} at ${company}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color: #333; border-radius: 10px; overflow: hidden;">
+        <div style="padding: 40px 30px; text-align: center;">
+          <h1 style="margin: 0 0 20px 0; font-size: 28px; color: #2c3e50;">💼 Application Received!</h1>
+          <p style="font-size: 18px; margin: 0 0 20px 0;">Hi ${userName},</p>
+          <p style="font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+            Thank you for applying for the <strong>${jobTitle}</strong> position at <strong>${company}</strong>.
+          </p>
+          <div style="background: rgba(255,255,255,0.7); padding: 20px; border-radius: 8px; margin: 30px 0;">
+            <h3 style="margin: 0 0 15px 0; color: #2c3e50;">📋 Application Details</h3>
+            <p style="margin: 0 0 10px 0;"><strong>Position:</strong> ${jobTitle}</p>
+            <p style="margin: 0;"><strong>Company:</strong> ${company}</p>
+          </div>
+          <div style="background: rgba(255,255,255,0.7); padding: 20px; border-radius: 8px; margin: 30px 0;">
+            <h3 style="margin: 0 0 15px 0; color: #2c3e50;">⏰ What Happens Next?</h3>
+            <ul style="text-align: left; padding-left: 20px; line-height: 1.8;">
+              <li>Our team will review your application</li>
+              <li>You'll hear back within 3-5 business days</li>
+              <li>If selected, we'll schedule an interview</li>
+              <li>Keep an eye on your email for updates</li>
+            </ul>
+          </div>
+          <a href="https://apnacoding.tech/jobs" style="display: inline-block; background: #3498db; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; margin: 20px 0;">
+            View More Jobs 💼
+          </a>
+          <p style="font-size: 14px; margin: 30px 0 0 0; opacity: 0.8;">
+            Best of luck!<br>
+            Team Apna Coding
+          </p>
+        </div>
+      </div>
+    `,
+  }),
+
+  adminNotification: (adminName: string, notificationType: string, details: string): EmailTemplate => ({
+    subject: `🔔 Admin Alert: ${notificationType}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px; overflow: hidden;">
+        <div style="padding: 40px 30px;">
+          <h1 style="margin: 0 0 20px 0; font-size: 24px;">🔔 Admin Notification</h1>
+          <p style="font-size: 16px; margin: 0 0 20px 0;">Hi ${adminName},</p>
+          <p style="font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+            You have a new admin notification: <strong>${notificationType}</strong>
+          </p>
+          <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; margin: 30px 0;">
+            <h3 style="margin: 0 0 15px 0;">📋 Details</h3>
+            <p style="margin: 0; line-height: 1.6;">${details}</p>
+          </div>
+          <a href="https://apnacoding.tech/admin" style="display: inline-block; background: #FFD700; color: #333; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; margin: 20px 0;">
+            View Admin Dashboard 🛠️
+          </a>
+          <p style="font-size: 14px; margin: 30px 0 0 0; opacity: 0.8;">
+            Team Apna Coding System
+          </p>
+        </div>
+      </div>
+    `,
+  }),
+
+  hackathonReminder: (userName: string, hackathonTitle: string, daysLeft: number): EmailTemplate => ({
+    subject: `⏰ Reminder: ${hackathonTitle} starts in ${daysLeft} days!`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%); color: #333; border-radius: 10px; overflow: hidden;">
+        <div style="padding: 40px 30px; text-align: center;">
+          <h1 style="margin: 0 0 20px 0; font-size: 28px; color: #2c3e50;">⏰ Hackathon Reminder!</h1>
+          <p style="font-size: 18px; margin: 0 0 20px 0;">Hi ${userName},</p>
+          <p style="font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+            Just a friendly reminder that <strong>${hackathonTitle}</strong> starts in <strong>${daysLeft} days</strong>!
+          </p>
+          <div style="background: rgba(255,255,255,0.7); padding: 20px; border-radius: 8px; margin: 30px 0;">
+            <h3 style="margin: 0 0 15px 0; color: #2c3e50;">🚀 Final Preparations</h3>
+            <ul style="text-align: left; padding-left: 20px; line-height: 1.8;">
+              <li>Finalize your team formation</li>
+              <li>Set up your development environment</li>
+              <li>Review the problem statements</li>
+              <li>Join the WhatsApp group for updates</li>
+            </ul>
+          </div>
+          <a href="https://apnacoding.tech/hackathons" style="display: inline-block; background: #e74c3c; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; margin: 20px 0;">
+            View Hackathon Details 🏆
+          </a>
+          <p style="font-size: 14px; margin: 30px 0 0 0; opacity: 0.8;">
+            See you at the hackathon!<br>
+            Team Apna Coding
+          </p>
+        </div>
+      </div>
+    `,
+  }),
+
+  bulkAnnouncement: (userName: string, title: string, message: string): EmailTemplate => ({
+    subject: `📢 Important Announcement: ${title}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px; overflow: hidden;">
+        <div style="padding: 40px 30px; text-align: center;">
+          <h1 style="margin: 0 0 20px 0; font-size: 28px;">📢 ${title}</h1>
+          <p style="font-size: 18px; margin: 0 0 30px 0;">Hi ${userName},</p>
+          <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; margin: 30px 0; text-align: left;">
+            <div style="font-size: 16px; line-height: 1.6;">${message}</div>
+          </div>
+          <a href="https://apnacoding.tech" style="display: inline-block; background: #FFD700; color: #333; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; margin: 20px 0;">
+            Visit Apna Coding 🚀
+          </a>
+          <p style="font-size: 14px; margin: 30px 0 0 0; opacity: 0.8;">
+            Best regards,<br>
+            Team Apna Coding
+          </p>
+        </div>
+      </div>
+    `,
+  }),
+
+  platformUpdate: (userName: string, updateTitle: string, updateDetails: string): EmailTemplate => ({
+    subject: `🚀 Platform Update: ${updateTitle}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; border-radius: 10px; overflow: hidden;">
+        <div style="padding: 40px 30px; text-align: center;">
+          <h1 style="margin: 0 0 20px 0; font-size: 28px;">🚀 Platform Update</h1>
+          <p style="font-size: 18px; margin: 0 0 20px 0;">Hi ${userName},</p>
+          <p style="font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+            We've got some exciting updates to share with you!
+          </p>
+          <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; margin: 30px 0;">
+            <h3 style="margin: 0 0 15px 0;">✨ ${updateTitle}</h3>
+            <div style="font-size: 16px; line-height: 1.6; text-align: left;">${updateDetails}</div>
+          </div>
+          <a href="https://apnacoding.tech/dashboard" style="display: inline-block; background: #FFD700; color: #333; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; margin: 20px 0;">
+            Explore Updates 🎯
+          </a>
+          <p style="font-size: 14px; margin: 30px 0 0 0; opacity: 0.8;">
+            Happy Coding!<br>
+            Team Apna Coding
+          </p>
+        </div>
+      </div>
+    `,
+  }),
 }
 
-// Send single email with enhanced error handling
+// Send single email
 export async function sendEmail(
   to: string,
   subject: string,
@@ -156,8 +290,6 @@ export async function sendEmail(
     if (!to || !subject || !html) {
       return { success: false, error: "Missing required fields: to, subject, html" }
     }
-
-    console.log(`Sending ${type} email to ${to}...`)
 
     // Send email via Resend
     const { data, error } = await resend.emails.send({
@@ -197,7 +329,7 @@ export async function sendEmail(
       created_at: new Date().toISOString(),
     })
 
-    console.log(`Email sent successfully to ${to}:`, data)
+    console.log("Email sent successfully:", data)
     return { success: true, emailId: data?.id }
   } catch (err) {
     console.error("Email sending error:", err)
@@ -218,17 +350,139 @@ export async function sendEmail(
   }
 }
 
-// Helper function to send event registration email
-export async function sendEventRegistrationEmail(
-  userEmail: string,
-  userName: string,
-  eventTitle: string,
-  eventDate: string,
-  eventLocation: string,
-  userId?: string,
-) {
-  const template = emailTemplates.eventRegistration(userName, eventTitle, eventDate, eventLocation)
-  return await sendEmail(userEmail, template.subject, template.html, "event_registration", userId)
+// Send batch emails with rate limiting
+export async function sendBatchEmails(
+  emails: Array<{
+    to: string
+    subject: string
+    html: string
+    type?: EmailNotification["type"]
+    userId?: string
+  }>,
+): Promise<{ success: boolean; results: Array<{ success: boolean; error?: string; email?: string }> }> {
+  try {
+    if (!emails || emails.length === 0) {
+      return { success: false, results: [{ success: false, error: "No emails provided" }] }
+    }
+
+    const results = []
+    let successCount = 0
+    let failureCount = 0
+
+    // Process emails in batches to avoid rate limiting
+    const batchSize = 10
+    const delay = 1000 // 1 second delay between batches
+
+    for (let i = 0; i < emails.length; i += batchSize) {
+      const batch = emails.slice(i, i + batchSize)
+
+      // Process batch concurrently
+      const batchPromises = batch.map(async (email) => {
+        try {
+          const result = await sendEmail(
+            email.to,
+            email.subject,
+            email.html,
+            email.type || "bulk_announcement",
+            email.userId,
+          )
+
+          if (result.success) {
+            successCount++
+            return { success: true, email: email.to }
+          } else {
+            failureCount++
+            return { success: false, error: result.error, email: email.to }
+          }
+        } catch (error) {
+          failureCount++
+          console.error(`Error sending email to ${email.to}:`, error)
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+            email: email.to,
+          }
+        }
+      })
+
+      const batchResults = await Promise.all(batchPromises)
+      results.push(...batchResults)
+
+      // Add delay between batches (except for the last batch)
+      if (i + batchSize < emails.length) {
+        await new Promise((resolve) => setTimeout(resolve, delay))
+      }
+    }
+
+    console.log(`Batch emails completed: ${successCount} successful, ${failureCount} failed`)
+    return { success: successCount > 0, results }
+  } catch (err) {
+    console.error("Batch email sending error:", err)
+    return {
+      success: false,
+      results: [{ success: false, error: err instanceof Error ? err.message : "Unknown error" }],
+    }
+  }
+}
+
+// Send emails to all platform users
+export async function sendEmailToAllUsers(
+  subject: string,
+  html: string,
+  type: EmailNotification["type"] = "bulk_announcement",
+): Promise<{
+  success: boolean
+  totalUsers: number
+  results: Array<{ success: boolean; error?: string; email?: string }>
+}> {
+  try {
+    // Import supabase here to avoid circular dependencies
+    const { createClientComponentClient } = await import("./supabase-client")
+    const supabase = createClientComponentClient()
+
+    // Get all users from the database
+    const { data: users, error } = await supabase.from("users").select("id, email, full_name").not("email", "is", null)
+
+    if (error) {
+      console.error("Error fetching users:", error)
+      return { success: false, totalUsers: 0, results: [{ success: false, error: "Failed to fetch users" }] }
+    }
+
+    if (!users || users.length === 0) {
+      return { success: false, totalUsers: 0, results: [{ success: false, error: "No users found" }] }
+    }
+
+    // Prepare emails for all users
+    const emails = users.map((user) => ({
+      to: user.email,
+      subject,
+      html: html.replace(/\{userName\}/g, user.full_name || "User"),
+      type,
+      userId: user.id,
+    }))
+
+    // Send batch emails
+    const result = await sendBatchEmails(emails)
+
+    return {
+      success: result.success,
+      totalUsers: users.length,
+      results: result.results,
+    }
+  } catch (err) {
+    console.error("Error sending emails to all users:", err)
+    return {
+      success: false,
+      totalUsers: 0,
+      results: [{ success: false, error: err instanceof Error ? err.message : "Unknown error" }],
+    }
+  }
+}
+
+// Helper function to send welcome email
+export async function sendWelcomeEmail(userEmail: string, userName: string, userId?: string) {
+  const template = emailTemplates.welcome(userName)
+  return await sendEmail(userEmail, template.subject, template.html, "welcome", userId)
 }
 
 // Helper function to send hackathon registration email
@@ -243,7 +497,66 @@ export async function sendHackathonRegistrationEmail(
   return await sendEmail(userEmail, template.subject, template.html, "hackathon_registration", userId)
 }
 
-// Database logging function
+// Helper function to send course enrollment email
+export async function sendCourseEnrollmentEmail(
+  userEmail: string,
+  userName: string,
+  courseTitle: string,
+  instructor: string,
+  userId?: string,
+) {
+  const template = emailTemplates.courseEnrollment(userName, courseTitle, instructor)
+  return await sendEmail(userEmail, template.subject, template.html, "course_enrollment", userId)
+}
+
+// Helper function to send job application email
+export async function sendJobApplicationEmail(
+  userEmail: string,
+  userName: string,
+  jobTitle: string,
+  company: string,
+  userId?: string,
+) {
+  const template = emailTemplates.jobApplication(userName, jobTitle, company)
+  return await sendEmail(userEmail, template.subject, template.html, "job_application", userId)
+}
+
+// Helper function to send admin notification
+export async function sendAdminNotification(
+  adminEmail: string,
+  adminName: string,
+  notificationType: string,
+  details: string,
+) {
+  const template = emailTemplates.adminNotification(adminName, notificationType, details)
+  return await sendEmail(adminEmail, template.subject, template.html, "admin_notification")
+}
+
+// Helper function to send hackathon reminder
+export async function sendHackathonReminder(
+  userEmail: string,
+  userName: string,
+  hackathonTitle: string,
+  daysLeft: number,
+  userId?: string,
+) {
+  const template = emailTemplates.hackathonReminder(userName, hackathonTitle, daysLeft)
+  return await sendEmail(userEmail, template.subject, template.html, "hackathon_reminder", userId)
+}
+
+// Helper function to send bulk announcement
+export async function sendBulkAnnouncement(title: string, message: string) {
+  const htmlTemplate = emailTemplates.bulkAnnouncement("{userName}", title, message).html
+  return await sendEmailToAllUsers(`📢 Important Announcement: ${title}`, htmlTemplate, "bulk_announcement")
+}
+
+// Helper function to send platform update
+export async function sendPlatformUpdate(updateTitle: string, updateDetails: string) {
+  const htmlTemplate = emailTemplates.platformUpdate("{userName}", updateTitle, updateDetails).html
+  return await sendEmailToAllUsers(`🚀 Platform Update: ${updateTitle}`, htmlTemplate, "platform_update")
+}
+
+// Database logging function (will be implemented with Supabase)
 async function logEmailNotification(notification: Omit<EmailNotification, "id">) {
   try {
     // Import supabase here to avoid circular dependencies
@@ -285,5 +598,60 @@ export async function getEmailNotifications(limit = 50) {
   } catch (err) {
     console.error("Error in getEmailNotifications:", err)
     return []
+  }
+}
+
+// Get email statistics
+export async function getEmailStats() {
+  try {
+    const { createClientComponentClient } = await import("./supabase-client")
+    const supabase = createClientComponentClient()
+
+    const [totalResult, sentResult, failedResult, todayResult] = await Promise.all([
+      supabase.from("email_notifications").select("id", { count: "exact" }),
+      supabase.from("email_notifications").select("id", { count: "exact" }).eq("status", "sent"),
+      supabase.from("email_notifications").select("id", { count: "exact" }).eq("status", "failed"),
+      supabase
+        .from("email_notifications")
+        .select("id", { count: "exact" })
+        .gte("created_at", new Date().toISOString().split("T")[0]),
+    ])
+
+    return {
+      total: totalResult.count || 0,
+      sent: sentResult.count || 0,
+      failed: failedResult.count || 0,
+      today: todayResult.count || 0,
+      success_rate: totalResult.count ? Math.round(((sentResult.count || 0) / totalResult.count) * 100) : 0,
+    }
+  } catch (err) {
+    console.error("Error in getEmailStats:", err)
+    return {
+      total: 0,
+      sent: 0,
+      failed: 0,
+      today: 0,
+      success_rate: 0,
+    }
+  }
+}
+
+// Get user count for bulk email estimation
+export async function getUserCount(): Promise<number> {
+  try {
+    const { createClientComponentClient } = await import("./supabase-client")
+    const supabase = createClientComponentClient()
+
+    const { count, error } = await supabase.from("users").select("id", { count: "exact" }).not("email", "is", null)
+
+    if (error) {
+      console.error("Error getting user count:", error)
+      return 0
+    }
+
+    return count || 0
+  } catch (err) {
+    console.error("Error in getUserCount:", err)
+    return 0
   }
 }
