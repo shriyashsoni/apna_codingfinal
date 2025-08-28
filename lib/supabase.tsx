@@ -216,17 +216,8 @@ export const signUp = async (email: string, password: string, fullName: string) 
 
       // Send welcome email
       try {
-        await fetch("/api/emails/welcome", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: data.user.email,
-            name: fullName,
-            userId: data.user.id,
-          }),
-        })
+        const { sendWelcomeEmail } = await import("./email")
+        await sendWelcomeEmail(data.user.email!, fullName, data.user.id)
       } catch (emailError) {
         console.error("Error sending welcome email:", emailError)
         // Don't fail the signup if email fails
@@ -334,17 +325,8 @@ export const getCurrentUser = async () => {
 
       // Send welcome email for new Google users
       try {
-        await fetch("/api/emails/welcome", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: user.email,
-            name: newProfile.full_name,
-            userId: user.id,
-          }),
-        })
+        const { sendWelcomeEmail } = await import("./email")
+        await sendWelcomeEmail(user.email!, newProfile.full_name, user.id)
       } catch (emailError) {
         console.error("Error sending welcome email:", emailError)
       }
@@ -918,7 +900,7 @@ export const getCommunities = async () => {
   }
 }
 
-// Event registration functions with email integration
+// Event registration functions with automatic email integration
 export const registerForEvent = async (eventId: string, userId: string) => {
   try {
     const { data, error } = await supabase
@@ -946,49 +928,24 @@ export const registerForEvent = async (eventId: string, userId: string) => {
       console.error("Error updating participant count:", updateError)
     }
 
-    // Send registration confirmation email
+    // Send registration confirmation email automatically
     try {
       const [userResult, eventResult] = await Promise.all([
         supabase.from("users").select("email, full_name").eq("id", userId).single(),
-        supabase.from("events").select("title, event_date").eq("id", eventId).single(),
+        supabase.from("events").select("title, event_date, location").eq("id", eventId).single(),
       ])
 
       if (userResult.data && eventResult.data) {
-        await fetch("/api/emails/send", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            to: userResult.data.email,
-            subject: `🎉 Registration Confirmed: ${eventResult.data.title}`,
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px; overflow: hidden;">
-                <div style="padding: 40px 30px; text-align: center;">
-                  <h1 style="margin: 0 0 20px 0; font-size: 28px;">🎉 Registration Confirmed!</h1>
-                  <p style="font-size: 18px; margin: 0 0 20px 0;">Hi ${userResult.data.full_name},</p>
-                  <p style="font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
-                    Congratulations! You've successfully registered for <strong>${eventResult.data.title}</strong>.
-                  </p>
-                  <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; margin: 30px 0;">
-                    <h3 style="margin: 0 0 15px 0;">📅 Event Details</h3>
-                    <p style="margin: 0 0 10px 0;"><strong>Event:</strong> ${eventResult.data.title}</p>
-                    <p style="margin: 0;"><strong>Date:</strong> ${new Date(eventResult.data.event_date).toLocaleDateString()}</p>
-                  </div>
-                  <a href="https://apnacoding.tech/events" style="display: inline-block; background: #FFD700; color: #333; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; margin: 20px 0;">
-                    View Event Details 🎉
-                  </a>
-                  <p style="font-size: 14px; margin: 30px 0 0 0; opacity: 0.8;">
-                    See you at the event!<br>
-                    Team Apna Coding
-                  </p>
-                </div>
-              </div>
-            `,
-            type: "event_registration",
-            userId: userId,
-          }),
-        })
+        const { sendEventRegistrationEmail } = await import("./email")
+        await sendEventRegistrationEmail(
+          userResult.data.email,
+          userResult.data.full_name || "User",
+          eventResult.data.title,
+          new Date(eventResult.data.event_date).toLocaleDateString(),
+          eventResult.data.location,
+          userId,
+        )
+        console.log("Event registration email sent successfully")
       }
     } catch (emailError) {
       console.error("Error sending registration email:", emailError)
@@ -1023,7 +980,7 @@ export const checkEventRegistration = async (eventId: string, userId: string) =>
   }
 }
 
-// Hackathon registration functions with email integration
+// Hackathon registration functions with automatic email integration
 export const registerForHackathon = async (hackathonId: string, userId: string) => {
   try {
     const { data, error } = await supabase
@@ -1051,7 +1008,7 @@ export const registerForHackathon = async (hackathonId: string, userId: string) 
       console.error("Error updating participant count:", updateError)
     }
 
-    // Send registration confirmation email
+    // Send registration confirmation email automatically
     try {
       const [userResult, hackathonResult] = await Promise.all([
         supabase.from("users").select("email, full_name").eq("id", userId).single(),
@@ -1059,41 +1016,15 @@ export const registerForHackathon = async (hackathonId: string, userId: string) 
       ])
 
       if (userResult.data && hackathonResult.data) {
-        await fetch("/api/emails/send", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            to: userResult.data.email,
-            subject: `🏆 Registration Confirmed: ${hackathonResult.data.title}`,
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); color: white; border-radius: 10px; overflow: hidden;">
-                <div style="padding: 40px 30px; text-align: center;">
-                  <h1 style="margin: 0 0 20px 0; font-size: 28px;">🎉 Registration Confirmed!</h1>
-                  <p style="font-size: 18px; margin: 0 0 20px 0;">Hi ${userResult.data.full_name},</p>
-                  <p style="font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
-                    Congratulations! You've successfully registered for <strong>${hackathonResult.data.title}</strong>.
-                  </p>
-                  <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; margin: 30px 0;">
-                    <h3 style="margin: 0 0 15px 0;">📅 Event Details</h3>
-                    <p style="margin: 0 0 10px 0;"><strong>Event:</strong> ${hackathonResult.data.title}</p>
-                    <p style="margin: 0;"><strong>Date:</strong> ${new Date(hackathonResult.data.start_date).toLocaleDateString()}</p>
-                  </div>
-                  <a href="https://apnacoding.tech/hackathons" style="display: inline-block; background: #FFD700; color: #333; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; margin: 20px 0;">
-                    View Hackathon Details 🏆
-                  </a>
-                  <p style="font-size: 14px; margin: 30px 0 0 0; opacity: 0.8;">
-                    Good luck and happy coding!<br>
-                    Team Apna Coding
-                  </p>
-                </div>
-              </div>
-            `,
-            type: "hackathon_registration",
-            userId: userId,
-          }),
-        })
+        const { sendHackathonRegistrationEmail } = await import("./email")
+        await sendHackathonRegistrationEmail(
+          userResult.data.email,
+          userResult.data.full_name || "User",
+          hackathonResult.data.title,
+          new Date(hackathonResult.data.start_date).toLocaleDateString(),
+          userId,
+        )
+        console.log("Hackathon registration email sent successfully")
       }
     } catch (emailError) {
       console.error("Error sending registration email:", emailError)
@@ -1344,7 +1275,7 @@ export const searchPartnerships = async (query: string, type?: string) => {
   }
 }
 
-// Utility function to generate slug from title
+// Utility function to generate SEO-friendly slug from title
 export const generateSlug = (title: string, id: string) => {
   const slug = title
     .toLowerCase()
@@ -1353,11 +1284,20 @@ export const generateSlug = (title: string, id: string) => {
     .replace(/-+/g, "-")
     .trim()
 
-  return `${slug}-${id}`
+  // Use first 8 characters of ID for uniqueness
+  return `${slug}-${id.substring(0, 8)}`
 }
 
 // Function to extract ID from slug
 export const extractIdFromSlug = (slug: string) => {
   const parts = slug.split("-")
-  return parts[parts.length - 1]
+  const idPart = parts[parts.length - 1]
+
+  // If the last part looks like an ID (8 characters), return it
+  if (idPart && idPart.length === 8) {
+    return idPart
+  }
+
+  // Otherwise, try to find the full ID in the original events
+  return idPart
 }
