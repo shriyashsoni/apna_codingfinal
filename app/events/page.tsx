@@ -104,7 +104,7 @@ export default function EventsPage() {
     if (!user) {
       setAuthMode("login")
       setShowAuthModal(true)
-      toast.info("Please sign in to view event details")
+      toast.info("Please sign in to view full event details and register")
       return
     }
     // If user is logged in, navigate to event page
@@ -205,7 +205,7 @@ export default function EventsPage() {
                 developers, and advance your career.
               </p>
 
-              {/* Authentication Notice */}
+              {/* Authentication Notice - Only show if not logged in */}
               {!user && (
                 <div className="bg-gray-900/30 backdrop-blur-sm p-6 rounded-2xl border border-gray-700/50 max-w-2xl mx-auto mb-8">
                   <div className="flex items-center justify-center mb-4">
@@ -213,9 +213,9 @@ export default function EventsPage() {
                       <Lock className="w-5 h-5 text-black" />
                     </div>
                   </div>
-                  <h3 className="text-lg font-semibold text-white mb-2">Sign In Required</h3>
+                  <h3 className="text-lg font-semibold text-white mb-2">Sign In to Access Full Details</h3>
                   <p className="text-gray-300 text-sm mb-4">
-                    Sign in to view full event details, register, and access exclusive content.
+                    Browse events freely, but sign in to view full details, register, and access exclusive content.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-3 justify-center">
                     <Button
@@ -279,7 +279,7 @@ export default function EventsPage() {
         </div>
       </section>
 
-      {/* Events Grid */}
+      {/* Events Grid - Always visible */}
       <section className="py-20 relative">
         <div className="container mx-auto px-4 relative z-10">
           {filteredEvents.length === 0 ? (
@@ -296,20 +296,7 @@ export default function EventsPage() {
                   className={`transition-all duration-1000 ${isVisible ? "animate-fadeInUp" : "opacity-0"}`}
                   style={{ animationDelay: `${index * 100}ms` }}
                 >
-                  <Card
-                    className="group bg-gray-900/30 backdrop-blur-sm border-gray-700/50 overflow-hidden hover:border-yellow-400/50 transition-all duration-500 hover:scale-105 cursor-pointer relative"
-                    onClick={() => handleEventClick(event)}
-                  >
-                    {/* Lock Overlay for Non-Authenticated Users */}
-                    {!user && (
-                      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        <div className="text-center">
-                          <Lock className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
-                          <p className="text-white font-semibold text-sm">Sign in to view</p>
-                        </div>
-                      </div>
-                    )}
-
+                  <Card className="group bg-gray-900/30 backdrop-blur-sm border-gray-700/50 overflow-hidden hover:border-yellow-400/50 transition-all duration-500 hover:scale-105 cursor-pointer relative">
                     <div className="p-0">
                       {/* Event Image */}
                       <div className="relative h-48 overflow-hidden">
@@ -418,20 +405,27 @@ export default function EventsPage() {
                           </div>
                         )}
 
-                        {/* View Details Link */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 text-yellow-400 group-hover:text-yellow-300 transition-colors duration-300">
-                            <span className="font-semibold">{user ? "View Details" : "Sign in to View"}</span>
-                            {user ? (
-                              <Eye className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" />
-                            ) : (
-                              <Lock className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" />
-                            )}
-                          </div>
-                          <div className="w-8 h-8 bg-yellow-400/20 rounded-full flex items-center justify-center group-hover:bg-yellow-400/30 transition-colors duration-300">
-                            <ArrowRight className="w-4 h-4 text-yellow-400" />
-                          </div>
-                        </div>
+                        {/* Action Button */}
+                        <Button
+                          onClick={() => handleEventClick(event)}
+                          className={`w-full ${
+                            user
+                              ? "bg-yellow-400 hover:bg-yellow-500 text-black"
+                              : "bg-gray-700 hover:bg-gray-600 text-white border border-yellow-400/50"
+                          } font-semibold transition-all duration-300`}
+                        >
+                          {user ? (
+                            <>
+                              <Eye className="w-4 h-4 mr-2" />
+                              View Details & Register
+                            </>
+                          ) : (
+                            <>
+                              <Lock className="w-4 h-4 mr-2" />
+                              Sign in to View Details
+                            </>
+                          )}
+                        </Button>
                       </div>
                     </div>
                   </Card>
