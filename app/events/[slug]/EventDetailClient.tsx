@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import {
   Calendar,
@@ -19,9 +20,13 @@ import {
   AlertCircle,
   Play,
   Lock,
+  Globe,
+  Tag,
+  Info,
+  Star,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { getCurrentUser, registerForEvent, checkEventRegistration, type Event } from "@/lib/supabase"
 
@@ -30,6 +35,7 @@ interface EventDetailClientProps {
 }
 
 export default function EventDetailClient({ event }: EventDetailClientProps) {
+  const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [isRegistered, setIsRegistered] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -58,7 +64,7 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
 
   const handleRegistration = async () => {
     if (!user) {
-      alert("Please login to register for this event!")
+      router.push("/auth")
       return
     }
 
@@ -150,9 +156,32 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
     return colors[type as keyof typeof colors] || "bg-gray-500"
   }
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "upcoming":
+        return "bg-blue-500"
+      case "ongoing":
+        return "bg-green-500"
+      case "completed":
+        return "bg-gray-500"
+      case "cancelled":
+        return "bg-red-500"
+      default:
+        return "bg-gray-500"
+    }
+  }
+
   const daysUntilEvent = getDaysUntilEvent()
   const isEventFull = event.current_participants >= event.max_participants
   const isEventPast = daysUntilEvent < 0
+
+  if (loading) {
+    return (
+      <div className="min-h-screen pt-20 bg-black text-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-yellow-400"></div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen pt-20 bg-black text-white">
@@ -161,14 +190,19 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
         <div className="absolute inset-0 bg-gradient-to-b from-yellow-400/10 to-transparent" />
         <div className="container mx-auto px-4 relative z-10">
           {/* Back Button */}
-          <div className="mb-8">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5 }}
+            className="mb-8"
+          >
             <Link href="/events">
               <Button variant="outline" className="border-gray-700 text-white hover:bg-gray-800 bg-transparent">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Events
               </Button>
             </Link>
-          </div>
+          </motion.div>
 
           <div className="grid lg:grid-cols-2 gap-12 items-start">
             {/* Event Image */}
@@ -185,6 +219,8 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
                   className="object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+
+                {/* Badges */}
                 <div className="absolute top-4 left-4 flex gap-2">
                   <Badge className={`${getEventTypeColor(event.event_type)} text-white font-bold px-3 py-1`}>
                     {event.event_type.toUpperCase()}
@@ -193,10 +229,41 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
                     {event.event_mode.toUpperCase()}
                   </Badge>
                 </div>
+
+                {/* Status Badge */}
+                <div className="absolute top-4 right-4">
+                  <Badge className={`${getStatusColor(event.status)} text-white font-bold px-3 py-1`}>
+                    {event.status.toUpperCase()}
+                  </Badge>
+                </div>
+
+                {/* Participant Count */}
                 <div className="absolute bottom-4 left-4">
                   <Badge className="bg-black/70 text-white backdrop-blur-sm px-3 py-1">
                     {event.current_participants}/{event.max_participants} registered
                   </Badge>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="absolute bottom-4 right-4 flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleBookmark}
+                    className={`bg-black/50 hover:bg-black/70 backdrop-blur-sm ${
+                      bookmarked ? "text-yellow-400" : "text-white"
+                    }`}
+                  >
+                    <Bookmark className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleShare}
+                    className="bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm"
+                  >
+                    <Share2 className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
             </motion.div>
@@ -275,6 +342,56 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
                 )}
               </div>
 
+              {/* Registration Status Messages */}
+              {!user && (
+                <div className="bg-yellow-400/10 border border-yellow-400/20 rounded-lg p-4 mb-6">
+                  <div className="flex items-center gap-2 text-yellow-400 mb-2">
+                    <Lock className="w-5 h-5" />
+                    <span className="font-semibold">Login Required</span>
+                  </div>
+                  <p className="text-gray-300 text-sm">
+                    Please sign in to register for this event and access all features.
+                  </p>
+                </div>
+              )}
+
+              {user && isRegistered && (
+                <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 mb-6">
+                  <div className="flex items-center gap-2 text-green-400 mb-2">
+                    <CheckCircle className="w-5 h-5" />
+                    <span className="font-semibold">You're Registered!</span>
+                  </div>
+                  <p className="text-gray-300 text-sm">
+                    You have successfully registered for this event. Check your email for confirmation details.
+                  </p>
+                </div>
+              )}
+
+              {user && isEventFull && !isRegistered && (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
+                  <div className="flex items-center gap-2 text-red-400 mb-2">
+                    <AlertCircle className="w-5 h-5" />
+                    <span className="font-semibold">Event Full</span>
+                  </div>
+                  <p className="text-gray-300 text-sm">
+                    This event has reached its maximum capacity. Join our waitlist to be notified if spots become
+                    available.
+                  </p>
+                </div>
+              )}
+
+              {isEventPast && (
+                <div className="bg-gray-500/10 border border-gray-500/20 rounded-lg p-4 mb-6">
+                  <div className="flex items-center gap-2 text-gray-400 mb-2">
+                    <Clock className="w-5 h-5" />
+                    <span className="font-semibold">Event Ended</span>
+                  </div>
+                  <p className="text-gray-300 text-sm">
+                    This event has already ended. Check out our upcoming events for more opportunities.
+                  </p>
+                </div>
+              )}
+
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 mb-8">
                 {!user ? (
@@ -328,40 +445,19 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
                   </Button>
                 )}
 
-                <div className="flex gap-2">
-                  <Button
-                    onClick={handleShare}
-                    variant="outline"
-                    className="border-gray-700 text-white hover:bg-gray-800 px-4 py-4 bg-transparent"
-                  >
-                    <Share2 className="w-5 h-5" />
-                  </Button>
-                  <Button
-                    onClick={handleBookmark}
-                    variant="outline"
-                    className={`border-gray-700 hover:bg-gray-800 px-4 py-4 ${
-                      bookmarked ? "text-yellow-400" : "text-white"
-                    }`}
-                  >
-                    <Bookmark className="w-5 h-5" />
-                  </Button>
-                </div>
-              </div>
-
-              {/* External Registration Link */}
-              {event.registration_link && (
-                <div className="mb-8">
+                {/* External Registration Link */}
+                {event.registration_link && (
                   <a
                     href={event.registration_link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center text-yellow-400 hover:text-yellow-300 font-semibold"
+                    className="inline-flex items-center justify-center bg-transparent border-2 border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black font-bold px-8 py-4 text-lg rounded-lg transition-colors w-full sm:w-auto"
                   >
-                    External Registration Link
-                    <ExternalLink className="ml-2 w-4 h-4" />
+                    External Registration
+                    <ExternalLink className="ml-2 w-5 h-5" />
                   </a>
-                </div>
-              )}
+                )}
+              </div>
             </motion.div>
           </div>
         </div>
@@ -375,69 +471,115 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
             <div className="lg:col-span-2 space-y-8">
               {/* Technologies */}
               {event.technologies && event.technologies.length > 0 && (
-                <Card className="bg-gray-900/30 border-gray-800">
-                  <CardContent className="p-6">
-                    <h3 className="text-2xl font-bold mb-4 text-white">Technologies Covered</h3>
-                    <div className="flex flex-wrap gap-3">
-                      {event.technologies.map((tech, index) => (
-                        <Badge key={index} className="bg-yellow-400/20 text-yellow-400 px-3 py-1 font-medium">
-                          {tech}
-                        </Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6 }}
+                >
+                  <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm">
+                    <CardHeader>
+                      <CardTitle className="text-white flex items-center gap-2">
+                        <Tag className="w-5 h-5 text-yellow-400" />
+                        Technologies Covered
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex flex-wrap gap-3">
+                        {event.technologies.map((tech, index) => (
+                          <Badge key={index} className="bg-yellow-400/20 text-yellow-400 px-3 py-1 font-medium">
+                            {tech}
+                          </Badge>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
               )}
 
               {/* Agenda */}
               {event.agenda && (
-                <Card className="bg-gray-900/30 border-gray-800">
-                  <CardContent className="p-6">
-                    <h3 className="text-2xl font-bold mb-4 text-white">Agenda</h3>
-                    <div className="prose prose-invert max-w-none">
-                      <p className="text-gray-300 leading-relaxed whitespace-pre-line">{event.agenda}</p>
-                    </div>
-                  </CardContent>
-                </Card>
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.1 }}
+                >
+                  <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm">
+                    <CardHeader>
+                      <CardTitle className="text-white flex items-center gap-2">
+                        <Clock className="w-5 h-5 text-yellow-400" />
+                        Event Agenda
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="prose prose-invert max-w-none">
+                        <p className="text-gray-300 leading-relaxed whitespace-pre-line">{event.agenda}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
               )}
 
               {/* Speaker Info */}
               {event.speaker_info && (
-                <Card className="bg-gray-900/30 border-gray-800">
-                  <CardContent className="p-6">
-                    <h3 className="text-2xl font-bold mb-4 text-white">Speaker Information</h3>
-                    <div className="prose prose-invert max-w-none">
-                      <p className="text-gray-300 leading-relaxed whitespace-pre-line">{event.speaker_info}</p>
-                    </div>
-                  </CardContent>
-                </Card>
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.2 }}
+                >
+                  <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm">
+                    <CardHeader>
+                      <CardTitle className="text-white flex items-center gap-2">
+                        <Star className="w-5 h-5 text-yellow-400" />
+                        Speaker Information
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="prose prose-invert max-w-none">
+                        <p className="text-gray-300 leading-relaxed whitespace-pre-line">{event.speaker_info}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
               )}
 
               {/* Requirements */}
               {event.requirements && event.requirements.length > 0 && (
-                <Card className="bg-gray-900/30 border-gray-800">
-                  <CardContent className="p-6">
-                    <h3 className="text-2xl font-bold mb-4 text-white">Requirements</h3>
-                    <ul className="space-y-2">
-                      {event.requirements.map((req, index) => (
-                        <li key={index} className="flex items-start gap-3 text-gray-300">
-                          <CheckCircle className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
-                          {req}
-                        </li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.3 }}
+                >
+                  <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm">
+                    <CardHeader>
+                      <CardTitle className="text-white flex items-center gap-2">
+                        <Info className="w-5 h-5 text-yellow-400" />
+                        Requirements
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ul className="space-y-3">
+                        {event.requirements.map((req, index) => (
+                          <li key={index} className="flex items-start gap-3 text-gray-300">
+                            <CheckCircle className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
+                            <span>{req}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                </motion.div>
               )}
             </div>
 
             {/* Sidebar */}
             <div className="space-y-6">
               {/* Quick Info */}
-              <Card className="bg-gray-900/30 border-gray-800">
-                <CardContent className="p-6">
-                  <h3 className="text-xl font-bold mb-4 text-white">Quick Info</h3>
-                  <div className="space-y-4">
+              <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6 }}>
+                <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm">
+                  <CardHeader>
+                    <CardTitle className="text-white">Quick Info</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
                     <div>
                       <p className="text-sm text-gray-400 mb-1">Event Type</p>
                       <Badge className={`${getEventTypeColor(event.event_type)} text-white capitalize`}>
@@ -446,23 +588,14 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
                     </div>
                     <div>
                       <p className="text-sm text-gray-400 mb-1">Mode</p>
-                      <Badge className="bg-green-500 text-white capitalize">{event.event_mode}</Badge>
+                      <Badge className="bg-green-500 text-white capitalize flex items-center gap-1 w-fit">
+                        <Globe className="w-3 h-3" />
+                        {event.event_mode}
+                      </Badge>
                     </div>
                     <div>
                       <p className="text-sm text-gray-400 mb-1">Status</p>
-                      <Badge
-                        className={`${
-                          event.status === "upcoming"
-                            ? "bg-blue-500"
-                            : event.status === "ongoing"
-                              ? "bg-green-500"
-                              : event.status === "completed"
-                                ? "bg-gray-500"
-                                : "bg-red-500"
-                        } text-white capitalize`}
-                      >
-                        {event.status}
-                      </Badge>
+                      <Badge className={`${getStatusColor(event.status)} text-white capitalize`}>{event.status}</Badge>
                     </div>
                     {event.registration_fee > 0 && (
                       <div>
@@ -470,53 +603,69 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
                         <p className="text-2xl font-bold text-yellow-400">${event.registration_fee}</p>
                       </div>
                     )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Tags */}
-              {event.tags && event.tags.length > 0 && (
-                <Card className="bg-gray-900/30 border-gray-800">
-                  <CardContent className="p-6">
-                    <h3 className="text-xl font-bold mb-4 text-white">Tags</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {event.tags.map((tag, index) => (
-                        <Badge key={index} className="bg-gray-700 text-gray-300 px-2 py-1 text-xs">
-                          #{tag}
-                        </Badge>
-                      ))}
-                    </div>
                   </CardContent>
                 </Card>
-              )}
+              </motion.div>
 
-              {/* Registration Status */}
-              <Card className="bg-gray-900/30 border-gray-800">
-                <CardContent className="p-6">
-                  <h3 className="text-xl font-bold mb-4 text-white">Registration</h3>
-                  <div className="space-y-3">
+              {/* Registration Progress */}
+              <motion.div
+                initial={{ opacity: 0, x: 30 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 0.1 }}
+              >
+                <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm">
+                  <CardHeader>
+                    <CardTitle className="text-white">Registration Status</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
                     <div className="flex justify-between">
                       <span className="text-gray-400">Registered</span>
-                      <span className="font-semibold">{event.current_participants}</span>
+                      <span className="font-semibold text-white">{event.current_participants}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Available</span>
-                      <span className="font-semibold">{event.max_participants - event.current_participants}</span>
+                      <span className="font-semibold text-white">
+                        {event.max_participants - event.current_participants}
+                      </span>
                     </div>
-                    <div className="w-full bg-gray-700 rounded-full h-2">
+                    <div className="w-full bg-gray-700 rounded-full h-3">
                       <div
-                        className="bg-yellow-400 h-2 rounded-full"
+                        className="bg-yellow-400 h-3 rounded-full transition-all duration-300"
                         style={{
-                          width: `${(event.current_participants / event.max_participants) * 100}%`,
+                          width: `${Math.min((event.current_participants / event.max_participants) * 100, 100)}%`,
                         }}
                       ></div>
                     </div>
-                    <p className="text-sm text-gray-400">
+                    <p className="text-sm text-gray-400 text-center">
                       {Math.round((event.current_participants / event.max_participants) * 100)}% filled
                     </p>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              {/* Tags */}
+              {event.tags && event.tags.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, x: 30 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.6, delay: 0.2 }}
+                >
+                  <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm">
+                    <CardHeader>
+                      <CardTitle className="text-white">Tags</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex flex-wrap gap-2">
+                        {event.tags.map((tag, index) => (
+                          <Badge key={index} className="bg-gray-700 text-gray-300 px-2 py-1 text-xs">
+                            #{tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
             </div>
           </div>
         </div>
@@ -525,14 +674,20 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
       {/* Related Events Section */}
       <section className="py-16">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12">More Events You Might Like</h2>
-          <div className="text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="text-center"
+          >
+            <h2 className="text-3xl font-bold mb-4">More Events You Might Like</h2>
+            <p className="text-gray-400 mb-8">Discover other exciting events and workshops</p>
             <Link href="/events">
               <Button className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-3">
                 Browse All Events
               </Button>
             </Link>
-          </div>
+          </motion.div>
         </div>
       </section>
     </div>

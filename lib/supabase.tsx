@@ -520,7 +520,7 @@ export const getUserOrganizerStatus = async (userId: string) => {
   }
 }
 
-// Database functions for Events (replacing Courses)
+// Database functions for Events
 export const getEvents = async () => {
   try {
     const { data, error } = await supabase
@@ -1293,11 +1293,42 @@ export const extractIdFromSlug = (slug: string) => {
   const parts = slug.split("-")
   const idPart = parts[parts.length - 1]
 
-  // If the last part looks like an ID (8 characters), return it
+  // If the last part looks like an ID (8 characters), we need to find the full ID
   if (idPart && idPart.length === 8) {
+    // For now, we'll search by the partial ID
+    // In a real implementation, you might want to store the full slug in the database
     return idPart
   }
 
   // Otherwise, try to find the full ID in the original events
   return idPart
+}
+
+// Enhanced function to get event by partial ID (from slug)
+export const getEventBySlugId = async (slugId: string) => {
+  try {
+    // First try to get by exact ID match
+    let { data, error } = await supabase.from("events").select("*").eq("id", slugId).single()
+
+    if (!data && !error) {
+      // If not found, try to find by partial ID match (first 8 characters)
+      const { data: events, error: searchError } = await supabase
+        .from("events")
+        .select("*")
+        .ilike("id", `${slugId}%`)
+        .limit(1)
+
+      if (searchError) {
+        return { data: null, error: searchError }
+      }
+
+      data = events && events.length > 0 ? events[0] : null
+      error = !data ? { message: "Event not found", code: "PGRST116" } : null
+    }
+
+    return { data, error }
+  } catch (error) {
+    console.error("Error in getEventBySlugId:", error)
+    return { data: null, error }
+  }
 }

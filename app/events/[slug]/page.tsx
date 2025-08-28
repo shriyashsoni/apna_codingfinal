@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
-import { getEventById, extractIdFromSlug } from "@/lib/supabase"
+import { getEventBySlugId, extractIdFromSlug } from "@/lib/supabase"
 import EventDetailClient from "./EventDetailClient"
 
 interface EventPageProps {
@@ -12,7 +12,7 @@ interface EventPageProps {
 export async function generateMetadata({ params }: EventPageProps): Promise<Metadata> {
   try {
     const eventId = extractIdFromSlug(params.slug)
-    const { data: event } = await getEventById(eventId)
+    const { data: event } = await getEventBySlugId(eventId)
 
     if (!event) {
       return {
@@ -61,7 +61,7 @@ export async function generateMetadata({ params }: EventPageProps): Promise<Meta
 export default async function EventPage({ params }: EventPageProps) {
   try {
     const eventId = extractIdFromSlug(params.slug)
-    const { data: event, error } = await getEventById(eventId)
+    const { data: event, error } = await getEventBySlugId(eventId)
 
     if (error || !event) {
       console.error("Event not found:", error)
