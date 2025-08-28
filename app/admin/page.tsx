@@ -10,7 +10,7 @@ import { getCurrentUser, getDetailedAnalytics, type User } from "@/lib/supabase"
 import { getPermissionStats } from "@/lib/permissions"
 import {
   Users,
-  BookOpen,
+  Calendar,
   Trophy,
   Briefcase,
   TrendingUp,
@@ -181,22 +181,22 @@ export default function AdminDashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-400 text-sm">Active Courses</p>
-                  <p className="text-2xl font-bold text-white">{analytics?.totals?.courses || 0}</p>
+                  <p className="text-gray-400 text-sm">Active Events</p>
+                  <p className="text-2xl font-bold text-white">{analytics?.totals?.events || 0}</p>
                   <div className="flex items-center mt-1">
-                    {analytics?.growth?.courseGrowth >= 0 ? (
+                    {analytics?.growth?.eventGrowth >= 0 ? (
                       <TrendingUp className="w-4 h-4 text-green-400 mr-1" />
                     ) : (
                       <TrendingDown className="w-4 h-4 text-red-400 mr-1" />
                     )}
                     <span
-                      className={`text-sm ${analytics?.growth?.courseGrowth >= 0 ? "text-green-400" : "text-red-400"}`}
+                      className={`text-sm ${analytics?.growth?.eventGrowth >= 0 ? "text-green-400" : "text-red-400"}`}
                     >
-                      {analytics?.growth?.courseGrowth || 0}%
+                      {analytics?.growth?.eventGrowth || 0}%
                     </span>
                   </div>
                 </div>
-                <BookOpen className="w-8 h-8 text-yellow-400" />
+                <Calendar className="w-8 h-8 text-yellow-400" />
               </div>
             </CardContent>
           </Card>
@@ -310,18 +310,18 @@ export default function AdminDashboard() {
                 <Settings className="w-5 h-5 mr-2 text-yellow-400" />
                 Content Management
               </CardTitle>
-              <CardDescription className="text-gray-400">Manage courses, hackathons, jobs, and users</CardDescription>
+              <CardDescription className="text-gray-400">Manage events, hackathons, jobs, and users</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <Link href="/admin/courses">
-                  <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
-                    <BookOpen className="w-4 h-4 mr-2" />
-                    Courses
+                <Link href="/admin/events">
+                  <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white">
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Events
                   </Button>
                 </Link>
                 <Link href="/admin/hackathons">
-                  <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white">
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
                     <Trophy className="w-4 h-4 mr-2" />
                     Hackathons
                   </Button>
@@ -374,13 +374,13 @@ export default function AdminDashboard() {
               <div className="pt-4 border-t border-gray-700">
                 <h4 className="text-white font-semibold mb-3">Quick Add</h4>
                 <div className="grid grid-cols-1 gap-2">
-                  <Link href="/admin/courses/new">
+                  <Link href="/admin/events/new">
                     <Button
                       variant="outline"
                       className="w-full border-gray-700 text-white hover:bg-gray-800 bg-transparent"
                     >
                       <Plus className="w-4 h-4 mr-2" />
-                      Add New Course
+                      Add New Event
                     </Button>
                   </Link>
                   <Link href="/admin/hackathons/new">
@@ -552,14 +552,14 @@ export default function AdminDashboard() {
                       H: {permissionStats?.permission_types?.hackathons || 0}
                     </Badge>
                     <Badge variant="outline" className="border-green-400 text-green-400 text-xs">
-                      C: {permissionStats?.permission_types?.courses || 0}
+                      E: {permissionStats?.permission_types?.events || 0}
                     </Badge>
                     <Badge variant="outline" className="border-orange-400 text-orange-400 text-xs">
                       J: {permissionStats?.permission_types?.jobs || 0}
                     </Badge>
                   </div>
                 </div>
-                <div className="text-xs text-gray-400">H: Hackathons, C: Courses, J: Jobs</div>
+                <div className="text-xs text-gray-400">H: Hackathons, E: Events, J: Jobs</div>
               </div>
             </div>
 
@@ -607,10 +607,18 @@ export default function AdminDashboard() {
 
               <div className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg">
                 <div className="flex items-center space-x-3">
+                  <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                  <span className="text-white">🎉 Events system replaced courses</span>
+                </div>
+                <span className="text-gray-400 text-sm">2 hours ago</span>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg">
+                <div className="flex items-center space-x-3">
                   <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
                   <span className="text-white">Database backup completed</span>
                 </div>
-                <span className="text-gray-400 text-sm">2 hours ago</span>
+                <span className="text-gray-400 text-sm">3 hours ago</span>
               </div>
 
               <div className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg">

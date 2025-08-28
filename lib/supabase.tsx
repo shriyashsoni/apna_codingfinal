@@ -55,23 +55,28 @@ export interface User {
   updated_at: string
 }
 
-export interface Course {
+export interface Event {
   id: string
   title: string
   description: string
   image_url?: string
-  price: number
-  duration: string
-  level: "Beginner" | "Intermediate" | "Advanced"
+  event_date: string
+  end_date?: string
+  location: string
+  event_type: "workshop" | "webinar" | "conference" | "meetup" | "bootcamp" | "seminar"
   technologies: string[]
-  instructor: string
-  students_count: number
-  rating: number
-  status: "active" | "inactive" | "draft"
-  redirect_url?: string
-  category: string
-  original_price?: string
-  tags?: string[]
+  organizer: string
+  max_participants: number
+  current_participants: number
+  registration_fee: number
+  status: "upcoming" | "ongoing" | "completed" | "cancelled"
+  registration_open: boolean
+  registration_link?: string
+  event_mode: "online" | "offline" | "hybrid"
+  tags: string[]
+  requirements?: string[]
+  agenda?: string
+  speaker_info?: string
   created_by?: string
   created_at: string
   updated_at: string
@@ -146,6 +151,17 @@ export interface HackathonRegistration {
   status: "registered" | "cancelled" | "attended"
   team_name?: string
   team_members?: any[]
+  additional_info?: any
+  created_at: string
+  updated_at: string
+}
+
+export interface EventRegistration {
+  id: string
+  event_id: string
+  user_id: string
+  registered_at: string
+  status: "registered" | "cancelled" | "attended"
   additional_info?: any
   created_at: string
   updated_at: string
@@ -522,39 +538,39 @@ export const getUserOrganizerStatus = async (userId: string) => {
   }
 }
 
-// Database functions for Courses
-export const getCourses = async () => {
+// Database functions for Events (replacing Courses)
+export const getEvents = async () => {
   try {
     const { data, error } = await supabase
-      .from("courses")
+      .from("events")
       .select("*")
-      .eq("status", "active")
-      .order("created_at", { ascending: false })
+      .eq("status", "upcoming")
+      .order("event_date", { ascending: true })
     return { data, error }
   } catch (error) {
-    console.error("Error in getCourses:", error)
+    console.error("Error in getEvents:", error)
     return { data: null, error }
   }
 }
 
-export const getAllCourses = async () => {
+export const getAllEvents = async () => {
   try {
-    const { data, error } = await supabase.from("courses").select("*").order("created_at", { ascending: false })
+    const { data, error } = await supabase.from("events").select("*").order("created_at", { ascending: false })
     return { data, error }
   } catch (error) {
-    console.error("Error in getAllCourses:", error)
+    console.error("Error in getAllEvents:", error)
     return { data: null, error }
   }
 }
 
-export const createCourse = async (course: Omit<Course, "id" | "created_at" | "updated_at">) => {
+export const createEvent = async (event: Omit<Event, "id" | "created_at" | "updated_at">) => {
   try {
     const currentUser = await getCurrentUser()
     const { data, error } = await supabase
-      .from("courses")
+      .from("events")
       .insert([
         {
-          ...course,
+          ...event,
           created_by: currentUser?.id,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -563,41 +579,41 @@ export const createCourse = async (course: Omit<Course, "id" | "created_at" | "u
       .select()
     return { data, error }
   } catch (error) {
-    console.error("Error in createCourse:", error)
+    console.error("Error in createEvent:", error)
     return { data: null, error }
   }
 }
 
-export const updateCourse = async (id: string, updates: Partial<Course>) => {
+export const updateEvent = async (id: string, updates: Partial<Event>) => {
   try {
     const { data, error } = await supabase
-      .from("courses")
+      .from("events")
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq("id", id)
       .select()
     return { data, error }
   } catch (error) {
-    console.error("Error in updateCourse:", error)
+    console.error("Error in updateEvent:", error)
     return { data: null, error }
   }
 }
 
-export const deleteCourse = async (id: string) => {
+export const deleteEvent = async (id: string) => {
   try {
-    const { data, error } = await supabase.from("courses").delete().eq("id", id)
+    const { data, error } = await supabase.from("events").delete().eq("id", id)
     return { data, error }
   } catch (error) {
-    console.error("Error in deleteCourse:", error)
+    console.error("Error in deleteEvent:", error)
     return { data: null, error }
   }
 }
 
-export const getCourseById = async (id: string) => {
+export const getEventById = async (id: string) => {
   try {
-    const { data, error } = await supabase.from("courses").select("*").eq("id", id).single()
+    const { data, error } = await supabase.from("events").select("*").eq("id", id).single()
     return { data, error }
   } catch (error) {
-    console.error("Error in getCourseById:", error)
+    console.error("Error in getEventById:", error)
     return { data: null, error }
   }
 }
@@ -902,6 +918,111 @@ export const getCommunities = async () => {
   }
 }
 
+// Event registration functions with email integration
+export const registerForEvent = async (eventId: string, userId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from("event_registrations")
+      .insert([
+        {
+          event_id: eventId,
+          user_id: userId,
+          registered_at: new Date().toISOString(),
+        },
+      ])
+      .select()
+
+    if (error) {
+      console.error("Error registering for event:", error)
+      return { success: false, error: error.message }
+    }
+
+    // Update participant count
+    const { error: updateError } = await supabase.rpc("increment_event_participants", {
+      event_id: eventId,
+    })
+
+    if (updateError) {
+      console.error("Error updating participant count:", updateError)
+    }
+
+    // Send registration confirmation email
+    try {
+      const [userResult, eventResult] = await Promise.all([
+        supabase.from("users").select("email, full_name").eq("id", userId).single(),
+        supabase.from("events").select("title, event_date").eq("id", eventId).single(),
+      ])
+
+      if (userResult.data && eventResult.data) {
+        await fetch("/api/emails/send", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            to: userResult.data.email,
+            subject: `🎉 Registration Confirmed: ${eventResult.data.title}`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px; overflow: hidden;">
+                <div style="padding: 40px 30px; text-align: center;">
+                  <h1 style="margin: 0 0 20px 0; font-size: 28px;">🎉 Registration Confirmed!</h1>
+                  <p style="font-size: 18px; margin: 0 0 20px 0;">Hi ${userResult.data.full_name},</p>
+                  <p style="font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+                    Congratulations! You've successfully registered for <strong>${eventResult.data.title}</strong>.
+                  </p>
+                  <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; margin: 30px 0;">
+                    <h3 style="margin: 0 0 15px 0;">📅 Event Details</h3>
+                    <p style="margin: 0 0 10px 0;"><strong>Event:</strong> ${eventResult.data.title}</p>
+                    <p style="margin: 0;"><strong>Date:</strong> ${new Date(eventResult.data.event_date).toLocaleDateString()}</p>
+                  </div>
+                  <a href="https://apnacoding.tech/events" style="display: inline-block; background: #FFD700; color: #333; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; margin: 20px 0;">
+                    View Event Details 🎉
+                  </a>
+                  <p style="font-size: 14px; margin: 30px 0 0 0; opacity: 0.8;">
+                    See you at the event!<br>
+                    Team Apna Coding
+                  </p>
+                </div>
+              </div>
+            `,
+            type: "event_registration",
+            userId: userId,
+          }),
+        })
+      }
+    } catch (emailError) {
+      console.error("Error sending registration email:", emailError)
+      // Don't fail the registration if email fails
+    }
+
+    return { success: true, data }
+  } catch (error) {
+    console.error("Error in registerForEvent:", error)
+    return { success: false, error: "An unexpected error occurred" }
+  }
+}
+
+export const checkEventRegistration = async (eventId: string, userId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from("event_registrations")
+      .select("*")
+      .eq("event_id", eventId)
+      .eq("user_id", userId)
+      .single()
+
+    if (error && error.code !== "PGRST116") {
+      console.error("Error checking registration:", error)
+      return false
+    }
+
+    return !!data
+  } catch (error) {
+    console.error("Error in checkEventRegistration:", error)
+    return false
+  }
+}
+
 // Hackathon registration functions with email integration
 export const registerForHackathon = async (hackathonId: string, userId: string) => {
   try {
@@ -1010,11 +1131,11 @@ export const checkHackathonRegistration = async (hackathonId: string, userId: st
 // Analytics functions for admin dashboard
 export const getAnalytics = async () => {
   try {
-    const [usersResult, hackathonsResult, jobsResult, coursesResult, registrationsResult] = await Promise.all([
+    const [usersResult, hackathonsResult, jobsResult, eventsResult, registrationsResult] = await Promise.all([
       supabase.from("users").select("id, created_at, role, email"),
       supabase.from("hackathons").select("id, status, participants_count, created_at, technologies"),
       supabase.from("jobs").select("id, status, posted_date, created_at, technologies"),
-      supabase.from("courses").select("id, status, students_count, created_at, technologies"),
+      supabase.from("events").select("id, status, current_participants, created_at, technologies"),
       supabase.from("hackathon_registrations").select("id, created_at, hackathon_id, user_id"),
     ])
 
@@ -1022,7 +1143,7 @@ export const getAnalytics = async () => {
       users: usersResult.data || [],
       hackathons: hackathonsResult.data || [],
       jobs: jobsResult.data || [],
-      courses: coursesResult.data || [],
+      events: eventsResult.data || [],
       registrations: registrationsResult.data || [],
     }
   } catch (error) {
@@ -1031,7 +1152,7 @@ export const getAnalytics = async () => {
       users: [],
       hackathons: [],
       jobs: [],
-      courses: [],
+      events: [],
       registrations: [],
     }
   }
@@ -1049,7 +1170,7 @@ export const getDetailedAnalytics = async () => {
     const totalUsers = data.users.length
     const activeHackathons = data.hackathons.filter((h) => h.status === "upcoming" || h.status === "ongoing").length
     const jobListings = data.jobs.filter((j) => j.status === "active").length
-    const courses = data.courses.filter((c) => c.status === "active").length
+    const events = data.events.filter((e) => e.status === "upcoming" || e.status === "ongoing").length
 
     // Calculate growth
     const recentUsers = data.users.filter((u) => new Date(u.created_at) > lastMonth).length
@@ -1061,15 +1182,15 @@ export const getDetailedAnalytics = async () => {
     const recentJobs = data.jobs.filter((j) => new Date(j.created_at) > lastMonth).length
     const jobGrowth = jobListings > 0 ? (recentJobs / jobListings) * 100 : 0
 
-    const recentCourses = data.courses.filter((c) => new Date(c.created_at) > lastMonth).length
-    const courseGrowth = courses > 0 ? (recentCourses / courses) * 100 : 0
+    const recentEvents = data.events.filter((e) => new Date(e.created_at) > lastMonth).length
+    const eventGrowth = events > 0 ? (recentEvents / events) * 100 : 0
 
     // Technology analysis
     const techCount: { [key: string]: number } = {}
 
-    data.courses.forEach((course) => {
-      if (course.technologies) {
-        course.technologies.forEach((tech: string) => {
+    data.events.forEach((event) => {
+      if (event.technologies) {
+        event.technologies.forEach((tech: string) => {
           techCount[tech] = (techCount[tech] || 0) + 1
         })
       }
@@ -1108,13 +1229,13 @@ export const getDetailedAnalytics = async () => {
         totalUsers,
         activeHackathons,
         jobListings,
-        courses,
+        events,
       },
       growth: {
         userGrowth: Math.round(userGrowth * 10) / 10,
         hackathonGrowth: Math.round(hackathonGrowth * 10) / 10,
         jobGrowth: Math.round(jobGrowth * 10) / 10,
-        courseGrowth: Math.round(courseGrowth * 10) / 10,
+        eventGrowth: Math.round(eventGrowth * 10) / 10,
       },
       topTechnologies,
       usersByRole,
@@ -1123,32 +1244,32 @@ export const getDetailedAnalytics = async () => {
   } catch (error) {
     console.error("Error fetching detailed analytics:", error)
     return {
-      totals: { totalUsers: 0, activeHackathons: 0, jobListings: 0, courses: 0 },
-      growth: { userGrowth: 0, hackathonGrowth: 0, jobGrowth: 0, courseGrowth: 0 },
+      totals: { totalUsers: 0, activeHackathons: 0, jobListings: 0, events: 0 },
+      growth: { userGrowth: 0, hackathonGrowth: 0, jobGrowth: 0, eventGrowth: 0 },
       topTechnologies: [],
       usersByRole: [],
-      rawData: { users: [], hackathons: [], jobs: [], courses: [], registrations: [] },
+      rawData: { users: [], hackathons: [], jobs: [], events: [], registrations: [] },
     }
   }
 }
 
 // Search functions
-export const searchCourses = async (query: string, category?: string) => {
+export const searchEvents = async (query: string, eventType?: string) => {
   try {
-    let queryBuilder = supabase.from("courses").select("*").eq("status", "active")
+    let queryBuilder = supabase.from("events").select("*").eq("status", "upcoming")
 
     if (query) {
       queryBuilder = queryBuilder.or(`title.ilike.%${query}%,description.ilike.%${query}%,technologies.cs.{${query}}`)
     }
 
-    if (category && category !== "All") {
-      queryBuilder = queryBuilder.eq("category", category)
+    if (eventType && eventType !== "All") {
+      queryBuilder = queryBuilder.eq("event_type", eventType)
     }
 
-    const { data, error } = await queryBuilder.order("created_at", { ascending: false })
+    const { data, error } = await queryBuilder.order("event_date", { ascending: true })
     return { data, error }
   } catch (error) {
-    console.error("Error in searchCourses:", error)
+    console.error("Error in searchEvents:", error)
     return { data: null, error }
   }
 }

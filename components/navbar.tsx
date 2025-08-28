@@ -102,7 +102,7 @@ function Navbar() {
 
   const navItems = [
     { name: "Home", href: "/" },
-    { name: "Courses", href: "/courses" },
+    { name: "Events", href: "/events" },
     { name: "Hackathons", href: "/hackathons" },
     { name: "Jobs", href: "/jobs" },
     { name: "AI Tools", href: "/ai-tools" },
@@ -115,8 +115,8 @@ function Navbar() {
     switch (roleName) {
       case "hackathon_organizer":
         return "Hackathon Organizer"
-      case "course_instructor":
-        return "Course Instructor"
+      case "event_organizer":
+        return "Event Organizer"
       case "job_poster":
         return "Job Poster"
       default:
@@ -135,10 +135,10 @@ function Navbar() {
               icon: <Calendar className="w-4 h-4 mr-2" />,
               color: "text-purple-400",
             }
-          case "course_instructor":
+          case "event_organizer":
             return {
-              label: "Post Course",
-              href: "/admin/courses/new",
+              label: "Post Event",
+              href: "/admin/events/new",
               icon: <BookOpen className="w-4 h-4 mr-2" />,
               color: "text-blue-400",
             }
@@ -299,8 +299,8 @@ function Navbar() {
                                 href={
                                   role.role_name === "hackathon_organizer"
                                     ? "/admin/hackathons"
-                                    : role.role_name === "course_instructor"
-                                      ? "/admin/courses"
+                                    : role.role_name === "event_organizer"
+                                      ? "/admin/events"
                                       : "/admin/jobs"
                                 }
                                 className="flex items-center px-4 py-2 text-purple-400 hover:bg-gray-800"
@@ -463,8 +463,8 @@ function Navbar() {
                                 href={
                                   role.role_name === "hackathon_organizer"
                                     ? "/admin/hackathons"
-                                    : role.role_name === "course_instructor"
-                                      ? "/admin/courses"
+                                    : role.role_name === "event_organizer"
+                                      ? "/admin/events"
                                       : "/admin/jobs"
                                 }
                                 className="flex items-center text-purple-400"
