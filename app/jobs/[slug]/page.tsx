@@ -1,5 +1,5 @@
 import { extractIdFromSlug, getJobById } from "@/lib/supabase"
-import JobDetailClient from "./JobDetailPageClient"
+import JobDetailClient from "./JobDetailClient"
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 

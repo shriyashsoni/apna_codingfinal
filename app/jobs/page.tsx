@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
+import Link from "next/link"
 import { Search, MapPin, Clock, DollarSign, ExternalLink, Building, Users, Share2, Bookmark, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
-import { getCurrentUser, getJobs, searchJobs, type Job } from "@/lib/supabase"
+import { getCurrentUser, getJobs, searchJobs, generateSlug, type Job } from "@/lib/supabase"
 import AuthModal from "@/components/auth/auth-modal"
 
 export default function JobsPage() {
@@ -87,14 +88,18 @@ export default function JobsPage() {
       return
     }
 
+    const jobSlug = generateSlug(job.title, job.id)
+    const jobUrl = `${window.location.origin}/jobs/${jobSlug}`
+
     if (navigator.share) {
       navigator.share({
         title: job.title,
         text: `${job.title} at ${job.company}`,
-        url: window.location.href,
+        url: jobUrl,
       })
     } else {
-      navigator.clipboard.writeText(`${job.title} at ${job.company} - ${window.location.href}`)
+      navigator.clipboard.writeText(`${job.title} at ${job.company} - ${jobUrl}`)
+      alert("Link copied to clipboard!")
     }
   }
 
@@ -108,17 +113,6 @@ export default function JobsPage() {
     if (job.apply_link) {
       window.open(job.apply_link, "_blank")
     }
-  }
-
-  const handleViewDetails = (jobId: string) => {
-    if (!user) {
-      setAuthMode("login")
-      setShowAuthModal(true)
-      return
-    }
-
-    // Navigate to job details page
-    window.location.href = `/jobs/${jobId}`
   }
 
   const handleAuthSuccess = () => {
@@ -324,13 +318,14 @@ export default function JobsPage() {
 
                     <div className="flex items-center space-x-3 mt-4 lg:mt-0">
                       <span className="text-yellow-400 text-sm font-medium">{job.experience}</span>
-                      <Button
-                        onClick={() => handleViewDetails(job.id)}
-                        variant="outline"
-                        className="border-gray-600 text-gray-300 hover:bg-gray-700"
-                      >
-                        View Details
-                      </Button>
+                      <Link href={`/jobs/${generateSlug(job.title, job.id)}`}>
+                        <Button
+                          variant="outline"
+                          className="border-gray-600 text-gray-300 hover:bg-gray-700 bg-transparent"
+                        >
+                          View Details
+                        </Button>
+                      </Link>
                       {job.apply_link && (
                         <Button
                           onClick={() => handleApplyClick(job)}

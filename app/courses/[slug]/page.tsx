@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { extractIdFromSlug } from "@/lib/supabase"
 import { getCourseById } from "@/lib/supabase"
-import CourseDetailClientPage from "./CourseDetailClientPage"
+import CourseDetailClient from "./CourseDetailClient"
 
 interface Props {
   params: { slug: string }
@@ -97,5 +97,5 @@ export default async function CourseDetailPage({ params }: Props) {
     notFound()
   }
 
-  return <CourseDetailClientPage params={params} />
+  return <CourseDetailClient course={course} />
 }

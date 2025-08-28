@@ -23,7 +23,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { getCurrentUser, getCourses, searchCourses, type Course } from "@/lib/supabase"
+import { getCurrentUser, getCourses, searchCourses, generateSlug, type Course } from "@/lib/supabase"
 
 export default function CoursesPage() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -114,14 +114,18 @@ export default function CoursesPage() {
   }
 
   const handleShare = (course: Course) => {
+    const courseSlug = generateSlug(course.title, course.id)
+    const courseUrl = `${window.location.origin}/courses/${courseSlug}`
+
     if (navigator.share) {
       navigator.share({
         title: course.title,
         text: course.description,
-        url: window.location.href,
+        url: courseUrl,
       })
     } else {
-      navigator.clipboard.writeText(`${course.title} - ${window.location.href}`)
+      navigator.clipboard.writeText(`${course.title} - ${courseUrl}`)
+      alert("Link copied to clipboard!")
     }
   }
 
@@ -307,44 +311,52 @@ export default function CoursesPage() {
                   <Card
                     className={`bg-gray-900 border-gray-800 hover:border-yellow-400 transition-all duration-300 group overflow-hidden h-full flex flex-col ${!user ? "opacity-75" : ""}`}
                   >
-                    <div className="relative h-48 overflow-hidden">
-                      <Image
-                        src={course.image_url || "/images/courses-hero.png"}
-                        alt={course.title}
-                        fill
-                        className="object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                      <div className="absolute top-3 left-3 flex gap-2">
-                        <Badge className="bg-red-500 text-white text-xs">PREMIUM</Badge>
-                        <Badge className="bg-green-500 text-white text-xs">FREE</Badge>
-                      </div>
-                      <div className="absolute top-3 right-3 flex space-x-2">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleBookmark(course.id)}
-                          className={`bg-black/50 hover:bg-black/70 p-2 h-8 w-8 ${bookmarkedCourses.includes(course.id) ? "text-yellow-400" : "text-white"}`}
-                        >
-                          <Bookmark className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleShare(course)}
-                          className="bg-black/50 hover:bg-black/70 text-white p-2 h-8 w-8"
-                        >
-                          <Share2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <div className="absolute bottom-3 left-3">
-                        <Badge className="bg-black/70 text-white text-xs">{course.level}</Badge>
-                      </div>
-                      {!user && (
-                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                          <Lock className="w-8 h-8 text-white" />
+                    <Link href={`/courses/${generateSlug(course.title, course.id)}`}>
+                      <div className="relative h-48 overflow-hidden cursor-pointer">
+                        <Image
+                          src={course.image_url || "/images/courses-hero.png"}
+                          alt={course.title}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        <div className="absolute top-3 left-3 flex gap-2">
+                          <Badge className="bg-red-500 text-white text-xs">PREMIUM</Badge>
+                          <Badge className="bg-green-500 text-white text-xs">FREE</Badge>
                         </div>
-                      )}
-                    </div>
+                        <div className="absolute top-3 right-3 flex space-x-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              handleBookmark(course.id)
+                            }}
+                            className={`bg-black/50 hover:bg-black/70 p-2 h-8 w-8 ${bookmarkedCourses.includes(course.id) ? "text-yellow-400" : "text-white"}`}
+                          >
+                            <Bookmark className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              handleShare(course)
+                            }}
+                            className="bg-black/50 hover:bg-black/70 text-white p-2 h-8 w-8"
+                          >
+                            <Share2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                        <div className="absolute bottom-3 left-3">
+                          <Badge className="bg-black/70 text-white text-xs">{course.level}</Badge>
+                        </div>
+                        {!user && (
+                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                            <Lock className="w-8 h-8 text-white" />
+                          </div>
+                        )}
+                      </div>
+                    </Link>
 
                     <CardContent className="p-5 flex flex-col flex-grow">
                       <div className="flex items-center justify-between mb-3">
@@ -357,9 +369,11 @@ export default function CoursesPage() {
                         </div>
                       </div>
 
-                      <h3 className="text-lg font-bold text-white mb-3 group-hover:text-yellow-400 transition-colors line-clamp-2">
-                        {course.title}
-                      </h3>
+                      <Link href={`/courses/${generateSlug(course.title, course.id)}`}>
+                        <h3 className="text-lg font-bold text-white mb-3 group-hover:text-yellow-400 transition-colors line-clamp-2 cursor-pointer">
+                          {course.title}
+                        </h3>
+                      </Link>
 
                       <p className="text-gray-400 mb-4 text-sm line-clamp-3 flex-grow">{course.description}</p>
 
