@@ -299,6 +299,7 @@ export default function EventsPage() {
                             src={
                               event.image_url ||
                               "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/EVENT%20COSTOM%20TEMPLATE-kZL4AvoUZPDjOKW6HBkYlCocOyCR7I.png" ||
+                              "/placeholder.svg" ||
                               "/placeholder.svg"
                             }
                             alt={event.title}
@@ -403,7 +404,7 @@ export default function EventsPage() {
 
                           {/* Action Button */}
                           <div className="pt-4">
-                            <Link href={`/events/${eventSlug}`}>
+                            <Link href={`/events/${event.id}`}>
                               <Button className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold group">
                                 <Play className="w-4 h-4 mr-2" />
                                 View Event Details

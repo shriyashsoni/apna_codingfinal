@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
-import { getEventBySlugId, extractIdFromSlug } from "@/lib/supabase"
+import { getEventBySlugId, extractIdFromSlug, getAllEvents } from "@/lib/supabase"
 import EventDetailClient from "./EventDetailClient"
 
 interface EventPageProps {
@@ -62,19 +62,59 @@ export async function generateMetadata({ params }: EventPageProps): Promise<Meta
 
 export default async function EventPage({ params }: EventPageProps) {
   try {
+    console.log("🚀 Event page loading - Raw slug:", params.slug)
+
+    // First, let's try to get all events to see what we have
+    const { data: allEvents } = await getAllEvents()
+    console.log("📊 Total events in database:", allEvents?.length || 0)
+
+    if (allEvents && allEvents.length > 0) {
+      console.log(
+        "📋 Available events:",
+        allEvents.map((e) => ({ id: e.id, title: e.title })),
+      )
+    }
+
     const eventId = extractIdFromSlug(params.slug)
-    console.log("Event page - Slug:", params.slug, "Extracted ID:", eventId)
+    console.log("🔍 Extracted event ID:", eventId)
 
     const { data: event, error } = await getEventBySlugId(eventId)
 
-    if (error || !event) {
-      console.error("Event not found:", error)
+    console.log("📝 Event lookup result:", {
+      found: !!event,
+      error: error?.message,
+      eventTitle: event?.title,
+    })
+
+    if (error) {
+      console.error("❌ Event lookup error:", error)
+    }
+
+    if (!event) {
+      console.log("❌ Event not found, showing 404")
       notFound()
     }
 
+    console.log("✅ Event found, rendering page:", event.title)
     return <EventDetailClient event={event} />
   } catch (error) {
-    console.error("Error loading event:", error)
+    console.error("💥 Critical error in EventPage:", error)
     notFound()
+  }
+}
+
+// Generate static params for better performance (optional)
+export async function generateStaticParams() {
+  try {
+    const { data: events } = await getAllEvents()
+
+    if (!events) return []
+
+    return events.map((event) => ({
+      slug: event.id, // Use the actual ID as slug for now
+    }))
+  } catch (error) {
+    console.error("Error generating static params:", error)
+    return []
   }
 }

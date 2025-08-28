@@ -601,38 +601,67 @@ export const getEventById = async (id: string) => {
   }
 }
 
-// Enhanced function to get event by partial ID (from slug) - FIXED
+// Enhanced function to get event by partial ID (from slug) - COMPLETELY FIXED
 export const getEventBySlugId = async (slugId: string) => {
   try {
     console.log("🔍 Looking for event with slug ID:", slugId)
 
-    // Try multiple approaches to find the event
-
     // 1. First try exact ID match
-    const { data, error } = await supabase.from("events").select("*").eq("id", slugId).single()
+    const { data: exactMatch, error: exactError } = await supabase.from("events").select("*").eq("id", slugId).single()
 
-    if (data) {
-      console.log("✅ Found event by exact ID:", data.title)
-      return { data, error }
+    if (exactMatch && !exactError) {
+      console.log("✅ Found event by exact ID:", exactMatch.title)
+      return { data: exactMatch, error: null }
     }
 
-    // 2. If not found, try partial ID match (events created with UUID)
+    // 2. Try to find by partial UUID match (first 8 characters)
     if (slugId.length >= 8) {
-      const { data: events, error: searchError } = await supabase.from("events").select("*").ilike("id", `${slugId}%`)
+      const { data: partialMatches, error: partialError } = await supabase
+        .from("events")
+        .select("*")
+        .ilike("id", `${slugId}%`)
 
-      if (searchError) {
-        console.error("❌ Search error:", searchError)
-        return { data: null, error: searchError }
-      }
-
-      if (events && events.length > 0) {
-        console.log("✅ Found event by partial ID match:", events[0].title)
-        return { data: events[0], error: null }
+      if (!partialError && partialMatches && partialMatches.length > 0) {
+        console.log("✅ Found event by partial ID match:", partialMatches[0].title)
+        return { data: partialMatches[0], error: null }
       }
     }
 
-    // 3. If still not found, try searching by title (fallback)
-    const titleSearch = slugId.replace(/-/g, " ").replace(/\d+/g, "").trim()
+    // 3. Try to extract UUID-like pattern from slug and search
+    const uuidPattern = /[a-f0-9]{8}-?[a-f0-9]{4}-?[a-f0-9]{4}-?[a-f0-9]{4}-?[a-f0-9]{12}/i
+    const uuidMatch = slugId.match(uuidPattern)
+
+    if (uuidMatch) {
+      const uuid = uuidMatch[0]
+      console.log("🔍 Trying UUID pattern:", uuid)
+
+      const { data: uuidData, error: uuidError } = await supabase.from("events").select("*").eq("id", uuid).single()
+
+      if (uuidData && !uuidError) {
+        console.log("✅ Found event by UUID pattern:", uuidData.title)
+        return { data: uuidData, error: null }
+      }
+    }
+
+    // 4. Get all events and try to match by generated slug
+    const { data: allEvents, error: allError } = await supabase.from("events").select("*")
+
+    if (!allError && allEvents) {
+      for (const event of allEvents) {
+        const generatedSlug = generateSlug(event.title, event.id)
+        if (generatedSlug === slugId) {
+          console.log("✅ Found event by generated slug match:", event.title)
+          return { data: event, error: null }
+        }
+      }
+    }
+
+    // 5. Final fallback - search by title similarity
+    const titleSearch = slugId
+      .replace(/-/g, " ")
+      .replace(/[0-9a-f]{8,}/gi, "")
+      .trim()
+
     if (titleSearch.length > 3) {
       const { data: titleEvents, error: titleError } = await supabase
         .from("events")
@@ -640,7 +669,7 @@ export const getEventBySlugId = async (slugId: string) => {
         .ilike("title", `%${titleSearch}%`)
         .limit(1)
 
-      if (titleEvents && titleEvents.length > 0) {
+      if (!titleError && titleEvents && titleEvents.length > 0) {
         console.log("✅ Found event by title search:", titleEvents[0].title)
         return { data: titleEvents[0], error: null }
       }
@@ -667,33 +696,47 @@ export const generateSlug = (title: string, id: string) => {
   return `${slug}-${id.substring(0, 8)}`
 }
 
-// Function to extract ID from slug - IMPROVED
+// Function to extract ID from slug - COMPLETELY IMPROVED
 export const extractIdFromSlug = (slug: string) => {
   console.log("🔍 Extracting ID from slug:", slug)
 
-  // Split by hyphens
+  // 1. First check if the slug itself is a UUID
+  const uuidPattern = /^[a-f0-9]{8}-?[a-f0-9]{4}-?[a-f0-9]{4}-?[a-f0-9]{4}-?[a-f0-9]{12}$/i
+  if (uuidPattern.test(slug)) {
+    console.log("✅ Slug is a complete UUID:", slug)
+    return slug
+  }
+
+  // 2. Look for UUID pattern anywhere in the slug
+  const uuidInSlugPattern = /[a-f0-9]{8}-?[a-f0-9]{4}-?[a-f0-9]{4}-?[a-f0-9]{4}-?[a-f0-9]{12}/i
+  const uuidMatch = slug.match(uuidInSlugPattern)
+  if (uuidMatch) {
+    console.log("✅ Found UUID in slug:", uuidMatch[0])
+    return uuidMatch[0]
+  }
+
+  // 3. Split by hyphens and look for UUID-like parts
   const parts = slug.split("-")
 
-  // Look for UUID-like patterns (8 characters or more, alphanumeric)
+  // Look for parts that look like UUID segments (8+ hex characters)
   for (let i = parts.length - 1; i >= 0; i--) {
     const part = parts[i]
-
-    // Check if this part looks like a UUID segment (8+ chars, alphanumeric)
     if (part && part.length >= 8 && /^[a-f0-9]{8,}$/i.test(part)) {
       console.log("✅ Found UUID-like part:", part)
       return part
     }
   }
 
-  // If no UUID-like part found, try the last part
-  const lastPart = parts[parts.length - 1]
-  if (lastPart && lastPart.length >= 6) {
-    console.log("✅ Using last part as fallback:", lastPart)
-    return lastPart
+  // 4. Look for any hex string of 8+ characters
+  const hexPattern = /[a-f0-9]{8,}/i
+  const hexMatch = slug.match(hexPattern)
+  if (hexMatch) {
+    console.log("✅ Found hex pattern:", hexMatch[0])
+    return hexMatch[0]
   }
 
-  // Final fallback - return the whole slug
-  console.log("⚠️ Using whole slug as fallback:", slug)
+  // 5. If nothing found, return the original slug
+  console.log("⚠️ Using original slug as fallback:", slug)
   return slug
 }
 
