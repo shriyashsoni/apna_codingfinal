@@ -1,48 +1,41 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Users, MessageCircle, Globe, Github, Star, ArrowRight, Heart, Zap, Target, Award } from "lucide-react"
+import { Users, MessageCircle, Globe, Github, ArrowRight, Heart, Zap, Target, Award } from "lucide-react"
 
 interface CommunityData {
   stats: {
     activeMembers: number
     dailyDiscussions: number
-    successStories: number
+    partnerships: number
     countries: number
   }
   platforms: Array<{
     id: string
     name: string
-    memberCount: number
+    memberCount: number | null
     description: string
     link: string
     features: string[]
-  }>
-  testimonials: Array<{
-    id: string
-    name: string
-    role: string
-    content: string
-    rating: number
   }>
 }
 
 export default function CommunityPage() {
   const [communityData, setCommunityData] = useState<CommunityData>({
     stats: {
-      activeMembers: 50000,
+      activeMembers: 20000,
       dailyDiscussions: 1200,
-      successStories: 2500,
-      countries: 85,
+      partnerships: 50,
+      countries: 10,
     },
     platforms: [
       {
         id: "1",
         name: "WhatsApp Community",
-        memberCount: 25000,
+        memberCount: 6000,
         description: "Join our active WhatsApp community for daily coding discussions and instant help",
         link: "https://chat.whatsapp.com/HqVg4ctR6QKJnfvemsEQ8H?mode=ac_t",
         features: ["Instant Help", "Daily Challenges", "Job Updates", "Project Sharing"],
@@ -50,7 +43,7 @@ export default function CommunityPage() {
       {
         id: "2",
         name: "Telegram Channel",
-        memberCount: 15000,
+        memberCount: 400,
         description: "Get latest updates, resources, and announcements on our Telegram channel",
         link: "https://t.me/apnacodingtech",
         features: ["Latest Updates", "Resources", "Announcements", "Tech News"],
@@ -58,7 +51,7 @@ export default function CommunityPage() {
       {
         id: "3",
         name: "Discord Server",
-        memberCount: 8000,
+        memberCount: null,
         description: "Voice chats, screen sharing, and collaborative coding sessions",
         link: "https://discord.gg/krffBfBF",
         features: ["Voice Chats", "Screen Sharing", "Code Reviews", "Study Groups"],
@@ -66,48 +59,13 @@ export default function CommunityPage() {
       {
         id: "4",
         name: "GitHub Community",
-        memberCount: 12000,
+        memberCount: null,
         description: "Contribute to open source projects and showcase your coding skills",
         link: "https://github.com/APNA-CODING-BY-APNA-COUNSELLOR",
         features: ["Open Source", "Code Collaboration", "Project Showcase", "Mentorship"],
       },
     ],
-    testimonials: [
-      {
-        id: "1",
-        name: "Rahul Sharma",
-        role: "Software Engineer at Google",
-        content:
-          "Apna Coding community helped me land my dream job at Google. The support and resources are incredible!",
-        rating: 5,
-      },
-      {
-        id: "2",
-        name: "Priya Patel",
-        role: "Full Stack Developer",
-        content: "The daily coding challenges and peer support made learning so much easier. Highly recommend!",
-        rating: 5,
-      },
-      {
-        id: "3",
-        name: "Arjun Singh",
-        role: "Startup Founder",
-        content: "Found my co-founder and initial team members through this amazing community. Thank you!",
-        rating: 5,
-      },
-    ],
   })
-
-  useEffect(() => {
-    loadCommunityData()
-  }, [])
-
-  const loadCommunityData = () => {
-    const savedData = localStorage.getItem("communityData")
-    if (savedData) {
-      setCommunityData(JSON.parse(savedData))
-    }
-  }
 
   const getPlatformIcon = (name: string) => {
     if (name.toLowerCase().includes("whatsapp")) return MessageCircle
@@ -141,7 +99,7 @@ export default function CommunityPage() {
             </div>
             <div className="flex items-center gap-2">
               <Award className="w-5 h-5 text-yellow-400" />
-              <span>{communityData.stats.successStories.toLocaleString()}+ Success Stories</span>
+              <span>{communityData.stats.partnerships}+ Partnerships</span>
             </div>
             <div className="flex items-center gap-2">
               <Globe className="w-5 h-5 text-yellow-400" />
@@ -178,10 +136,8 @@ export default function CommunityPage() {
             <Card className="card-glass hover:border-yellow-400/50 transition-all duration-300 group">
               <CardContent className="p-6 text-center">
                 <Award className="w-12 h-12 text-yellow-400 mx-auto mb-4 group-hover:scale-110 transition-transform" />
-                <h3 className="text-3xl font-bold text-white mb-2">
-                  {communityData.stats.successStories.toLocaleString()}+
-                </h3>
-                <p className="text-gray-300">Success Stories</p>
+                <h3 className="text-3xl font-bold text-white mb-2">{communityData.stats.partnerships}+</h3>
+                <p className="text-gray-300">Partnerships</p>
               </CardContent>
             </Card>
 
@@ -221,7 +177,9 @@ export default function CommunityPage() {
                         <CardTitle className="text-white text-xl group-hover:text-yellow-400 transition-colors">
                           {platform.name}
                         </CardTitle>
-                        <p className="text-gray-300 text-sm">{platform.memberCount.toLocaleString()} members</p>
+                        {platform.memberCount && (
+                          <p className="text-gray-300 text-sm">{platform.memberCount.toLocaleString()}+ members</p>
+                        )}
                       </div>
                     </div>
                   </CardHeader>
@@ -294,38 +252,6 @@ export default function CommunityPage() {
                 </p>
               </CardContent>
             </Card>
-          </div>
-        </div>
-
-        {/* Community Testimonials */}
-        <div className="mb-16">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-white mb-4">What Our Members Say</h2>
-            <p className="text-xl text-gray-300 max-w-2xl mx-auto">
-              Hear from developers who have transformed their careers through our community
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {communityData.testimonials.map((testimonial) => (
-              <Card
-                key={testimonial.id}
-                className="card-glass hover:border-yellow-400/50 transition-all duration-300 group card-hover"
-              >
-                <CardContent className="p-6">
-                  <div className="flex mb-4">
-                    {[...Array(testimonial.rating)].map((_, i) => (
-                      <Star key={i} className="w-5 h-5 text-yellow-400 fill-current" />
-                    ))}
-                  </div>
-                  <p className="text-gray-300 mb-4 leading-relaxed">"{testimonial.content}"</p>
-                  <div>
-                    <p className="font-semibold text-white">{testimonial.name}</p>
-                    <p className="text-sm text-gray-300">{testimonial.role}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
           </div>
         </div>
 

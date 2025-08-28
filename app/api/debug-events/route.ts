@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getAllEvents } from "@/lib/supabase"
+import { getAllEvents, generateSlug } from "@/lib/supabase"
 
 export async function GET() {
   try {
@@ -9,18 +9,20 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    const eventInfo =
-      events?.map((event) => ({
-        id: event.id,
-        title: event.title,
-        slug: event.id, // Using ID as slug for now
-        status: event.status,
-        created_at: event.created_at,
-      })) || []
+    const eventsWithSlugs = events?.map((event) => ({
+      id: event.id,
+      title: event.title,
+      slug: generateSlug(event.title, event.id),
+      url: `/events/${generateSlug(event.title, event.id)}`,
+      direct_url: `/events/${event.id}`,
+      event_date: event.event_date,
+      status: event.status,
+    }))
 
     return NextResponse.json({
-      total: events?.length || 0,
-      events: eventInfo,
+      message: "Events debug information",
+      total_events: events?.length || 0,
+      events: eventsWithSlugs,
     })
   } catch (error) {
     console.error("Debug events error:", error)
