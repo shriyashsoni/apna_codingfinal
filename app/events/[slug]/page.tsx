@@ -63,6 +63,8 @@ export async function generateMetadata({ params }: EventPageProps): Promise<Meta
 export default async function EventPage({ params }: EventPageProps) {
   try {
     const eventId = extractIdFromSlug(params.slug)
+    console.log("Event page - Slug:", params.slug, "Extracted ID:", eventId)
+
     const { data: event, error } = await getEventBySlugId(eventId)
 
     if (error || !event) {

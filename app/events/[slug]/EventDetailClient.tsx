@@ -26,6 +26,10 @@ import {
   Trophy,
   Zap,
   Heart,
+  Copy,
+  Facebook,
+  Twitter,
+  Linkedin,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -42,6 +46,7 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
   const [loading, setLoading] = useState(true)
   const [registering, setRegistering] = useState(false)
   const [bookmarked, setBookmarked] = useState(false)
+  const [showShareMenu, setShowShareMenu] = useState(false)
 
   useEffect(() => {
     checkUser()
@@ -104,18 +109,43 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
     }
   }
 
-  const handleShare = () => {
+  const handleShare = (platform?: string) => {
     const eventUrl = window.location.href
+    const shareText = `Check out this amazing event: ${event.title}`
 
-    if (navigator.share) {
-      navigator.share({
-        title: event.title,
-        text: event.description,
-        url: eventUrl,
-      })
-    } else {
-      navigator.clipboard.writeText(`${event.title} - ${eventUrl}`)
+    if (platform === "twitter") {
+      window.open(
+        `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(eventUrl)}`,
+        "_blank",
+        "noopener,noreferrer",
+      )
+    } else if (platform === "facebook") {
+      window.open(
+        `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(eventUrl)}`,
+        "_blank",
+        "noopener,noreferrer",
+      )
+    } else if (platform === "linkedin") {
+      window.open(
+        `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(eventUrl)}`,
+        "_blank",
+        "noopener,noreferrer",
+      )
+    } else if (platform === "copy") {
+      navigator.clipboard.writeText(eventUrl)
       alert("Link copied to clipboard!")
+      setShowShareMenu(false)
+    } else {
+      // Native share or fallback
+      if (navigator.share) {
+        navigator.share({
+          title: event.title,
+          text: event.description,
+          url: eventUrl,
+        })
+      } else {
+        setShowShareMenu(!showShareMenu)
+      }
     }
   }
 
@@ -368,14 +398,55 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
 
                 {/* Share & Bookmark */}
                 <div className="flex gap-2">
-                  <Button
-                    size="lg"
-                    onClick={handleShare}
-                    variant="outline"
-                    className="border-white/20 text-white hover:bg-white/10 bg-black/20 backdrop-blur-sm px-4"
-                  >
-                    <Share2 className="w-5 h-5" />
-                  </Button>
+                  <div className="relative">
+                    <Button
+                      size="lg"
+                      onClick={() => handleShare()}
+                      variant="outline"
+                      className="border-white/20 text-white hover:bg-white/10 bg-black/20 backdrop-blur-sm px-4"
+                    >
+                      <Share2 className="w-5 h-5" />
+                    </Button>
+
+                    {/* Share Menu */}
+                    {showShareMenu && (
+                      <div className="absolute top-full mt-2 right-0 bg-gray-900 border border-gray-700 rounded-lg shadow-lg p-2 z-30 min-w-[200px]">
+                        <Button
+                          onClick={() => handleShare("copy")}
+                          variant="ghost"
+                          className="w-full justify-start text-white hover:bg-gray-800"
+                        >
+                          <Copy className="w-4 h-4 mr-2" />
+                          Copy Link
+                        </Button>
+                        <Button
+                          onClick={() => handleShare("twitter")}
+                          variant="ghost"
+                          className="w-full justify-start text-white hover:bg-gray-800"
+                        >
+                          <Twitter className="w-4 h-4 mr-2" />
+                          Share on Twitter
+                        </Button>
+                        <Button
+                          onClick={() => handleShare("facebook")}
+                          variant="ghost"
+                          className="w-full justify-start text-white hover:bg-gray-800"
+                        >
+                          <Facebook className="w-4 h-4 mr-2" />
+                          Share on Facebook
+                        </Button>
+                        <Button
+                          onClick={() => handleShare("linkedin")}
+                          variant="ghost"
+                          className="w-full justify-start text-white hover:bg-gray-800"
+                        >
+                          <Linkedin className="w-4 h-4 mr-2" />
+                          Share on LinkedIn
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
                   <Button
                     size="lg"
                     onClick={handleBookmark}
@@ -704,6 +775,9 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
           </motion.div>
         </div>
       </section>
+
+      {/* Click outside to close share menu */}
+      {showShareMenu && <div className="fixed inset-0 z-20" onClick={() => setShowShareMenu(false)} />}
     </div>
   )
 }

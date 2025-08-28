@@ -604,45 +604,100 @@ export const getEventById = async (id: string) => {
 // Enhanced function to get event by partial ID (from slug) - FIXED
 export const getEventBySlugId = async (slugId: string) => {
   try {
-    console.log("Looking for event with slug ID:", slugId)
+    console.log("🔍 Looking for event with slug ID:", slugId)
 
-    // First try to get by exact ID match
-    let { data, error } = await supabase.from("events").select("*").eq("id", slugId).single()
+    // Try multiple approaches to find the event
 
-    if (error && error.code === "PGRST116") {
-      // If not found by exact ID, try to find by partial ID match (first 8 characters)
-      console.log("Exact ID not found, trying partial match...")
-      const { data: events, error: searchError } = await supabase
-        .from("events")
-        .select("*")
-        .ilike("id", `${slugId}%`)
-        .limit(1)
+    // 1. First try exact ID match
+    const { data, error } = await supabase.from("events").select("*").eq("id", slugId).single()
+
+    if (data) {
+      console.log("✅ Found event by exact ID:", data.title)
+      return { data, error }
+    }
+
+    // 2. If not found, try partial ID match (events created with UUID)
+    if (slugId.length >= 8) {
+      const { data: events, error: searchError } = await supabase.from("events").select("*").ilike("id", `${slugId}%`)
 
       if (searchError) {
-        console.error("Search error:", searchError)
+        console.error("❌ Search error:", searchError)
         return { data: null, error: searchError }
       }
 
-      data = events && events.length > 0 ? events[0] : null
-      error = !data ? { message: "Event not found", code: "PGRST116" } : null
-
-      if (data) {
-        console.log("Found event by partial match:", data.title)
-      } else {
-        console.log("No event found by partial match")
+      if (events && events.length > 0) {
+        console.log("✅ Found event by partial ID match:", events[0].title)
+        return { data: events[0], error: null }
       }
-    } else if (data) {
-      console.log("Found event by exact ID:", data.title)
     }
 
-    return { data, error }
+    // 3. If still not found, try searching by title (fallback)
+    const titleSearch = slugId.replace(/-/g, " ").replace(/\d+/g, "").trim()
+    if (titleSearch.length > 3) {
+      const { data: titleEvents, error: titleError } = await supabase
+        .from("events")
+        .select("*")
+        .ilike("title", `%${titleSearch}%`)
+        .limit(1)
+
+      if (titleEvents && titleEvents.length > 0) {
+        console.log("✅ Found event by title search:", titleEvents[0].title)
+        return { data: titleEvents[0], error: null }
+      }
+    }
+
+    console.log("❌ No event found for slug:", slugId)
+    return { data: null, error: { message: "Event not found", code: "PGRST116" } }
   } catch (error) {
-    console.error("Error in getEventBySlugId:", error)
+    console.error("❌ Error in getEventBySlugId:", error)
     return { data: null, error }
   }
 }
 
-// Database functions for Hackathons
+// Utility function to generate SEO-friendly slug from title
+export const generateSlug = (title: string, id: string) => {
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9 -]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .trim()
+
+  // Use first 8 characters of ID for uniqueness
+  return `${slug}-${id.substring(0, 8)}`
+}
+
+// Function to extract ID from slug - IMPROVED
+export const extractIdFromSlug = (slug: string) => {
+  console.log("🔍 Extracting ID from slug:", slug)
+
+  // Split by hyphens
+  const parts = slug.split("-")
+
+  // Look for UUID-like patterns (8 characters or more, alphanumeric)
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const part = parts[i]
+
+    // Check if this part looks like a UUID segment (8+ chars, alphanumeric)
+    if (part && part.length >= 8 && /^[a-f0-9]{8,}$/i.test(part)) {
+      console.log("✅ Found UUID-like part:", part)
+      return part
+    }
+  }
+
+  // If no UUID-like part found, try the last part
+  const lastPart = parts[parts.length - 1]
+  if (lastPart && lastPart.length >= 6) {
+    console.log("✅ Using last part as fallback:", lastPart)
+    return lastPart
+  }
+
+  // Final fallback - return the whole slug
+  console.log("⚠️ Using whole slug as fallback:", slug)
+  return slug
+}
+
+// Rest of the functions remain the same...
 export const getHackathons = async () => {
   try {
     const { data, error } = await supabase.from("hackathons").select("*").order("start_date", { ascending: true })
@@ -1315,38 +1370,4 @@ export const searchPartnerships = async (query: string, type?: string) => {
     console.error("Error in searchPartnerships:", error)
     return { data: null, error }
   }
-}
-
-// Utility function to generate SEO-friendly slug from title
-export const generateSlug = (title: string, id: string) => {
-  const slug = title
-    .toLowerCase()
-    .replace(/[^a-z0-9 -]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .trim()
-
-  // Use first 8 characters of ID for uniqueness
-  return `${slug}-${id.substring(0, 8)}`
-}
-
-// Function to extract ID from slug - IMPROVED
-export const extractIdFromSlug = (slug: string) => {
-  const parts = slug.split("-")
-  const idPart = parts[parts.length - 1]
-
-  // If the last part looks like an ID (8 characters), return it
-  if (idPart && idPart.length === 8) {
-    return idPart
-  }
-
-  // If not found, try to find any 8-character part that looks like an ID
-  for (const part of parts) {
-    if (part.length === 8 && /^[a-f0-9]{8}$/i.test(part)) {
-      return part
-    }
-  }
-
-  // If still not found, return the last part (fallback)
-  return idPart || slug
 }
