@@ -35,12 +35,14 @@ export async function generateMetadata({ params }: EventPageProps): Promise<Meta
         "webinars",
         "conferences",
         "coding events",
+        "apna coding",
       ].join(", "),
       openGraph: {
         title: event.title,
         description: event.description,
         images: event.image_url ? [{ url: event.image_url }] : [],
         type: "website",
+        siteName: "Apna Coding",
       },
       twitter: {
         card: "summary_large_image",
@@ -53,7 +55,7 @@ export async function generateMetadata({ params }: EventPageProps): Promise<Meta
     console.error("Error generating metadata:", error)
     return {
       title: "Event - Apna Coding",
-      description: "Discover amazing tech events and workshops.",
+      description: "Discover amazing tech events and workshops from Apna Coding.",
     }
   }
 }

@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import {
   Calendar,
@@ -24,6 +23,9 @@ import {
   Tag,
   Info,
   Star,
+  Trophy,
+  Zap,
+  Heart,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -35,7 +37,6 @@ interface EventDetailClientProps {
 }
 
 export default function EventDetailClient({ event }: EventDetailClientProps) {
-  const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [isRegistered, setIsRegistered] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -64,7 +65,7 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
 
   const handleRegistration = async () => {
     if (!user) {
-      router.push("/auth")
+      alert("Please login to register for this event!")
       return
     }
 
@@ -97,6 +98,12 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
     }
   }
 
+  const handleExternalRegistration = () => {
+    if (event.registration_link) {
+      window.open(event.registration_link, "_blank", "noopener,noreferrer")
+    }
+  }
+
   const handleShare = () => {
     const eventUrl = window.location.href
 
@@ -123,6 +130,11 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
       year: "numeric",
       month: "long",
       day: "numeric",
+    })
+  }
+
+  const formatTime = (dateString: string) => {
+    return new Date(dateString).toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
     })
@@ -184,252 +196,149 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
   }
 
   return (
-    <div className="min-h-screen pt-20 bg-black text-white">
-      {/* Hero Section */}
-      <section className="relative py-16 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-yellow-400/10 to-transparent" />
-        <div className="container mx-auto px-4 relative z-10">
-          {/* Back Button */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-            className="mb-8"
-          >
-            <Link href="/events">
-              <Button variant="outline" className="border-gray-700 text-white hover:bg-gray-800 bg-transparent">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Events
-              </Button>
-            </Link>
-          </motion.div>
+    <div className="min-h-screen bg-black text-white">
+      {/* Hero Section with Cover Image */}
+      <section className="relative h-[70vh] overflow-hidden">
+        <div className="absolute inset-0">
+          <Image
+            src={
+              event.image_url ||
+              "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/EVENT%20COSTOM%20TEMPLATE-kZL4AvoUZPDjOKW6HBkYlCocOyCR7I.png" ||
+              "/placeholder.svg"
+            }
+            alt={event.title}
+            fill
+            className="object-cover"
+            priority
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/30" />
+        </div>
 
-          <div className="grid lg:grid-cols-2 gap-12 items-start">
-            {/* Event Image */}
-            <motion.div initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8 }}>
-              <div className="relative w-full h-96 rounded-2xl overflow-hidden shadow-2xl">
-                <Image
-                  src={
-                    event.image_url ||
-                    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/EVENT%20COSTOM%20TEMPLATE-kZL4AvoUZPDjOKW6HBkYlCocOyCR7I.png" ||
-                    "/placeholder.svg"
-                  }
-                  alt={event.title}
-                  fill
-                  className="object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+        {/* Back Button */}
+        <div className="absolute top-24 left-4 z-20">
+          <Link href="/events">
+            <Button
+              variant="outline"
+              className="border-white/20 text-white hover:bg-white/10 bg-black/20 backdrop-blur-sm"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Events
+            </Button>
+          </Link>
+        </div>
 
-                {/* Badges */}
-                <div className="absolute top-4 left-4 flex gap-2">
-                  <Badge className={`${getEventTypeColor(event.event_type)} text-white font-bold px-3 py-1`}>
-                    {event.event_type.toUpperCase()}
-                  </Badge>
-                  <Badge className="bg-green-500 text-white font-bold px-3 py-1">
-                    {event.event_mode.toUpperCase()}
-                  </Badge>
-                </div>
+        {/* Event Badges */}
+        <div className="absolute top-24 right-4 z-20 flex gap-2">
+          <Badge className={`${getEventTypeColor(event.event_type)} text-white font-bold px-4 py-2`}>
+            {event.event_type.toUpperCase()}
+          </Badge>
+          <Badge className={`${getStatusColor(event.status)} text-white font-bold px-4 py-2`}>
+            {event.status.toUpperCase()}
+          </Badge>
+        </div>
 
-                {/* Status Badge */}
-                <div className="absolute top-4 right-4">
-                  <Badge className={`${getStatusColor(event.status)} text-white font-bold px-3 py-1`}>
-                    {event.status.toUpperCase()}
-                  </Badge>
-                </div>
-
-                {/* Participant Count */}
-                <div className="absolute bottom-4 left-4">
-                  <Badge className="bg-black/70 text-white backdrop-blur-sm px-3 py-1">
-                    {event.current_participants}/{event.max_participants} registered
-                  </Badge>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="absolute bottom-4 right-4 flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={handleBookmark}
-                    className={`bg-black/50 hover:bg-black/70 backdrop-blur-sm ${
-                      bookmarked ? "text-yellow-400" : "text-white"
-                    }`}
-                  >
-                    <Bookmark className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={handleShare}
-                    className="bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm"
-                  >
-                    <Share2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Event Details */}
-            <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8 }}>
+        {/* Hero Content */}
+        <div className="absolute bottom-0 left-0 right-0 p-8 z-10">
+          <div className="container mx-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+              className="max-w-4xl"
+            >
+              {/* Event Type & Mode */}
               <div className="flex items-center gap-3 mb-4">
-                <Badge className="bg-yellow-400 text-black px-4 py-2 font-bold">
+                <Badge className="bg-yellow-400 text-black px-4 py-2 font-bold text-lg">
                   {daysUntilEvent > 0 ? `${daysUntilEvent} DAYS LEFT` : daysUntilEvent === 0 ? "TODAY" : "PAST EVENT"}
                 </Badge>
+                <Badge className="bg-green-500 text-white px-4 py-2 font-bold">
+                  <Globe className="w-4 h-4 mr-2" />
+                  {event.event_mode.toUpperCase()}
+                </Badge>
                 {event.registration_fee === 0 && (
-                  <Badge className="bg-green-500 text-white px-4 py-2 font-bold">FREE</Badge>
+                  <Badge className="bg-blue-500 text-white px-4 py-2 font-bold">FREE EVENT</Badge>
                 )}
               </div>
 
-              <h1 className="text-4xl lg:text-5xl font-bold mb-6 leading-tight">{event.title}</h1>
+              {/* Event Title */}
+              <h1 className="text-4xl md:text-6xl font-bold mb-4 leading-tight">{event.title}</h1>
 
-              <p className="text-xl text-gray-300 mb-8 leading-relaxed">{event.description}</p>
+              {/* Event Tagline/Description */}
+              <p className="text-xl md:text-2xl text-gray-200 mb-6 leading-relaxed max-w-3xl">{event.description}</p>
 
-              {/* Event Info Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <div className="flex items-center gap-3">
+              {/* Quick Info */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="flex items-center gap-3 text-white">
                   <Calendar className="w-6 h-6 text-yellow-400" />
                   <div>
-                    <p className="text-sm text-gray-400">Date & Time</p>
+                    <p className="text-sm text-gray-300">Date</p>
                     <p className="font-semibold">{formatDate(event.event_date)}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 text-white">
+                  <Clock className="w-6 h-6 text-yellow-400" />
+                  <div>
+                    <p className="text-sm text-gray-300">Time</p>
+                    <p className="font-semibold">{formatTime(event.event_date)}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 text-white">
                   <MapPin className="w-6 h-6 text-yellow-400" />
                   <div>
-                    <p className="text-sm text-gray-400">Location</p>
+                    <p className="text-sm text-gray-300">Location</p>
                     <p className="font-semibold">{event.location}</p>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-3">
-                  <User className="w-6 h-6 text-yellow-400" />
-                  <div>
-                    <p className="text-sm text-gray-400">Organizer</p>
-                    <p className="font-semibold">{event.organizer}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <Users className="w-6 h-6 text-yellow-400" />
-                  <div>
-                    <p className="text-sm text-gray-400">Participants</p>
-                    <p className="font-semibold">
-                      {event.current_participants}/{event.max_participants}
-                    </p>
-                  </div>
-                </div>
-
-                {event.registration_fee > 0 && (
-                  <div className="flex items-center gap-3">
-                    <DollarSign className="w-6 h-6 text-yellow-400" />
-                    <div>
-                      <p className="text-sm text-gray-400">Registration Fee</p>
-                      <p className="font-semibold text-yellow-400">${event.registration_fee}</p>
-                    </div>
-                  </div>
-                )}
-
-                {event.end_date && (
-                  <div className="flex items-center gap-3">
-                    <Clock className="w-6 h-6 text-yellow-400" />
-                    <div>
-                      <p className="text-sm text-gray-400">Duration</p>
-                      <p className="font-semibold">
-                        {formatDateShort(event.event_date)} - {formatDateShort(event.end_date)}
-                      </p>
-                    </div>
-                  </div>
-                )}
               </div>
 
-              {/* Registration Status Messages */}
-              {!user && (
-                <div className="bg-yellow-400/10 border border-yellow-400/20 rounded-lg p-4 mb-6">
-                  <div className="flex items-center gap-2 text-yellow-400 mb-2">
-                    <Lock className="w-5 h-5" />
-                    <span className="font-semibold">Login Required</span>
-                  </div>
-                  <p className="text-gray-300 text-sm">
-                    Please sign in to register for this event and access all features.
-                  </p>
-                </div>
-              )}
-
-              {user && isRegistered && (
-                <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 mb-6">
-                  <div className="flex items-center gap-2 text-green-400 mb-2">
-                    <CheckCircle className="w-5 h-5" />
-                    <span className="font-semibold">You're Registered!</span>
-                  </div>
-                  <p className="text-gray-300 text-sm">
-                    You have successfully registered for this event. Check your email for confirmation details.
-                  </p>
-                </div>
-              )}
-
-              {user && isEventFull && !isRegistered && (
-                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
-                  <div className="flex items-center gap-2 text-red-400 mb-2">
-                    <AlertCircle className="w-5 h-5" />
-                    <span className="font-semibold">Event Full</span>
-                  </div>
-                  <p className="text-gray-300 text-sm">
-                    This event has reached its maximum capacity. Join our waitlist to be notified if spots become
-                    available.
-                  </p>
-                </div>
-              )}
-
-              {isEventPast && (
-                <div className="bg-gray-500/10 border border-gray-500/20 rounded-lg p-4 mb-6">
-                  <div className="flex items-center gap-2 text-gray-400 mb-2">
-                    <Clock className="w-5 h-5" />
-                    <span className="font-semibold">Event Ended</span>
-                  </div>
-                  <p className="text-gray-300 text-sm">
-                    This event has already ended. Check out our upcoming events for more opportunities.
-                  </p>
-                </div>
-              )}
-
               {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-4 mb-8">
+              <div className="flex flex-col sm:flex-row gap-4">
+                {/* Primary Registration Button */}
                 {!user ? (
                   <Link href="/auth">
-                    <Button className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold px-8 py-4 text-lg w-full sm:w-auto">
+                    <Button
+                      size="lg"
+                      className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold px-8 py-4 text-lg"
+                    >
+                      <Lock className="mr-2 w-5 h-5" />
                       Login to Register
-                      <Lock className="ml-2 w-5 h-5" />
                     </Button>
                   </Link>
                 ) : isRegistered ? (
                   <Button
+                    size="lg"
                     disabled
-                    className="bg-green-600 text-white font-bold px-8 py-4 text-lg w-full sm:w-auto cursor-not-allowed"
+                    className="bg-green-600 text-white font-bold px-8 py-4 text-lg cursor-not-allowed"
                   >
                     <CheckCircle className="mr-2 w-5 h-5" />
                     Registered ✓
                   </Button>
                 ) : isEventFull ? (
                   <Button
+                    size="lg"
                     disabled
-                    className="bg-red-600 text-white font-bold px-8 py-4 text-lg w-full sm:w-auto cursor-not-allowed"
+                    className="bg-red-600 text-white font-bold px-8 py-4 text-lg cursor-not-allowed"
                   >
                     <AlertCircle className="mr-2 w-5 h-5" />
                     Event Full
                   </Button>
                 ) : isEventPast ? (
                   <Button
+                    size="lg"
                     disabled
-                    className="bg-gray-600 text-gray-300 font-bold px-8 py-4 text-lg w-full sm:w-auto cursor-not-allowed"
+                    className="bg-gray-600 text-gray-300 font-bold px-8 py-4 text-lg cursor-not-allowed"
                   >
                     <Clock className="mr-2 w-5 h-5" />
                     Event Ended
                   </Button>
                 ) : (
                   <Button
+                    size="lg"
                     onClick={handleRegistration}
                     disabled={registering}
-                    className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold px-8 py-4 text-lg w-full sm:w-auto"
+                    className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold px-8 py-4 text-lg"
                   >
                     {registering ? (
                       <>
@@ -445,18 +354,39 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
                   </Button>
                 )}
 
-                {/* External Registration Link */}
+                {/* External Registration Button */}
                 {event.registration_link && (
-                  <a
-                    href={event.registration_link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center bg-transparent border-2 border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black font-bold px-8 py-4 text-lg rounded-lg transition-colors w-full sm:w-auto"
+                  <Button
+                    size="lg"
+                    onClick={handleExternalRegistration}
+                    className="bg-transparent border-2 border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black font-bold px-8 py-4 text-lg"
                   >
+                    <ExternalLink className="mr-2 w-5 h-5" />
                     External Registration
-                    <ExternalLink className="ml-2 w-5 h-5" />
-                  </a>
+                  </Button>
                 )}
+
+                {/* Share & Bookmark */}
+                <div className="flex gap-2">
+                  <Button
+                    size="lg"
+                    onClick={handleShare}
+                    variant="outline"
+                    className="border-white/20 text-white hover:bg-white/10 bg-black/20 backdrop-blur-sm px-4"
+                  >
+                    <Share2 className="w-5 h-5" />
+                  </Button>
+                  <Button
+                    size="lg"
+                    onClick={handleBookmark}
+                    variant="outline"
+                    className={`border-white/20 hover:bg-white/10 bg-black/20 backdrop-blur-sm px-4 ${
+                      bookmarked ? "text-yellow-400" : "text-white"
+                    }`}
+                  >
+                    <Bookmark className="w-5 h-5" />
+                  </Button>
+                </div>
               </div>
             </motion.div>
           </div>
@@ -469,24 +399,79 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Main Content */}
             <div className="lg:col-span-2 space-y-8">
+              {/* Event Overview */}
+              <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+                <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm">
+                  <CardHeader>
+                    <CardTitle className="text-white flex items-center gap-2">
+                      <Info className="w-5 h-5 text-yellow-400" />
+                      Event Overview
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="flex items-center gap-3">
+                        <User className="w-6 h-6 text-yellow-400" />
+                        <div>
+                          <p className="text-sm text-gray-400">Organizer</p>
+                          <p className="font-semibold text-white">{event.organizer}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <Users className="w-6 h-6 text-yellow-400" />
+                        <div>
+                          <p className="text-sm text-gray-400">Participants</p>
+                          <p className="font-semibold text-white">
+                            {event.current_participants}/{event.max_participants}
+                          </p>
+                        </div>
+                      </div>
+
+                      {event.registration_fee > 0 && (
+                        <div className="flex items-center gap-3">
+                          <DollarSign className="w-6 h-6 text-yellow-400" />
+                          <div>
+                            <p className="text-sm text-gray-400">Registration Fee</p>
+                            <p className="font-semibold text-yellow-400">${event.registration_fee}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {event.end_date && (
+                        <div className="flex items-center gap-3">
+                          <Clock className="w-6 h-6 text-yellow-400" />
+                          <div>
+                            <p className="text-sm text-gray-400">Duration</p>
+                            <p className="font-semibold text-white">
+                              {formatDateShort(event.event_date)} - {formatDateShort(event.end_date)}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
               {/* Technologies */}
               {event.technologies && event.technologies.length > 0 && (
                 <motion.div
                   initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6 }}
+                  transition={{ duration: 0.6, delay: 0.1 }}
                 >
                   <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm">
                     <CardHeader>
                       <CardTitle className="text-white flex items-center gap-2">
                         <Tag className="w-5 h-5 text-yellow-400" />
-                        Technologies Covered
+                        Technologies & Topics
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="flex flex-wrap gap-3">
                         {event.technologies.map((tech, index) => (
-                          <Badge key={index} className="bg-yellow-400/20 text-yellow-400 px-3 py-1 font-medium">
+                          <Badge key={index} className="bg-yellow-400/20 text-yellow-400 px-4 py-2 font-medium text-sm">
                             {tech}
                           </Badge>
                         ))}
@@ -501,7 +486,7 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
                 <motion.div
                   initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.1 }}
+                  transition={{ duration: 0.6, delay: 0.2 }}
                 >
                   <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm">
                     <CardHeader>
@@ -524,7 +509,7 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
                 <motion.div
                   initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.2 }}
+                  transition={{ duration: 0.6, delay: 0.3 }}
                 >
                   <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm">
                     <CardHeader>
@@ -547,13 +532,13 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
                 <motion.div
                   initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.3 }}
+                  transition={{ duration: 0.6, delay: 0.4 }}
                 >
                   <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm">
                     <CardHeader>
                       <CardTitle className="text-white flex items-center gap-2">
-                        <Info className="w-5 h-5 text-yellow-400" />
-                        Requirements
+                        <CheckCircle className="w-5 h-5 text-yellow-400" />
+                        Requirements & Prerequisites
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -573,49 +558,14 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
 
             {/* Sidebar */}
             <div className="space-y-6">
-              {/* Quick Info */}
+              {/* Registration Progress */}
               <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6 }}>
                 <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm">
                   <CardHeader>
-                    <CardTitle className="text-white">Quick Info</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <p className="text-sm text-gray-400 mb-1">Event Type</p>
-                      <Badge className={`${getEventTypeColor(event.event_type)} text-white capitalize`}>
-                        {event.event_type}
-                      </Badge>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-400 mb-1">Mode</p>
-                      <Badge className="bg-green-500 text-white capitalize flex items-center gap-1 w-fit">
-                        <Globe className="w-3 h-3" />
-                        {event.event_mode}
-                      </Badge>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-400 mb-1">Status</p>
-                      <Badge className={`${getStatusColor(event.status)} text-white capitalize`}>{event.status}</Badge>
-                    </div>
-                    {event.registration_fee > 0 && (
-                      <div>
-                        <p className="text-sm text-gray-400 mb-1">Price</p>
-                        <p className="text-2xl font-bold text-yellow-400">${event.registration_fee}</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </motion.div>
-
-              {/* Registration Progress */}
-              <motion.div
-                initial={{ opacity: 0, x: 30 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.6, delay: 0.1 }}
-              >
-                <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm">
-                  <CardHeader>
-                    <CardTitle className="text-white">Registration Status</CardTitle>
+                    <CardTitle className="text-white flex items-center gap-2">
+                      <Trophy className="w-5 h-5 text-yellow-400" />
+                      Registration Status
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex justify-between">
@@ -643,6 +593,49 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
                 </Card>
               </motion.div>
 
+              {/* Quick Info */}
+              <motion.div
+                initial={{ opacity: 0, x: 30 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 0.1 }}
+              >
+                <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm">
+                  <CardHeader>
+                    <CardTitle className="text-white">Event Details</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <p className="text-sm text-gray-400 mb-1">Event Type</p>
+                      <Badge className={`${getEventTypeColor(event.event_type)} text-white capitalize`}>
+                        {event.event_type}
+                      </Badge>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-400 mb-1">Mode</p>
+                      <Badge className="bg-green-500 text-white capitalize flex items-center gap-1 w-fit">
+                        <Globe className="w-3 h-3" />
+                        {event.event_mode}
+                      </Badge>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-400 mb-1">Status</p>
+                      <Badge className={`${getStatusColor(event.status)} text-white capitalize`}>{event.status}</Badge>
+                    </div>
+                    {event.registration_fee > 0 ? (
+                      <div>
+                        <p className="text-sm text-gray-400 mb-1">Price</p>
+                        <p className="text-2xl font-bold text-yellow-400">${event.registration_fee}</p>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-sm text-gray-400 mb-1">Price</p>
+                        <p className="text-2xl font-bold text-green-400">FREE</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+
               {/* Tags */}
               {event.tags && event.tags.length > 0 && (
                 <motion.div
@@ -666,13 +659,34 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
                   </Card>
                 </motion.div>
               )}
+
+              {/* Call to Action */}
+              <motion.div
+                initial={{ opacity: 0, x: 30 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 0.3 }}
+              >
+                <Card className="bg-gradient-to-br from-yellow-400/20 to-orange-500/20 border-yellow-400/30 backdrop-blur-sm">
+                  <CardContent className="p-6 text-center">
+                    <Zap className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
+                    <h3 className="text-xl font-bold text-white mb-2">Don't Miss Out!</h3>
+                    <p className="text-gray-300 text-sm mb-4">
+                      Join the Apna Coding community and stay updated with the latest tech events.
+                    </p>
+                    <Button className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold">
+                      <Heart className="w-4 h-4 mr-2" />
+                      Join Community
+                    </Button>
+                  </CardContent>
+                </Card>
+              </motion.div>
             </div>
           </div>
         </div>
       </section>
 
       {/* Related Events Section */}
-      <section className="py-16">
+      <section className="py-16 bg-gray-900/10">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -681,7 +695,7 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
             className="text-center"
           >
             <h2 className="text-3xl font-bold mb-4">More Events You Might Like</h2>
-            <p className="text-gray-400 mb-8">Discover other exciting events and workshops</p>
+            <p className="text-gray-400 mb-8">Discover other exciting events and workshops from Apna Coding</p>
             <Link href="/events">
               <Button className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-3">
                 Browse All Events
