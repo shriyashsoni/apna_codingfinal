@@ -189,42 +189,43 @@ export default function EventsPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-400"></div>
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-yellow-400"></div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen pt-20 bg-black">
+    <div className="min-h-screen pt-20 bg-black relative">
       {/* Hero Section */}
       <section className="relative py-16 overflow-hidden">
-        <div className="container mx-auto px-4">
+        <div className="absolute inset-0 bg-gradient-to-b from-yellow-400/10 to-transparent" />
+        <div className="container mx-auto px-4 relative z-10">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <motion.div initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8 }}>
               <div className="flex items-center gap-2 mb-4">
-                <Badge className="bg-purple-500 text-white px-3 py-1">🎉 EVENTS</Badge>
-                <Badge className="bg-green-500 text-white px-3 py-1">JOIN NOW</Badge>
+                <Badge className="bg-yellow-400 text-black px-3 py-1 font-semibold">🎉 EVENTS</Badge>
+                <Badge className="bg-green-500 text-white px-3 py-1 font-semibold">JOIN NOW</Badge>
               </div>
               <h1 className="text-4xl lg:text-5xl font-bold text-white mb-6">
-                <span className="text-purple-400">{events.length}+</span> Tech Events
+                <span className="text-yellow-400">{events.length}+</span> Tech Events
               </h1>
               <p className="text-lg text-gray-300 mb-8 leading-relaxed">
                 Join workshops, webinars, conferences, and meetups to enhance your skills and network with fellow
                 developers!
                 {!user && (
-                  <span className="text-purple-400 font-semibold"> Login required to register for events.</span>
+                  <span className="text-yellow-400 font-semibold"> Login required to register for events.</span>
                 )}
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 {user ? (
                   <>
-                    <Button className="bg-purple-400 hover:bg-purple-500 text-black font-semibold px-6 py-3">
+                    <Button className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-6 py-3">
                       Browse Events
                       <Calendar className="ml-2 w-5 h-5" />
                     </Button>
                     <Button
                       onClick={() => window.open("/hackathons", "_blank")}
-                      className="border border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-black px-6 py-3"
+                      className="border border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black px-6 py-3 backdrop-blur-sm"
                     >
                       View Hackathons
                       <ExternalLink className="ml-2 w-5 h-5" />
@@ -233,7 +234,7 @@ export default function EventsPage() {
                 ) : (
                   <>
                     <Button
-                      className="bg-purple-400 hover:bg-purple-500 text-black font-semibold px-6 py-3"
+                      className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-6 py-3"
                       onClick={() => alert("Please login to register for events!")}
                     >
                       Login to Register
@@ -241,7 +242,7 @@ export default function EventsPage() {
                     </Button>
                     <Button
                       onClick={() => window.open("/hackathons", "_blank")}
-                      className="border border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-black px-6 py-3"
+                      className="border border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black px-6 py-3 backdrop-blur-sm"
                     >
                       View Hackathons
                       <ExternalLink className="ml-2 w-5 h-5" />
@@ -258,7 +259,12 @@ export default function EventsPage() {
               className="relative"
             >
               <div className="relative w-full h-80 rounded-2xl overflow-hidden">
-                <Image src="/images/courses-hero.png" alt="Tech Events" fill className="object-cover" />
+                <Image
+                  src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/EVENT%20COSTOM%20TEMPLATE-kZL4AvoUZPDjOKW6HBkYlCocOyCR7I.png"
+                  alt="Tech Events"
+                  fill
+                  className="object-cover"
+                />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                 <div className="absolute bottom-4 left-4 text-white">
                   <h3 className="text-xl font-bold">Learn & Network</h3>
@@ -272,13 +278,13 @@ export default function EventsPage() {
 
       {/* Login Warning for Non-Users */}
       {!user && (
-        <section className="py-8 bg-purple-900/20 border-y border-purple-500/30">
+        <section className="py-8 bg-yellow-400/10 border-y border-yellow-400/20">
           <div className="container mx-auto px-4">
             <div className="flex items-center justify-center gap-4 text-center">
-              <Lock className="w-6 h-6 text-purple-400" />
-              <p className="text-purple-300 text-lg">
+              <Lock className="w-6 h-6 text-yellow-400" />
+              <p className="text-yellow-300 text-lg">
                 <span className="font-semibold">Login Required:</span> Register for events and join our tech community.
-                <Link href="/auth" className="text-purple-400 hover:underline ml-2">
+                <Link href="/auth" className="text-yellow-400 hover:underline ml-2">
                   Sign up now for free!
                 </Link>
               </p>
@@ -288,7 +294,7 @@ export default function EventsPage() {
       )}
 
       {/* Search and Filter Section */}
-      <section className="py-8 bg-gray-900/30">
+      <section className="py-8 bg-gray-900/20 backdrop-blur-sm">
         <div className="container mx-auto px-4">
           <div className="flex flex-col lg:flex-row gap-6 items-center justify-between">
             <div className="relative flex-1 max-w-md">
@@ -298,7 +304,7 @@ export default function EventsPage() {
                 placeholder="Search events..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 bg-black border-gray-700 text-white placeholder-gray-400 focus:border-purple-400"
+                className="pl-10 bg-gray-900/50 backdrop-blur-sm border-gray-700 text-white placeholder-gray-400 focus:border-yellow-400"
               />
             </div>
 
@@ -307,8 +313,10 @@ export default function EventsPage() {
                 <button
                   key={type}
                   onClick={() => setSelectedType(type)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 capitalize ${
-                    selectedType === type ? "bg-purple-400 text-black" : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 capitalize backdrop-blur-sm ${
+                    selectedType === type
+                      ? "bg-yellow-400 text-black"
+                      : "bg-gray-900/50 text-gray-300 hover:bg-gray-800/50 border border-gray-700"
                   }`}
                 >
                   {type}
@@ -341,12 +349,15 @@ export default function EventsPage() {
                 className="h-full"
               >
                 <Card
-                  className={`bg-gray-900 border-gray-800 hover:border-purple-400 transition-all duration-300 group overflow-hidden h-full flex flex-col ${!user ? "opacity-75" : ""}`}
+                  className={`bg-gray-900/30 backdrop-blur-sm border-gray-800 hover:border-yellow-400 transition-all duration-300 group overflow-hidden h-full flex flex-col ${!user ? "opacity-75" : ""}`}
                 >
                   <Link href={`/events/${generateSlug(event.title, event.id)}`}>
                     <div className="relative h-48 overflow-hidden cursor-pointer">
                       <Image
-                        src={event.image_url || "/images/courses-hero.png"}
+                        src={
+                          event.image_url ||
+                          "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/EVENT%20COSTOM%20TEMPLATE-kZL4AvoUZPDjOKW6HBkYlCocOyCR7I.png"
+                        }
                         alt={event.title}
                         fill
                         className="object-cover group-hover:scale-105 transition-transform duration-300"
@@ -365,7 +376,7 @@ export default function EventsPage() {
                             e.preventDefault()
                             handleBookmark(event.id)
                           }}
-                          className={`bg-black/50 hover:bg-black/70 p-2 h-8 w-8 ${bookmarkedEvents.includes(event.id) ? "text-purple-400" : "text-white"}`}
+                          className={`bg-black/50 hover:bg-black/70 p-2 h-8 w-8 backdrop-blur-sm ${bookmarkedEvents.includes(event.id) ? "text-yellow-400" : "text-white"}`}
                         >
                           <Bookmark className="w-4 h-4" />
                         </Button>
@@ -376,18 +387,18 @@ export default function EventsPage() {
                             e.preventDefault()
                             handleShare(event)
                           }}
-                          className="bg-black/50 hover:bg-black/70 text-white p-2 h-8 w-8"
+                          className="bg-black/50 hover:bg-black/70 text-white p-2 h-8 w-8 backdrop-blur-sm"
                         >
                           <Share2 className="w-4 h-4" />
                         </Button>
                       </div>
                       <div className="absolute bottom-3 left-3">
-                        <Badge className="bg-black/70 text-white text-xs">
+                        <Badge className="bg-black/70 text-white text-xs backdrop-blur-sm">
                           {event.current_participants}/{event.max_participants} spots
                         </Badge>
                       </div>
                       {!user && (
-                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-sm">
                           <Lock className="w-8 h-8 text-white" />
                         </div>
                       )}
@@ -396,10 +407,10 @@ export default function EventsPage() {
 
                   <CardContent className="p-5 flex flex-col flex-grow">
                     <div className="flex items-center justify-between mb-3">
-                      <Badge variant="outline" className="text-purple-400 border-purple-400 text-xs capitalize">
+                      <Badge variant="outline" className="text-yellow-400 border-yellow-400 text-xs capitalize">
                         {event.event_type}
                       </Badge>
-                      <div className="flex items-center text-purple-400">
+                      <div className="flex items-center text-yellow-400">
                         <Users className="w-4 h-4 mr-1" />
                         <span className="text-sm">
                           {event.current_participants}/{event.max_participants}
@@ -408,7 +419,7 @@ export default function EventsPage() {
                     </div>
 
                     <Link href={`/events/${generateSlug(event.title, event.id)}`}>
-                      <h3 className="text-lg font-bold text-white mb-3 group-hover:text-purple-400 transition-colors line-clamp-2 cursor-pointer">
+                      <h3 className="text-lg font-bold text-white mb-3 group-hover:text-yellow-400 transition-colors line-clamp-2 cursor-pointer">
                         {event.title}
                       </h3>
                     </Link>
@@ -417,27 +428,27 @@ export default function EventsPage() {
 
                     <div className="space-y-2 mb-4">
                       <div className="flex items-center text-sm text-gray-400">
-                        <Calendar className="w-4 h-4 mr-2" />
+                        <Calendar className="w-4 h-4 mr-2 text-yellow-400" />
                         <span>{formatDate(event.event_date)}</span>
                       </div>
                       <div className="flex items-center text-sm text-gray-400">
-                        <MapPin className="w-4 h-4 mr-2" />
+                        <MapPin className="w-4 h-4 mr-2 text-yellow-400" />
                         <span>{event.location}</span>
                       </div>
                       <div className="flex items-center text-sm text-gray-400">
-                        <User className="w-4 h-4 mr-2" />
+                        <User className="w-4 h-4 mr-2 text-yellow-400" />
                         <span>by {event.organizer}</span>
                       </div>
                     </div>
 
                     <div className="flex flex-wrap gap-1 mb-4">
                       {event.technologies.slice(0, 3).map((tech) => (
-                        <Badge key={tech} variant="secondary" className="text-xs">
+                        <Badge key={tech} variant="secondary" className="text-xs bg-yellow-400/20 text-yellow-400">
                           {tech}
                         </Badge>
                       ))}
                       {event.technologies.length > 3 && (
-                        <Badge variant="secondary" className="text-xs">
+                        <Badge variant="secondary" className="text-xs bg-yellow-400/20 text-yellow-400">
                           +{event.technologies.length - 3} more
                         </Badge>
                       )}
@@ -463,7 +474,7 @@ export default function EventsPage() {
                             ? "bg-green-600 hover:bg-green-700 text-white"
                             : event.current_participants >= event.max_participants
                               ? "bg-red-600 text-white cursor-not-allowed"
-                              : "bg-purple-400 hover:bg-purple-500 text-black"
+                              : "bg-yellow-400 hover:bg-yellow-500 text-black"
                       }`}
                       onClick={() => handleEventRegistration(event)}
                       disabled={
@@ -511,7 +522,7 @@ export default function EventsPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-16 bg-gray-900/30">
+      <section className="py-16 bg-gray-900/20 backdrop-blur-sm">
         <div className="container mx-auto px-4 text-center">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -519,9 +530,9 @@ export default function EventsPage() {
             transition={{ duration: 0.8 }}
             viewport={{ once: true }}
           >
-            <Award className="w-16 h-16 text-purple-400 mx-auto mb-6" />
+            <Award className="w-16 h-16 text-yellow-400 mx-auto mb-6" />
             <h2 className="text-3xl font-bold text-white mb-6">
-              Ready to Join <span className="text-purple-400">Tech Events</span>?
+              Ready to Join <span className="text-yellow-400">Tech Events</span>?
             </h2>
             <p className="text-lg text-gray-300 mb-8 max-w-2xl mx-auto">
               Connect with fellow developers, learn new skills, and stay updated with the latest tech trends through our
@@ -529,20 +540,20 @@ export default function EventsPage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               {user ? (
-                <Button className="bg-purple-400 hover:bg-purple-500 text-black font-semibold px-8 py-3">
+                <Button className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-3">
                   Browse All Events
                   <Calendar className="ml-2 w-5 h-5" />
                 </Button>
               ) : (
                 <Link href="/auth">
-                  <Button className="bg-purple-400 hover:bg-purple-500 text-black font-semibold px-8 py-3">
+                  <Button className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-3">
                     Sign Up to Join Events
                     <Play className="ml-2 w-5 h-5" />
                   </Button>
                 </Link>
               )}
               <Link href="/contact">
-                <Button className="border border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-black px-8 py-3">
+                <Button className="border border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black px-8 py-3 backdrop-blur-sm">
                   Contact Support
                   <ChevronRight className="ml-2 w-5 h-5" />
                 </Button>

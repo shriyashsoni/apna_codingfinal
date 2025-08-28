@@ -7,19 +7,19 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
   getCurrentUser,
-  getCourses,
+  getEvents,
   getHackathons,
   getJobs,
   type User,
-  type Course,
+  type Event,
   type Hackathon,
   type Job,
 } from "@/lib/supabase"
-import { BookOpen, Trophy, Briefcase, UserIcon, Calendar, MapPin, Clock, Star } from "lucide-react"
+import { Trophy, Briefcase, UserIcon, Calendar, MapPin, Clock, Star } from "lucide-react"
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null)
-  const [courses, setCourses] = useState<Course[]>([])
+  const [events, setEvents] = useState<Event[]>([])
   const [hackathons, setHackathons] = useState<Hackathon[]>([])
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
@@ -39,15 +39,21 @@ export default function DashboardPage() {
 
       setUser(currentUser)
 
-      // Load dashboard data
-      const [coursesResult, hackathonsResult, jobsResult] = await Promise.all([
-        getCourses(),
-        getHackathons(),
-        getJobs(),
-      ])
+      // Load dashboard data with real-time updates
+      const [eventsResult, hackathonsResult, jobsResult] = await Promise.all([getEvents(), getHackathons(), getJobs()])
 
-      if (coursesResult.data) setCourses(coursesResult.data.slice(0, 3))
-      if (hackathonsResult.data) setHackathons(hackathonsResult.data.slice(0, 3))
+      if (eventsResult.data) setEvents(eventsResult.data.slice(0, 3))
+      if (hackathonsResult.data) {
+        // Filter featured hackathons first, then take the first 3
+        const featuredHackathons = hackathonsResult.data.filter((h) => h.featured).slice(0, 3)
+        if (featuredHackathons.length < 3) {
+          // If not enough featured, add non-featured ones
+          const nonFeatured = hackathonsResult.data.filter((h) => !h.featured).slice(0, 3 - featuredHackathons.length)
+          setHackathons([...featuredHackathons, ...nonFeatured])
+        } else {
+          setHackathons(featuredHackathons)
+        }
+      }
       if (jobsResult.data) setJobs(jobsResult.data.slice(0, 3))
     } catch (error) {
       console.error("Error loading dashboard:", error)
@@ -84,20 +90,20 @@ export default function DashboardPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-gray-900/50 border-gray-700">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <Card className="bg-gray-900/50 border-gray-700 backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-400 text-sm">Courses Available</p>
-                  <p className="text-2xl font-bold text-white">{courses.length}+</p>
+                  <p className="text-gray-400 text-sm">Events Available</p>
+                  <p className="text-2xl font-bold text-white">{events.length}+</p>
                 </div>
-                <BookOpen className="w-8 h-8 text-yellow-400" />
+                <Calendar className="w-8 h-8 text-yellow-400" />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-900/50 border-gray-700">
+          <Card className="bg-gray-900/50 border-gray-700 backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -109,7 +115,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-900/50 border-gray-700">
+          <Card className="bg-gray-900/50 border-gray-700 backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -121,7 +127,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-900/50 border-gray-700">
+          <Card className="bg-gray-900/50 border-gray-700 backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -136,58 +142,62 @@ export default function DashboardPage() {
 
         {/* Quick Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-          {/* Featured Courses */}
-          <Card className="bg-gray-900/50 border-gray-700">
+          {/* Featured Events */}
+          <Card className="bg-gray-900/50 border-gray-700 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="text-white flex items-center">
-                <BookOpen className="w-5 h-5 mr-2 text-yellow-400" />
-                Featured Courses
+                <Calendar className="w-5 h-5 mr-2 text-yellow-400" />
+                Featured Events
               </CardTitle>
-              <CardDescription className="text-gray-400">Start learning with our top-rated courses</CardDescription>
+              <CardDescription className="text-gray-400">Join workshops, webinars, and conferences</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {courses.map((course) => (
-                <div key={course.id} className="p-4 bg-gray-800/50 rounded-lg border border-gray-700">
-                  <h4 className="font-semibold text-white mb-2">{course.title}</h4>
+              {events.map((event) => (
+                <div key={event.id} className="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
+                  <h4 className="font-semibold text-white mb-2">{event.title}</h4>
                   <div className="flex items-center justify-between mb-2">
-                    <Badge variant="secondary" className="bg-yellow-400/20 text-yellow-400">
-                      {course.level}
+                    <Badge variant="secondary" className="bg-yellow-400/20 text-yellow-400 capitalize">
+                      {event.event_type}
                     </Badge>
                     <div className="flex items-center text-yellow-400">
                       <Star className="w-4 h-4 mr-1" />
-                      <span className="text-sm">{course.rating}</span>
+                      <span className="text-sm">
+                        {event.current_participants}/{event.max_participants}
+                      </span>
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-gray-400 text-sm flex items-center">
                       <Clock className="w-4 h-4 mr-1" />
-                      {course.duration}
+                      {new Date(event.event_date).toLocaleDateString()}
                     </span>
-                    <span className="text-yellow-400 font-semibold">${course.price}</span>
+                    <span className="text-yellow-400 font-semibold">
+                      {event.registration_fee > 0 ? `$${event.registration_fee}` : "FREE"}
+                    </span>
                   </div>
                 </div>
               ))}
               <Button
                 className="w-full bg-yellow-400 hover:bg-yellow-500 text-black"
-                onClick={() => router.push("/courses")}
+                onClick={() => router.push("/events")}
               >
-                View All Courses
+                View All Events
               </Button>
             </CardContent>
           </Card>
 
           {/* Upcoming Hackathons */}
-          <Card className="bg-gray-900/50 border-gray-700">
+          <Card className="bg-gray-900/50 border-gray-700 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="text-white flex items-center">
                 <Trophy className="w-5 h-5 mr-2 text-yellow-400" />
-                Upcoming Hackathons
+                Featured Hackathons
               </CardTitle>
               <CardDescription className="text-gray-400">Join exciting competitions and win prizes</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {hackathons.map((hackathon) => (
-                <div key={hackathon.id} className="p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+                <div key={hackathon.id} className="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
                   <h4 className="font-semibold text-white mb-2">{hackathon.title}</h4>
                   <div className="flex items-center justify-between mb-2">
                     <Badge variant="secondary" className="bg-green-400/20 text-green-400">
@@ -217,7 +227,7 @@ export default function DashboardPage() {
           </Card>
 
           {/* Latest Jobs */}
-          <Card className="bg-gray-900/50 border-gray-700">
+          <Card className="bg-gray-900/50 border-gray-700 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="text-white flex items-center">
                 <Briefcase className="w-5 h-5 mr-2 text-yellow-400" />
@@ -227,7 +237,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {jobs.map((job) => (
-                <div key={job.id} className="p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+                <div key={job.id} className="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
                   <h4 className="font-semibold text-white mb-2">{job.title}</h4>
                   <p className="text-gray-400 text-sm mb-2">{job.company}</p>
                   <div className="flex items-center justify-between mb-2">
@@ -253,7 +263,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Profile Section */}
-        <Card className="bg-gray-900/50 border-gray-700">
+        <Card className="bg-gray-900/50 border-gray-700 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="text-white flex items-center">
               <UserIcon className="w-5 h-5 mr-2 text-yellow-400" />
