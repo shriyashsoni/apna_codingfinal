@@ -2,23 +2,27 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { ArrowRight, Code, Users, Trophy, Zap, Star, Play, ChevronRight } from "lucide-react"
+import { ArrowRight, Code, Users, Trophy, Zap, Play, ChevronRight, Calendar, ExternalLink, Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import AnimatedCounter from "@/components/animated-counter"
 import FloatingElements from "@/components/floating-elements"
 import CodeAnimation from "@/components/code-animation"
 import AIChatbot from "@/components/ai-chatbot"
-import { getCurrentUser } from "@/lib/supabase"
+import { getCurrentUser, getHackathons, type Hackathon } from "@/lib/supabase"
 
 export default function HomePage() {
   const [isVisible, setIsVisible] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [featuredHackathons, setFeaturedHackathons] = useState<Hackathon[]>([])
+  const [hackathonsLoading, setHackathonsLoading] = useState(true)
 
   useEffect(() => {
     setIsVisible(true)
     checkUser()
+    loadFeaturedHackathons()
   }, [])
 
   const checkUser = async () => {
@@ -29,6 +33,23 @@ export default function HomePage() {
       console.error("Error checking user:", error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadFeaturedHackathons = async () => {
+    try {
+      const { data, error } = await getHackathons()
+      if (error) {
+        console.error("Error loading hackathons:", error)
+        return
+      }
+      // Filter only featured hackathons and limit to 6
+      const featured = (data || []).filter((hackathon) => hackathon.featured).slice(0, 6)
+      setFeaturedHackathons(featured)
+    } catch (error) {
+      console.error("Error loading featured hackathons:", error)
+    } finally {
+      setHackathonsLoading(false)
     }
   }
 
@@ -46,6 +67,35 @@ export default function HomePage() {
         window.location.href = "/?auth=signup"
       }
     }
+  }
+
+  const createSlug = (hackathon: Hackathon) => {
+    return (
+      hackathon.slug || `${hackathon.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${hackathon.id.substring(0, 8)}`
+    )
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "upcoming":
+        return "bg-blue-500 text-white"
+      case "ongoing":
+        return "bg-green-500 text-white"
+      case "completed":
+        return "bg-gray-500 text-white"
+      case "cancelled":
+        return "bg-red-500 text-white"
+      default:
+        return "bg-gray-500 text-white"
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    })
   }
 
   const features = [
@@ -80,31 +130,6 @@ export default function HomePage() {
     { number: 30, label: "Courses Available", suffix: "+" },
     { number: 50, label: "Hackathons Hosted", suffix: "+" },
     { number: 50, label: "Startup Partnerships", suffix: "+" },
-  ]
-
-  const testimonials = [
-    {
-      name: "Sarah Chen",
-      role: "Full Stack Developer",
-      company: "Google",
-      content:
-        "Apna Coding's AI mentorship helped me land my dream job at Google. The personalized learning path was incredible!",
-      rating: 5,
-    },
-    {
-      name: "Raj Patel",
-      role: "Blockchain Developer",
-      company: "Ethereum Foundation",
-      content: "The hackathons here are next level. I won $50K in prizes and got hired by the Ethereum Foundation!",
-      rating: 5,
-    },
-    {
-      name: "Maria Rodriguez",
-      role: "Frontend Engineer",
-      company: "Meta",
-      content: "From zero to hero in 6 months. The community support and AI guidance made all the difference.",
-      rating: 5,
-    },
   ]
 
   const partners = [
@@ -203,6 +228,168 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Featured Hackathons Section */}
+      <section className="py-20 relative overflow-hidden">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center bg-yellow-400/20 backdrop-blur-sm px-4 py-2 rounded-full mb-4 border border-yellow-400/30">
+              <Trophy className="w-4 h-4 text-yellow-400 mr-2" />
+              <span className="text-yellow-400 font-semibold">FEATURED EVENTS</span>
+            </div>
+            <h2 className="text-4xl lg:text-5xl font-bold text-white mb-4">
+              Featured <span className="text-yellow-400">Hackathons</span>
+            </h2>
+            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+              Join the most exciting coding competitions and win amazing prizes while building innovative solutions
+            </p>
+          </div>
+
+          {/* Loading State */}
+          {hackathonsLoading && (
+            <div className="flex justify-center items-center py-20">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-yellow-400"></div>
+            </div>
+          )}
+
+          {/* Hackathons Grid */}
+          {!hackathonsLoading && featuredHackathons.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
+              {featuredHackathons.map((hackathon, index) => (
+                <Link key={hackathon.id} href={`/hackathons/${createSlug(hackathon)}`}>
+                  <Card
+                    className={`group bg-gray-900/30 backdrop-blur-sm border-gray-700/50 overflow-hidden hover:border-yellow-400/50 transition-all duration-500 hover:scale-105 cursor-pointer ${
+                      isVisible ? "animate-fadeInUp" : "opacity-0"
+                    }`}
+                    style={{ animationDelay: `${index * 100}ms` }}
+                  >
+                    <div className="p-0">
+                      {/* Hackathon Image */}
+                      <div className="relative h-48 overflow-hidden">
+                        <img
+                          src={hackathon.image_url || "/images/hackathon-hero.png"}
+                          alt={hackathon.title}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+
+                        {/* Featured Badge */}
+                        <div className="absolute top-4 left-4">
+                          <Badge className="bg-yellow-400 text-black font-semibold">
+                            <Star className="w-3 h-3 mr-1" />
+                            Featured
+                          </Badge>
+                        </div>
+
+                        {/* Status Badge */}
+                        <div className="absolute top-4 right-4">
+                          <Badge className={getStatusColor(hackathon.status)}>{hackathon.status}</Badge>
+                        </div>
+
+                        {/* Participants Count */}
+                        <div className="absolute bottom-4 right-4">
+                          <div className="bg-black/50 backdrop-blur-sm px-3 py-1 rounded-full">
+                            <div className="flex items-center gap-2">
+                              <Users className="w-4 h-4 text-white" />
+                              <span className="text-white text-sm">
+                                {hackathon.participants_count.toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Hackathon Info */}
+                      <div className="p-6">
+                        <h3 className="text-xl font-bold text-white mb-3 group-hover:text-yellow-400 transition-colors duration-300">
+                          {hackathon.title}
+                        </h3>
+
+                        {/* Description */}
+                        <p className="text-gray-300 text-sm mb-4 line-clamp-2">{hackathon.description}</p>
+
+                        {/* Date Info */}
+                        <div className="flex items-center gap-4 text-gray-400 text-sm mb-4">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4" />
+                            <span>{formatDate(hackathon.start_date)}</span>
+                          </div>
+                          <span>-</span>
+                          <div className="flex items-center gap-2">
+                            <span>{formatDate(hackathon.end_date)}</span>
+                          </div>
+                        </div>
+
+                        {/* Prize Pool */}
+                        <div className="flex items-center gap-2 mb-4">
+                          <Trophy className="w-4 h-4 text-green-400" />
+                          <span className="text-green-400 font-semibold">{hackathon.prize_pool}</span>
+                        </div>
+
+                        {/* Technologies */}
+                        <div className="flex flex-wrap gap-1 mb-4">
+                          {hackathon.technologies.slice(0, 3).map((tech, techIndex) => (
+                            <Badge
+                              key={techIndex}
+                              variant="outline"
+                              className="border-yellow-400 text-yellow-400 text-xs"
+                            >
+                              {tech}
+                            </Badge>
+                          ))}
+                          {hackathon.technologies.length > 3 && (
+                            <Badge variant="outline" className="border-gray-600 text-gray-400 text-xs">
+                              +{hackathon.technologies.length - 3} more
+                            </Badge>
+                          )}
+                        </div>
+
+                        {/* View Details Link */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-yellow-400 group-hover:text-yellow-300 transition-colors duration-300">
+                            <span className="font-semibold">View Details</span>
+                            <ExternalLink className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" />
+                          </div>
+                          <div className="w-8 h-8 bg-yellow-400/20 rounded-full flex items-center justify-center group-hover:bg-yellow-400/30 transition-colors duration-300">
+                            <ArrowRight className="w-4 h-4 text-yellow-400" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {/* No Featured Hackathons */}
+          {!hackathonsLoading && featuredHackathons.length === 0 && (
+            <div className="text-center py-20">
+              <Trophy className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-white mb-2">No Featured Hackathons</h3>
+              <p className="text-gray-400 mb-6">Check back soon for exciting upcoming events!</p>
+              <Link href="/hackathons">
+                <Button className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold">
+                  View All Hackathons
+                  <ArrowRight className="ml-2 w-5 h-5" />
+                </Button>
+              </Link>
+            </div>
+          )}
+
+          {/* View All Hackathons Button */}
+          {!hackathonsLoading && featuredHackathons.length > 0 && (
+            <div className="text-center mt-12">
+              <Link href="/hackathons">
+                <Button className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold text-lg px-8 py-4 rounded-xl">
+                  View All Hackathons
+                  <ArrowRight className="ml-2 w-5 h-5" />
+                </Button>
+              </Link>
+            </div>
+          )}
+        </div>
+      </section>
+
       {/* Stats Section */}
       <section className="py-20 bg-gray-900/20 backdrop-blur-sm">
         <div className="container mx-auto px-4">
@@ -251,46 +438,6 @@ export default function HomePage() {
                   </div>
                   <h3 className="text-xl font-bold text-white mb-3">{feature.title}</h3>
                   <p className="text-gray-300">{feature.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials Section */}
-      <section className="py-20 bg-gray-900/20 backdrop-blur-sm">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6">
-              Success <span className="text-yellow-400">Stories</span>
-            </h2>
-            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-              Hear from developers who transformed their careers with Apna Coding
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <Card
-                key={testimonial.name}
-                className={`bg-gray-900/30 backdrop-blur-sm border-gray-700/50 p-6 transition-all duration-1000 delay-${index * 100} hover:border-yellow-400/50 ${
-                  isVisible ? "animate-fadeInUp" : "opacity-0"
-                }`}
-              >
-                <CardContent className="p-0">
-                  <div className="flex items-center mb-4">
-                    {[...Array(testimonial.rating)].map((_, i) => (
-                      <Star key={i} className="w-5 h-5 text-yellow-400 fill-current" />
-                    ))}
-                  </div>
-                  <p className="text-gray-300 mb-6 italic leading-relaxed">"{testimonial.content}"</p>
-                  <div>
-                    <h4 className="text-white font-bold">{testimonial.name}</h4>
-                    <p className="text-yellow-400 text-sm">
-                      {testimonial.role} at {testimonial.company}
-                    </p>
-                  </div>
                 </CardContent>
               </Card>
             ))}
