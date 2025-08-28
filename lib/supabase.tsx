@@ -535,9 +535,10 @@ export const getEvents = async () => {
   }
 }
 
+// Get ALL events (including past, ongoing, cancelled) - FIXED
 export const getAllEvents = async () => {
   try {
-    const { data, error } = await supabase.from("events").select("*").order("created_at", { ascending: false })
+    const { data, error } = await supabase.from("events").select("*").order("event_date", { ascending: false }) // Show newest first
     return { data, error }
   } catch (error) {
     console.error("Error in getAllEvents:", error)
@@ -600,14 +601,17 @@ export const getEventById = async (id: string) => {
   }
 }
 
-// Enhanced function to get event by partial ID (from slug)
+// Enhanced function to get event by partial ID (from slug) - FIXED
 export const getEventBySlugId = async (slugId: string) => {
   try {
+    console.log("Looking for event with slug ID:", slugId)
+
     // First try to get by exact ID match
     let { data, error } = await supabase.from("events").select("*").eq("id", slugId).single()
 
-    if (!data && !error) {
-      // If not found, try to find by partial ID match (first 8 characters)
+    if (error && error.code === "PGRST116") {
+      // If not found by exact ID, try to find by partial ID match (first 8 characters)
+      console.log("Exact ID not found, trying partial match...")
       const { data: events, error: searchError } = await supabase
         .from("events")
         .select("*")
@@ -615,11 +619,20 @@ export const getEventBySlugId = async (slugId: string) => {
         .limit(1)
 
       if (searchError) {
+        console.error("Search error:", searchError)
         return { data: null, error: searchError }
       }
 
       data = events && events.length > 0 ? events[0] : null
       error = !data ? { message: "Event not found", code: "PGRST116" } : null
+
+      if (data) {
+        console.log("Found event by partial match:", data.title)
+      } else {
+        console.log("No event found by partial match")
+      }
+    } else if (data) {
+      console.log("Found event by exact ID:", data.title)
     }
 
     return { data, error }
@@ -1317,7 +1330,7 @@ export const generateSlug = (title: string, id: string) => {
   return `${slug}-${id.substring(0, 8)}`
 }
 
-// Function to extract ID from slug
+// Function to extract ID from slug - IMPROVED
 export const extractIdFromSlug = (slug: string) => {
   const parts = slug.split("-")
   const idPart = parts[parts.length - 1]
@@ -1327,6 +1340,13 @@ export const extractIdFromSlug = (slug: string) => {
     return idPart
   }
 
-  // Otherwise, try to find the full ID in the original events
-  return idPart
+  // If not found, try to find any 8-character part that looks like an ID
+  for (const part of parts) {
+    if (part.length === 8 && /^[a-f0-9]{8}$/i.test(part)) {
+      return part
+    }
+  }
+
+  // If still not found, return the last part (fallback)
+  return idPart || slug
 }

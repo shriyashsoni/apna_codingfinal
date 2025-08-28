@@ -1,81 +1,39 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Link from "next/link"
 import Image from "next/image"
+import Link from "next/link"
 import { motion } from "framer-motion"
-import {
-  Search,
-  Calendar,
-  Users,
-  MapPin,
-  Play,
-  Award,
-  ChevronRight,
-  Share2,
-  Bookmark,
-  ExternalLink,
-  Lock,
-  User,
-  Clock,
-  Globe,
-  Filter,
-  Zap,
-  Star,
-} from "lucide-react"
+import { Calendar, MapPin, Users, Search, Filter, Star, ExternalLink, Play, Globe, DollarSign } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import {
-  getCurrentUser,
-  getEvents,
-  searchEvents,
-  generateSlug,
-  registerForEvent,
-  checkEventRegistration,
-  type Event,
-} from "@/lib/supabase"
+import { Input } from "@/components/ui/input"
+import { getAllEvents, generateSlug, type Event } from "@/lib/supabase"
 
 export default function EventsPage() {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectedType, setSelectedType] = useState("All")
-  const [bookmarkedEvents, setBookmarkedEvents] = useState<string[]>([])
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
   const [events, setEvents] = useState<Event[]>([])
   const [filteredEvents, setFilteredEvents] = useState<Event[]>([])
-  const [registeredEvents, setRegisteredEvents] = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedType, setSelectedType] = useState("All")
+  const [selectedStatus, setSelectedStatus] = useState("All")
 
   const eventTypes = ["All", "workshop", "webinar", "conference", "meetup", "bootcamp", "seminar"]
+  const eventStatuses = ["All", "upcoming", "ongoing", "completed", "cancelled"]
 
   useEffect(() => {
-    checkUser()
     loadEvents()
   }, [])
 
   useEffect(() => {
     filterEvents()
-  }, [searchTerm, selectedType, events])
-
-  useEffect(() => {
-    if (user && events.length > 0) {
-      checkUserRegistrations()
-    }
-  }, [user, events])
-
-  const checkUser = async () => {
-    try {
-      const currentUser = await getCurrentUser()
-      setUser(currentUser)
-    } catch (error) {
-      console.error("Error checking user:", error)
-    }
-  }
+  }, [events, searchTerm, selectedType, selectedStatus])
 
   const loadEvents = async () => {
     try {
-      const { data, error } = await getEvents()
+      setLoading(true)
+      const { data, error } = await getAllEvents()
       if (error) {
         console.error("Error loading events:", error)
         return
@@ -88,89 +46,42 @@ export default function EventsPage() {
     }
   }
 
-  const checkUserRegistrations = async () => {
-    if (!user) return
+  const filterEvents = () => {
+    let filtered = events
 
-    try {
-      const registrations = await Promise.all(events.map((event) => checkEventRegistration(event.id, user.id)))
-
-      const registeredEventIds = events.filter((_, index) => registrations[index]).map((event) => event.id)
-
-      setRegisteredEvents(registeredEventIds)
-    } catch (error) {
-      console.error("Error checking registrations:", error)
-    }
-  }
-
-  const filterEvents = async () => {
-    try {
-      const { data, error } = await searchEvents(searchTerm, selectedType)
-      if (error) {
-        console.error("Error searching events:", error)
-        return
-      }
-      setFilteredEvents(data || [])
-    } catch (error) {
-      console.error("Error filtering events:", error)
-      setFilteredEvents(events)
-    }
-  }
-
-  const handleBookmark = (eventId: string) => {
-    setBookmarkedEvents((prev) => (prev.includes(eventId) ? prev.filter((id) => id !== eventId) : [...prev, eventId]))
-  }
-
-  const handleEventRegistration = async (event: Event) => {
-    if (!user) {
-      alert("Please login to register for events!")
-      return
+    // Filter by search term
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (event) =>
+          event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          event.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          event.organizer.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          event.technologies.some((tech) => tech.toLowerCase().includes(searchTerm.toLowerCase())),
+      )
     }
 
-    if (registeredEvents.includes(event.id)) {
-      alert("You are already registered for this event!")
-      return
+    // Filter by event type
+    if (selectedType !== "All") {
+      filtered = filtered.filter((event) => event.event_type === selectedType)
     }
 
-    if (event.current_participants >= event.max_participants) {
-      alert("This event is full!")
-      return
+    // Filter by status
+    if (selectedStatus !== "All") {
+      filtered = filtered.filter((event) => event.status === selectedStatus)
     }
 
-    try {
-      const result = await registerForEvent(event.id, user.id)
-      if (result.success) {
-        alert("Successfully registered for the event!")
-        setRegisteredEvents((prev) => [...prev, event.id])
-        // Reload events to update participant count
-        loadEvents()
-      } else {
-        alert("Failed to register: " + result.error)
-      }
-    } catch (error) {
-      console.error("Error registering for event:", error)
-      alert("An error occurred while registering")
-    }
-  }
+    // Sort by event date (upcoming first)
+    filtered.sort((a, b) => {
+      const dateA = new Date(a.event_date).getTime()
+      const dateB = new Date(b.event_date).getTime()
+      return dateA - dateB
+    })
 
-  const handleShare = (event: Event) => {
-    const eventSlug = generateSlug(event.title, event.id)
-    const eventUrl = `${window.location.origin}/events/${eventSlug}`
-
-    if (navigator.share) {
-      navigator.share({
-        title: event.title,
-        text: event.description,
-        url: eventUrl,
-      })
-    } else {
-      navigator.clipboard.writeText(`${event.title} - ${eventUrl}`)
-      alert("Link copied to clipboard!")
-    }
+    setFilteredEvents(filtered)
   }
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
-      weekday: "short",
       month: "short",
       day: "numeric",
       year: "numeric",
@@ -182,6 +93,14 @@ export default function EventsPage() {
       hour: "2-digit",
       minute: "2-digit",
     })
+  }
+
+  const getDaysUntilEvent = (dateString: string) => {
+    const eventDate = new Date(dateString)
+    const today = new Date()
+    const diffTime = eventDate.getTime() - today.getTime()
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    return diffDays
   }
 
   const getEventTypeColor = (type: string) => {
@@ -196,20 +115,28 @@ export default function EventsPage() {
     return colors[type as keyof typeof colors] || "bg-gray-500"
   }
 
-  const getDaysUntilEvent = (dateString: string) => {
-    const eventDate = new Date(dateString)
-    const today = new Date()
-    const diffTime = eventDate.getTime() - today.getTime()
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    return diffDays
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "upcoming":
+        return "bg-blue-500"
+      case "ongoing":
+        return "bg-green-500"
+      case "completed":
+        return "bg-gray-500"
+      case "cancelled":
+        return "bg-red-500"
+      default:
+        return "bg-gray-500"
+    }
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen pt-20 bg-black text-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-yellow-400 mx-auto mb-4"></div>
-          <p className="text-gray-400">Loading amazing events...</p>
+      <div className="min-h-screen pt-20 bg-black text-white">
+        <div className="container mx-auto px-4 py-16">
+          <div className="flex items-center justify-center">
+            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-yellow-400"></div>
+          </div>
         </div>
       </div>
     )
@@ -218,7 +145,7 @@ export default function EventsPage() {
   return (
     <div className="min-h-screen pt-20 bg-black text-white">
       {/* Hero Section */}
-      <section className="relative py-20 overflow-hidden">
+      <section className="relative py-16 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-yellow-400/10 to-transparent" />
         <div className="container mx-auto px-4 relative z-10">
           <motion.div
@@ -227,96 +154,112 @@ export default function EventsPage() {
             transition={{ duration: 0.8 }}
             className="text-center mb-12"
           >
-            <div className="flex items-center justify-center gap-2 mb-6">
-              <Badge className="bg-yellow-400 text-black px-4 py-2 font-bold text-lg">
-                <Zap className="w-4 h-4 mr-2" />
-                LIVE EVENTS
-              </Badge>
-              <Badge className="bg-green-500 text-white px-4 py-2 font-bold text-lg">
-                <Star className="w-4 h-4 mr-2" />
-                JOIN NOW
-              </Badge>
-            </div>
-
-            <h1 className="text-5xl md:text-7xl font-bold mb-6">
-              <span className="text-yellow-400">{events.length}+</span> Tech Events
+            <h1 className="text-4xl md:text-6xl font-bold mb-6">
+              Tech <span className="text-yellow-400">Events</span> & Workshops
             </h1>
-
-            <p className="text-xl md:text-2xl text-gray-300 max-w-4xl mx-auto leading-relaxed mb-8">
-              Join workshops, webinars, conferences, and meetups to enhance your coding skills and connect with the
-              <span className="text-yellow-400 font-semibold"> Apna Coding community</span>
+            <p className="text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
+              Join the most exciting tech events, workshops, and conferences. Learn from industry experts, network with
+              peers, and advance your coding skills.
             </p>
-
-            {!user && (
-              <div className="bg-yellow-400/10 border border-yellow-400/20 rounded-lg p-4 max-w-2xl mx-auto mb-8">
-                <p className="text-yellow-300 text-lg">
-                  <Lock className="w-5 h-5 inline mr-2" />
-                  <span className="font-semibold">Login Required:</span> Register for events and join our tech
-                  community.
-                  <Link href="/auth" className="text-yellow-400 hover:underline ml-2 font-semibold">
-                    Sign up now for free!
-                  </Link>
-                </p>
-              </div>
-            )}
           </motion.div>
 
-          {/* Search and Filter */}
+          {/* Stats */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="max-w-6xl mx-auto"
+            className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12"
           >
             <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm">
-              <CardContent className="p-6">
-                <div className="flex flex-col lg:flex-row gap-6 items-center">
-                  <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <Input
-                      type="text"
-                      placeholder="Search events, technologies, topics..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 bg-gray-800/50 border-gray-700 text-white placeholder-gray-400 focus:border-yellow-400 h-12"
-                    />
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {eventTypes.map((type) => (
-                      <button
-                        key={type}
-                        onClick={() => setSelectedType(type)}
-                        className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 capitalize backdrop-blur-sm ${
-                          selectedType === type
-                            ? "bg-yellow-400 text-black"
-                            : "bg-gray-800/50 text-gray-300 hover:bg-gray-700/50 border border-gray-700"
-                        }`}
-                      >
-                        <Filter className="w-4 h-4 mr-2 inline" />
-                        {type}
-                      </button>
-                    ))}
-                  </div>
+              <CardContent className="p-6 text-center">
+                <div className="text-3xl font-bold text-yellow-400 mb-2">{events.length}</div>
+                <div className="text-gray-400">Total Events</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm">
+              <CardContent className="p-6 text-center">
+                <div className="text-3xl font-bold text-green-400 mb-2">
+                  {events.filter((e) => e.status === "upcoming").length}
                 </div>
+                <div className="text-gray-400">Upcoming Events</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm">
+              <CardContent className="p-6 text-center">
+                <div className="text-3xl font-bold text-blue-400 mb-2">
+                  {events.reduce((sum, event) => sum + event.current_participants, 0)}
+                </div>
+                <div className="text-gray-400">Total Participants</div>
               </CardContent>
             </Card>
           </motion.div>
         </div>
       </section>
 
+      {/* Search and Filters */}
+      <section className="py-8 bg-gray-900/20">
+        <div className="container mx-auto px-4">
+          <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Filter className="w-5 h-5 text-yellow-400" />
+                Search & Filter Events
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {/* Search */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    placeholder="Search events..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 bg-gray-800 border-gray-700 text-white"
+                  />
+                </div>
+
+                {/* Event Type Filter */}
+                <select
+                  value={selectedType}
+                  onChange={(e) => setSelectedType(e.target.value)}
+                  className="bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2"
+                >
+                  {eventTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type === "All" ? "All Types" : type.charAt(0).toUpperCase() + type.slice(1)}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Status Filter */}
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  className="bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2"
+                >
+                  {eventStatuses.map((status) => (
+                    <option key={status} value={status}>
+                      {status === "All" ? "All Status" : status.charAt(0).toUpperCase() + status.slice(1)}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Results Count */}
+                <div className="flex items-center">
+                  <Badge variant="outline" className="border-yellow-400 text-yellow-400">
+                    {filteredEvents.length} events found
+                  </Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
       {/* Events Grid */}
       <section className="py-16">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-white mb-4">
-              {filteredEvents.length} Event{filteredEvents.length !== 1 ? "s" : ""} Available
-            </h2>
-            <p className="text-gray-300 text-lg">
-              {selectedType !== "All" ? `Showing ${selectedType} events` : "All upcoming events from Apna Coding"}
-            </p>
-          </div>
-
           {filteredEvents.length === 0 ? (
             <motion.div
               initial={{ opacity: 0, y: 30 }}
@@ -324,17 +267,18 @@ export default function EventsPage() {
               transition={{ duration: 0.6 }}
               className="text-center py-16"
             >
-              <div className="text-6xl mb-4">🔍</div>
+              <Calendar className="w-16 h-16 text-gray-600 mx-auto mb-4" />
               <h3 className="text-2xl font-bold text-white mb-4">No Events Found</h3>
               <p className="text-gray-400 mb-8">
-                {searchTerm || selectedType !== "All"
-                  ? "Try adjusting your search criteria or filters."
-                  : "No events are currently available. Check back soon for exciting new events!"}
+                {searchTerm || selectedType !== "All" || selectedStatus !== "All"
+                  ? "No events match your search criteria. Try adjusting your filters."
+                  : "No events are currently available. Check back soon for new events!"}
               </p>
               <Button
                 onClick={() => {
                   setSearchTerm("")
                   setSelectedType("All")
+                  setSelectedStatus("All")
                 }}
                 className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
               >
@@ -342,7 +286,7 @@ export default function EventsPage() {
               </Button>
             </motion.div>
           ) : (
-            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {filteredEvents.map((event, index) => {
                 const daysUntilEvent = getDaysUntilEvent(event.event_date)
                 const eventSlug = generateSlug(event.title, event.id)
@@ -353,38 +297,40 @@ export default function EventsPage() {
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, delay: index * 0.1 }}
-                    className="h-full"
                   >
-                    <Card className="bg-gray-900/30 backdrop-blur-sm border-gray-800 hover:border-yellow-400/50 transition-all duration-300 group overflow-hidden h-full flex flex-col">
-                      <div className="relative h-48 overflow-hidden">
-                        <Link href={`/events/${eventSlug}`}>
-                          <Image
-                            src={
-                              event.image_url ||
-                              "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/EVENT%20COSTOM%20TEMPLATE-kZL4AvoUZPDjOKW6HBkYlCocOyCR7I.png" ||
-                              "/placeholder.svg"
-                            }
-                            alt={event.title}
-                            fill
-                            className="object-cover group-hover:scale-105 transition-transform duration-300 cursor-pointer"
-                          />
-                        </Link>
+                    <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm hover:border-yellow-400 transition-all duration-300 group h-full">
+                      {/* Event Image */}
+                      <div className="relative h-48 overflow-hidden rounded-t-lg">
+                        <Image
+                          src={
+                            event.image_url ||
+                            "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/EVENT%20COSTOM%20TEMPLATE-kZL4AvoUZPDjOKW6HBkYlCocOyCR7I.png" ||
+                            "/placeholder.svg"
+                          }
+                          alt={event.title}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
 
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-
-                        {/* Event Type Badge */}
-                        <div className="absolute top-3 left-3">
+                        {/* Event Badges */}
+                        <div className="absolute top-3 left-3 flex gap-2">
                           <Badge className={`${getEventTypeColor(event.event_type)} text-white font-bold`}>
                             {event.event_type.toUpperCase()}
                           </Badge>
-                        </div>
-
-                        {/* Days Left Badge */}
-                        <div className="absolute top-3 right-3">
-                          <Badge className="bg-yellow-400 text-black font-bold">
-                            {daysUntilEvent > 0 ? `${daysUntilEvent} DAYS` : daysUntilEvent === 0 ? "TODAY" : "PAST"}
+                          <Badge className={`${getStatusColor(event.status)} text-white font-bold`}>
+                            {event.status.toUpperCase()}
                           </Badge>
                         </div>
+
+                        {/* Days Until Event */}
+                        {event.status === "upcoming" && (
+                          <div className="absolute top-3 right-3">
+                            <Badge className="bg-yellow-400 text-black font-bold">
+                              {daysUntilEvent > 0 ? `${daysUntilEvent}d left` : daysUntilEvent === 0 ? "Today" : "Past"}
+                            </Badge>
+                          </div>
+                        )}
 
                         {/* Free Badge */}
                         {event.registration_fee === 0 && (
@@ -392,137 +338,89 @@ export default function EventsPage() {
                             <Badge className="bg-green-500 text-white font-bold">FREE</Badge>
                           </div>
                         )}
-
-                        {/* Participant Count */}
-                        <div className="absolute bottom-3 right-3">
-                          <Badge className="bg-black/70 text-white backdrop-blur-sm">
-                            <Users className="w-3 h-3 mr-1" />
-                            {event.current_participants}/{event.max_participants}
-                          </Badge>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="absolute top-3 left-1/2 transform -translate-x-1/2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              handleBookmark(event.id)
-                            }}
-                            className={`bg-black/50 hover:bg-black/70 p-2 h-8 w-8 backdrop-blur-sm ${bookmarkedEvents.includes(event.id) ? "text-yellow-400" : "text-white"}`}
-                          >
-                            <Bookmark className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              handleShare(event)
-                            }}
-                            className="bg-black/50 hover:bg-black/70 text-white p-2 h-8 w-8 backdrop-blur-sm"
-                          >
-                            <Share2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-
-                        {!user && (
-                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                            <Lock className="w-8 h-8 text-white" />
-                          </div>
-                        )}
                       </div>
 
-                      <CardContent className="p-6 flex flex-col flex-grow">
-                        <div className="flex items-center justify-between mb-3">
-                          <Badge variant="outline" className="text-yellow-400 border-yellow-400 text-xs capitalize">
-                            {event.event_type}
-                          </Badge>
-                          <div className="flex items-center text-yellow-400">
-                            <Users className="w-4 h-4 mr-1" />
-                            <span className="text-sm">
-                              {event.current_participants}/{event.max_participants}
-                            </span>
-                          </div>
-                        </div>
-
-                        <Link href={`/events/${eventSlug}`}>
-                          <h3 className="text-xl font-bold text-white mb-3 group-hover:text-yellow-400 transition-colors line-clamp-2 cursor-pointer">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between mb-2">
+                          <CardTitle className="text-white text-lg line-clamp-2 group-hover:text-yellow-400 transition-colors">
                             {event.title}
-                          </h3>
-                        </Link>
-
-                        <p className="text-gray-400 mb-4 text-sm line-clamp-3 flex-grow">{event.description}</p>
-
-                        <div className="space-y-2 mb-4">
-                          <div className="flex items-center text-sm text-gray-400">
-                            <Calendar className="w-4 h-4 mr-2 text-yellow-400" />
-                            <span>{formatDate(event.event_date)}</span>
-                          </div>
-                          <div className="flex items-center text-sm text-gray-400">
-                            <Clock className="w-4 h-4 mr-2 text-yellow-400" />
-                            <span>{formatTime(event.event_date)}</span>
-                          </div>
-                          <div className="flex items-center text-sm text-gray-400">
-                            <MapPin className="w-4 h-4 mr-2 text-yellow-400" />
-                            <span className="truncate">{event.location}</span>
-                          </div>
-                          <div className="flex items-center text-sm text-gray-400">
-                            <User className="w-4 h-4 mr-2 text-yellow-400" />
-                            <span>by {event.organizer}</span>
-                          </div>
-                          <div className="flex items-center text-sm text-gray-400">
-                            <Globe className="w-4 h-4 mr-2 text-yellow-400" />
-                            <span className="capitalize">{event.event_mode}</span>
-                          </div>
+                          </CardTitle>
                         </div>
+                        <p className="text-gray-400 text-sm line-clamp-2">{event.description}</p>
+                      </CardHeader>
 
-                        {/* Technologies */}
-                        {event.technologies && event.technologies.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mb-4">
-                            {event.technologies.slice(0, 3).map((tech, techIndex) => (
-                              <Badge key={techIndex} className="bg-yellow-400/20 text-yellow-400 text-xs px-2 py-1">
-                                {tech}
-                              </Badge>
-                            ))}
-                            {event.technologies.length > 3 && (
-                              <Badge className="bg-gray-700 text-gray-300 text-xs px-2 py-1">
-                                +{event.technologies.length - 3}
-                              </Badge>
+                      <CardContent className="pt-0">
+                        <div className="space-y-3">
+                          {/* Event Details */}
+                          <div className="space-y-2">
+                            <div className="flex items-center text-gray-300 text-sm">
+                              <Calendar className="w-4 h-4 mr-2 text-yellow-400" />
+                              {formatDate(event.event_date)} at {formatTime(event.event_date)}
+                            </div>
+                            <div className="flex items-center text-gray-300 text-sm">
+                              <MapPin className="w-4 h-4 mr-2 text-yellow-400" />
+                              {event.location}
+                            </div>
+                            <div className="flex items-center text-gray-300 text-sm">
+                              <Users className="w-4 h-4 mr-2 text-yellow-400" />
+                              {event.current_participants}/{event.max_participants} participants
+                            </div>
+                            <div className="flex items-center text-gray-300 text-sm">
+                              <Globe className="w-4 h-4 mr-2 text-yellow-400" />
+                              {event.event_mode}
+                            </div>
+                            {event.registration_fee > 0 && (
+                              <div className="flex items-center text-gray-300 text-sm">
+                                <DollarSign className="w-4 h-4 mr-2 text-yellow-400" />${event.registration_fee}
+                              </div>
                             )}
                           </div>
-                        )}
 
-                        {/* Price */}
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="text-sm">
-                            {event.registration_fee > 0 ? (
-                              <span className="text-yellow-400 font-semibold text-lg">${event.registration_fee}</span>
-                            ) : (
-                              <span className="text-green-400 font-semibold text-lg">FREE</span>
-                            )}
+                          {/* Organizer */}
+                          <div className="flex items-center text-gray-300 text-sm">
+                            <Star className="w-4 h-4 mr-2 text-yellow-400" />
+                            <span className="font-medium">{event.organizer}</span>
                           </div>
-                        </div>
 
-                        {/* Action Buttons */}
-                        <div className="flex gap-2 mt-auto">
-                          <Link href={`/events/${eventSlug}`} className="flex-1">
-                            <Button className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold">
-                              View Details
-                            </Button>
-                          </Link>
-
-                          {event.registration_link && (
-                            <Button
-                              onClick={() => window.open(event.registration_link, "_blank")}
-                              variant="outline"
-                              size="sm"
-                              className="border-gray-700 text-gray-300 hover:bg-gray-800 bg-transparent px-3"
-                            >
-                              <ExternalLink className="w-4 h-4" />
-                            </Button>
+                          {/* Technologies */}
+                          {event.technologies && event.technologies.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {event.technologies.slice(0, 3).map((tech, techIndex) => (
+                                <Badge
+                                  key={techIndex}
+                                  variant="outline"
+                                  className="border-gray-600 text-gray-300 text-xs"
+                                >
+                                  {tech}
+                                </Badge>
+                              ))}
+                              {event.technologies.length > 3 && (
+                                <Badge variant="outline" className="border-gray-600 text-gray-300 text-xs">
+                                  +{event.technologies.length - 3} more
+                                </Badge>
+                              )}
+                            </div>
                           )}
+
+                          {/* Action Buttons */}
+                          <div className="flex gap-2 pt-3">
+                            <Link href={`/events/${eventSlug}`} className="flex-1">
+                              <Button className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold">
+                                <Play className="w-4 h-4 mr-2" />
+                                View Details
+                              </Button>
+                            </Link>
+                            {event.registration_link && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-gray-700 text-white hover:bg-gray-800 bg-transparent"
+                                onClick={() => window.open(event.registration_link, "_blank")}
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -534,42 +432,32 @@ export default function EventsPage() {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-16 bg-gradient-to-r from-yellow-400/10 to-orange-500/10">
-        <div className="container mx-auto px-4 text-center">
-          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
-            <Award className="w-16 h-16 text-yellow-400 mx-auto mb-6" />
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
-              Ready to Join <span className="text-yellow-400">Apna Coding Events</span>?
-            </h2>
-            <p className="text-lg text-gray-300 mb-8 max-w-3xl mx-auto leading-relaxed">
-              Connect with fellow developers, learn cutting-edge technologies, and stay updated with the latest tech
-              trends through our carefully curated events and workshops.
+      {/* Call to Action */}
+      <section className="py-16 bg-gray-900/20">
+        <div className="container mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="text-center"
+          >
+            <h2 className="text-3xl font-bold mb-4">Want to Host an Event?</h2>
+            <p className="text-gray-400 mb-8 max-w-2xl mx-auto">
+              Join our community of organizers and share your knowledge with fellow developers. Host workshops,
+              webinars, and meetups.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              {user ? (
-                <Button className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-3 text-lg">
-                  <Calendar className="mr-2 w-5 h-5" />
-                  Browse All Events
-                </Button>
-              ) : (
-                <Link href="/auth">
-                  <Button className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-3 text-lg">
-                    <Play className="mr-2 w-5 h-5" />
-                    Sign Up to Join Events
-                  </Button>
-                </Link>
-              )}
-              <Link href="/hackathons">
-                <Button className="border border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black px-8 py-3 text-lg backdrop-blur-sm bg-transparent">
-                  <Zap className="mr-2 w-5 h-5" />
-                  Explore Hackathons
+              <Link href="/contact">
+                <Button className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-3">
+                  Contact Us
                 </Button>
               </Link>
-              <Link href="/contact">
-                <Button className="border border-gray-600 text-gray-300 hover:bg-gray-800 px-8 py-3 text-lg backdrop-blur-sm bg-transparent">
-                  <ChevronRight className="mr-2 w-5 h-5" />
-                  Contact Support
+              <Link href="/community">
+                <Button
+                  variant="outline"
+                  className="border-gray-700 text-white hover:bg-gray-800 bg-transparent px-8 py-3"
+                >
+                  Join Community
                 </Button>
               </Link>
             </div>
