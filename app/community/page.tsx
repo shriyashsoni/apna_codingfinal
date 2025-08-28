@@ -1,288 +1,387 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect } from "react"
+import { motion } from "framer-motion"
+import Link from "next/link"
+import {
+  Users,
+  MessageCircle,
+  Globe,
+  ArrowRight,
+  ExternalLink,
+  Calendar,
+  Code,
+  Zap,
+  Heart,
+  Trophy,
+  Target,
+  Rocket,
+  BookOpen,
+  Coffee,
+  Handshake,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Users, MessageCircle, Globe, Github, ArrowRight, Heart, Zap, Target, Award } from "lucide-react"
-
-interface CommunityData {
-  stats: {
-    activeMembers: number
-    dailyDiscussions: number
-    partnerships: number
-    countries: number
-  }
-  platforms: Array<{
-    id: string
-    name: string
-    memberCount: number | null
-    description: string
-    link: string
-    features: string[]
-  }>
-}
 
 export default function CommunityPage() {
-  const [communityData, setCommunityData] = useState<CommunityData>({
-    stats: {
-      activeMembers: 20000,
-      dailyDiscussions: 1200,
-      partnerships: 50,
-      countries: 10,
-    },
-    platforms: [
-      {
-        id: "1",
-        name: "WhatsApp Community",
-        memberCount: 6000,
-        description: "Join our active WhatsApp community for daily coding discussions and instant help",
-        link: "https://chat.whatsapp.com/HqVg4ctR6QKJnfvemsEQ8H?mode=ac_t",
-        features: ["Instant Help", "Daily Challenges", "Job Updates", "Project Sharing"],
-      },
-      {
-        id: "2",
-        name: "Telegram Channel",
-        memberCount: 400,
-        description: "Get latest updates, resources, and announcements on our Telegram channel",
-        link: "https://t.me/apnacodingtech",
-        features: ["Latest Updates", "Resources", "Announcements", "Tech News"],
-      },
-      {
-        id: "3",
-        name: "Discord Server",
-        memberCount: null,
-        description: "Voice chats, screen sharing, and collaborative coding sessions",
-        link: "https://discord.gg/krffBfBF",
-        features: ["Voice Chats", "Screen Sharing", "Code Reviews", "Study Groups"],
-      },
-      {
-        id: "4",
-        name: "GitHub Community",
-        memberCount: null,
-        description: "Contribute to open source projects and showcase your coding skills",
-        link: "https://github.com/APNA-CODING-BY-APNA-COUNSELLOR",
-        features: ["Open Source", "Code Collaboration", "Project Showcase", "Mentorship"],
-      },
-    ],
-  })
+  const [mounted, setMounted] = useState(false)
 
-  const getPlatformIcon = (name: string) => {
-    if (name.toLowerCase().includes("whatsapp")) return MessageCircle
-    if (name.toLowerCase().includes("telegram")) return MessageCircle
-    if (name.toLowerCase().includes("discord")) return MessageCircle
-    if (name.toLowerCase().includes("github")) return Github
-    return Globe
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const communityStats = [
+    {
+      icon: Users,
+      label: "Active Members",
+      value: "20,000+",
+      color: "text-blue-400",
+      bgColor: "bg-blue-500/10",
+    },
+    {
+      icon: MessageCircle,
+      label: "Daily Discussions",
+      value: "1,200+",
+      color: "text-green-400",
+      bgColor: "bg-green-500/10",
+    },
+    {
+      icon: Handshake,
+      label: "Partnerships",
+      value: "50+",
+      color: "text-purple-400",
+      bgColor: "bg-purple-500/10",
+    },
+    {
+      icon: Globe,
+      label: "Countries",
+      value: "10+",
+      color: "text-orange-400",
+      bgColor: "bg-orange-500/10",
+    },
+  ]
+
+  const platforms = [
+    {
+      name: "WhatsApp",
+      description: "Join our WhatsApp community for instant updates and quick discussions",
+      members: "6,000+",
+      icon: "💬",
+      color: "bg-green-500",
+      link: "https://chat.whatsapp.com/your-whatsapp-link",
+    },
+    {
+      name: "Telegram",
+      description: "Connect with developers worldwide in our Telegram channel",
+      members: "400+",
+      icon: "✈️",
+      color: "bg-blue-500",
+      link: "https://t.me/your-telegram-channel",
+    },
+    {
+      name: "Discord",
+      description: "Real-time voice and text chat with fellow developers",
+      members: "Join Now",
+      icon: "🎮",
+      color: "bg-indigo-500",
+      link: "https://discord.gg/your-discord-server",
+    },
+  ]
+
+  const benefits = [
+    {
+      icon: Code,
+      title: "Learn Together",
+      description: "Collaborate on projects, share code, and learn from experienced developers",
+    },
+    {
+      icon: Trophy,
+      title: "Competitions & Hackathons",
+      description: "Participate in coding competitions and hackathons to showcase your skills",
+    },
+    {
+      icon: BookOpen,
+      title: "Resources & Tutorials",
+      description: "Access exclusive learning materials, tutorials, and coding resources",
+    },
+    {
+      icon: Coffee,
+      title: "Networking",
+      description: "Connect with like-minded developers and build lasting professional relationships",
+    },
+    {
+      icon: Target,
+      title: "Career Opportunities",
+      description: "Get access to job postings, internships, and career guidance",
+    },
+    {
+      icon: Rocket,
+      title: "Project Collaboration",
+      description: "Find team members for your projects and contribute to open source",
+    },
+  ]
+
+  const events = [
+    {
+      title: "Weekly Code Review Sessions",
+      description: "Join our weekly sessions where we review and improve code together",
+      time: "Every Friday, 7 PM IST",
+      type: "Regular",
+    },
+    {
+      title: "Monthly Tech Talks",
+      description: "Industry experts share insights on latest technologies and trends",
+      time: "First Saturday of every month",
+      type: "Monthly",
+    },
+    {
+      title: "Coding Bootcamps",
+      description: "Intensive learning sessions on specific technologies and frameworks",
+      time: "Quarterly",
+      type: "Special",
+    },
+  ]
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400"></div>
+      </div>
+    )
   }
 
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Hero Section */}
-      <div className="relative py-20 px-4 text-center">
-        <div className="absolute inset-0 bg-gradient-to-b from-yellow-400/10 to-transparent" />
-        <div className="relative max-w-4xl mx-auto">
-          <h1 className="text-5xl md:text-6xl font-bold mb-6 text-white">
-            Join Our <span className="text-gradient">Community</span>
-          </h1>
-          <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
-            Connect with thousands of developers, share knowledge, get help, and grow together in our vibrant coding
-            community.
-          </p>
-          <div className="flex flex-wrap justify-center gap-6 text-sm text-gray-300">
-            <div className="flex items-center gap-2">
-              <Users className="w-5 h-5 text-yellow-400" />
-              <span>{communityData.stats.activeMembers.toLocaleString()}+ Active Members</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <MessageCircle className="w-5 h-5 text-yellow-400" />
-              <span>{communityData.stats.dailyDiscussions.toLocaleString()}+ Daily Discussions</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Award className="w-5 h-5 text-yellow-400" />
-              <span>{communityData.stats.partnerships}+ Partnerships</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Globe className="w-5 h-5 text-yellow-400" />
-              <span>{communityData.stats.countries}+ Countries</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 pb-20">
-        {/* Community Stats */}
-        <div className="mb-16">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <Card className="card-glass hover:border-yellow-400/50 transition-all duration-300 group">
-              <CardContent className="p-6 text-center">
-                <Users className="w-12 h-12 text-yellow-400 mx-auto mb-4 group-hover:scale-110 transition-transform" />
-                <h3 className="text-3xl font-bold text-white mb-2">
-                  {communityData.stats.activeMembers.toLocaleString()}+
-                </h3>
-                <p className="text-gray-300">Active Members</p>
-              </CardContent>
-            </Card>
-
-            <Card className="card-glass hover:border-yellow-400/50 transition-all duration-300 group">
-              <CardContent className="p-6 text-center">
-                <MessageCircle className="w-12 h-12 text-yellow-400 mx-auto mb-4 group-hover:scale-110 transition-transform" />
-                <h3 className="text-3xl font-bold text-white mb-2">
-                  {communityData.stats.dailyDiscussions.toLocaleString()}+
-                </h3>
-                <p className="text-gray-300">Daily Discussions</p>
-              </CardContent>
-            </Card>
-
-            <Card className="card-glass hover:border-yellow-400/50 transition-all duration-300 group">
-              <CardContent className="p-6 text-center">
-                <Award className="w-12 h-12 text-yellow-400 mx-auto mb-4 group-hover:scale-110 transition-transform" />
-                <h3 className="text-3xl font-bold text-white mb-2">{communityData.stats.partnerships}+</h3>
-                <p className="text-gray-300">Partnerships</p>
-              </CardContent>
-            </Card>
-
-            <Card className="card-glass hover:border-yellow-400/50 transition-all duration-300 group">
-              <CardContent className="p-6 text-center">
-                <Globe className="w-12 h-12 text-yellow-400 mx-auto mb-4 group-hover:scale-110 transition-transform" />
-                <h3 className="text-3xl font-bold text-white mb-2">{communityData.stats.countries}+</h3>
-                <p className="text-gray-300">Countries</p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        {/* Community Platforms */}
-        <div className="mb-16">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-white mb-4">Join Our Platforms</h2>
-            <p className="text-xl text-gray-300 max-w-2xl mx-auto">
-              Choose your preferred platform and start connecting with fellow developers today
+      <section className="relative py-20 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/10 via-transparent to-blue-500/10" />
+        <div className="container mx-auto px-4 relative">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="text-center max-w-4xl mx-auto"
+          >
+            <h1 className="text-5xl md:text-7xl font-bold mb-6">
+              Join Our{" "}
+              <span className="bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+                Community
+              </span>
+            </h1>
+            <p className="text-xl md:text-2xl text-gray-300 mb-8 leading-relaxed">
+              Connect with thousands of passionate developers, share knowledge, and grow together in the world's most
+              supportive coding community.
             </p>
-          </div>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-4 text-lg">
+                <Users className="w-5 h-5 mr-2" />
+                Join Community
+              </Button>
+              <Button
+                variant="outline"
+                className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black px-8 py-4 text-lg bg-transparent"
+              >
+                <Calendar className="w-5 h-5 mr-2" />
+                View Events
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      </section>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {communityData.platforms.map((platform) => {
-              const IconComponent = getPlatformIcon(platform.name)
-              return (
-                <Card
-                  key={platform.id}
-                  className="card-glass hover:border-yellow-400/50 transition-all duration-300 group card-hover"
-                >
-                  <CardHeader className="pb-4">
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="p-3 bg-yellow-400 rounded-lg">
-                        <IconComponent className="w-8 h-8 text-black" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-white text-xl group-hover:text-yellow-400 transition-colors">
-                          {platform.name}
-                        </CardTitle>
-                        {platform.memberCount && (
-                          <p className="text-gray-300 text-sm">{platform.memberCount.toLocaleString()}+ members</p>
-                        )}
-                      </div>
+      {/* Community Stats */}
+      <section className="py-16">
+        <div className="container mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8"
+          >
+            {communityStats.map((stat, index) => (
+              <Card key={index} className="bg-gray-900/30 border-gray-800 backdrop-blur-sm text-center">
+                <CardContent className="p-6">
+                  <div
+                    className={`inline-flex items-center justify-center w-16 h-16 rounded-full ${stat.bgColor} mb-4`}
+                  >
+                    <stat.icon className={`w-8 h-8 ${stat.color}`} />
+                  </div>
+                  <div className={`text-3xl font-bold ${stat.color} mb-2`}>{stat.value}</div>
+                  <div className="text-gray-400">{stat.label}</div>
+                </CardContent>
+              </Card>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Join Platforms */}
+      <section className="py-16 bg-gray-900/20">
+        <div className="container mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+            className="text-center mb-12"
+          >
+            <h2 className="text-4xl font-bold mb-4">Choose Your Platform</h2>
+            <p className="text-xl text-gray-300 max-w-2xl mx-auto">
+              Join us on your preferred platform and start connecting with fellow developers today.
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {platforms.map((platform, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.4 + index * 0.1 }}
+              >
+                <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm hover:border-yellow-400/50 transition-all duration-300 group h-full">
+                  <CardHeader className="text-center">
+                    <div className="text-4xl mb-4">{platform.icon}</div>
+                    <CardTitle className="text-white text-2xl mb-2">{platform.name}</CardTitle>
+                    <div
+                      className={`inline-block px-3 py-1 rounded-full text-white text-sm font-semibold ${platform.color}`}
+                    >
+                      {platform.members} Members
                     </div>
                   </CardHeader>
-
-                  <CardContent className="space-y-4">
-                    <p className="text-gray-300 leading-relaxed">{platform.description}</p>
-
-                    <div className="flex flex-wrap gap-2">
-                      {platform.features.map((feature, index) => (
-                        <Badge
-                          key={index}
-                          variant="outline"
-                          className="border-yellow-400/50 text-yellow-400 hover:bg-yellow-400 hover:text-black transition-colors"
-                        >
-                          {feature}
-                        </Badge>
-                      ))}
-                    </div>
-
+                  <CardContent className="text-center flex-1 flex flex-col">
+                    <p className="text-gray-300 mb-6 flex-1">{platform.description}</p>
                     <Button
+                      className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold group-hover:scale-105 transition-transform"
                       onClick={() => window.open(platform.link, "_blank")}
-                      className="w-full btn-primary group-hover:scale-105 transition-transform"
                     >
                       Join {platform.name}
-                      <ArrowRight className="w-4 h-4 ml-2" />
+                      <ExternalLink className="w-4 h-4 ml-2" />
                     </Button>
                   </CardContent>
                 </Card>
-              )
-            })}
+              </motion.div>
+            ))}
           </div>
         </div>
+      </section>
 
-        {/* Community Benefits */}
-        <div className="mb-16">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-white mb-4">Why Join Our Community?</h2>
+      {/* Community Benefits */}
+      <section className="py-16">
+        <div className="container mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.5 }}
+            className="text-center mb-12"
+          >
+            <h2 className="text-4xl font-bold mb-4">Why Join Our Community?</h2>
             <p className="text-xl text-gray-300 max-w-2xl mx-auto">
-              Discover the benefits of being part of our thriving developer community
+              Discover the amazing benefits of being part of our thriving developer community.
             </p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {benefits.map((benefit, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.6 + index * 0.1 }}
+              >
+                <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm hover:border-yellow-400/50 transition-all duration-300 h-full">
+                  <CardContent className="p-6">
+                    <div className="flex items-center mb-4">
+                      <div className="bg-yellow-400/10 p-3 rounded-lg mr-4">
+                        <benefit.icon className="w-6 h-6 text-yellow-400" />
+                      </div>
+                      <h3 className="text-xl font-semibold text-white">{benefit.title}</h3>
+                    </div>
+                    <p className="text-gray-300">{benefit.description}</p>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
           </div>
+        </div>
+      </section>
+
+      {/* Community Events */}
+      <section className="py-16 bg-gray-900/20">
+        <div className="container mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.7 }}
+            className="text-center mb-12"
+          >
+            <h2 className="text-4xl font-bold mb-4">Community Events</h2>
+            <p className="text-xl text-gray-300 max-w-2xl mx-auto">
+              Participate in regular events designed to help you learn, network, and grow as a developer.
+            </p>
+          </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <Card className="card-glass hover:border-yellow-400/50 transition-all duration-300 group card-hover">
-              <CardContent className="p-6 text-center">
-                <Zap className="w-12 h-12 text-yellow-400 mx-auto mb-4 group-hover:scale-110 transition-transform" />
-                <h3 className="text-xl font-bold text-white mb-3">Instant Help</h3>
-                <p className="text-gray-300">
-                  Get quick answers to your coding questions from experienced developers 24/7
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="card-glass hover:border-yellow-400/50 transition-all duration-300 group card-hover">
-              <CardContent className="p-6 text-center">
-                <Target className="w-12 h-12 text-yellow-400 mx-auto mb-4 group-hover:scale-110 transition-transform" />
-                <h3 className="text-xl font-bold text-white mb-3">Career Growth</h3>
-                <p className="text-gray-300">
-                  Access job opportunities, interview tips, and career guidance from industry experts
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="card-glass hover:border-yellow-400/50 transition-all duration-300 group card-hover">
-              <CardContent className="p-6 text-center">
-                <Heart className="w-12 h-12 text-yellow-400 mx-auto mb-4 group-hover:scale-110 transition-transform" />
-                <h3 className="text-xl font-bold text-white mb-3">Networking</h3>
-                <p className="text-gray-300">
-                  Connect with like-minded developers, find collaborators, and build lasting relationships
-                </p>
-              </CardContent>
-            </Card>
+            {events.map((event, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.8 + index * 0.1 }}
+              >
+                <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm h-full">
+                  <CardHeader>
+                    <div className="flex items-center justify-between mb-2">
+                      <Badge className="bg-yellow-400 text-black font-semibold">{event.type}</Badge>
+                    </div>
+                    <CardTitle className="text-white">{event.title}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-300 mb-4">{event.description}</p>
+                    <div className="flex items-center text-yellow-400">
+                      <Calendar className="w-4 h-4 mr-2" />
+                      <span className="text-sm font-medium">{event.time}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
           </div>
         </div>
+      </section>
 
-        {/* Call to Action */}
-        <div className="text-center">
-          <Card className="card-glass border-yellow-400/30">
-            <CardContent className="p-12">
-              <h2 className="text-4xl font-bold text-white mb-4">Ready to Join?</h2>
-              <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
-                Start your journey with thousands of developers who are already growing their careers with us
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+      {/* CTA Section */}
+      <section className="py-16 bg-gradient-to-r from-yellow-400/10 to-orange-500/10">
+        <div className="container mx-auto px-4 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.9 }}
+          >
+            <Heart className="w-16 h-16 text-yellow-400 mx-auto mb-6" />
+            <h2 className="text-4xl font-bold mb-4">Ready to Start Your Journey?</h2>
+            <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
+              Join thousands of developers who are already part of our amazing community. Your coding journey starts
+              here!
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-4 text-lg">
+                <Zap className="w-5 h-5 mr-2" />
+                Join Now
+              </Button>
+              <Link href="/events">
                 <Button
-                  onClick={() => window.open(communityData.platforms[0]?.link, "_blank")}
-                  className="btn-primary px-8 py-3 text-lg"
+                  variant="outline"
+                  className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black px-8 py-4 text-lg bg-transparent"
                 >
-                  Join WhatsApp Community
+                  Explore Events
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
-                <Button
-                  onClick={() => window.open(communityData.platforms[1]?.link, "_blank")}
-                  className="btn-secondary px-8 py-3 text-lg"
-                >
-                  Join Telegram Channel
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+              </Link>
+            </div>
+          </motion.div>
         </div>
-      </div>
+      </section>
     </div>
   )
 }

@@ -653,6 +653,13 @@ export const getEventBySlugId = async (slugId: string) => {
           console.log("✅ Found event by generated slug match:", event.title)
           return { data: event, error: null }
         }
+
+        // Also try matching with just the ID part
+        const idPart = event.id.substring(0, 8)
+        if (slugId.endsWith(idPart) || slugId.includes(idPart)) {
+          console.log("✅ Found event by ID part match:", event.title)
+          return { data: event, error: null }
+        }
       }
     }
 
