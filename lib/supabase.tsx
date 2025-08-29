@@ -1,58 +1,31 @@
+"use client"
+
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { createClient } from "@supabase/supabase-js"
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+// Client-side Supabase client
+export const supabase = createClientComponentClient()
 
-if (!supabaseUrl) {
-  throw new Error("Missing env.NEXT_PUBLIC_SUPABASE_URL")
-}
-if (!supabaseAnonKey) {
-  throw new Error("Missing env.NEXT_PUBLIC_SUPABASE_ANON_KEY")
-}
+// Server-side Supabase client with service role
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
-
-// Server-side client for admin operations
-export const createServerClient = () => {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!serviceRoleKey) {
-    throw new Error("Missing env.SUPABASE_SERVICE_ROLE_KEY")
-  }
-  return createClient(supabaseUrl, serviceRoleKey)
-}
-
-// Create client component client (for use in client components)
-export function createClientComponentClient() {
-  return createClient(supabaseUrl, supabaseAnonKey)
-}
-
-// Create server component client (for use in server components)
-export function createServerComponentClient() {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!serviceRoleKey) {
-    throw new Error("Missing env.SUPABASE_SERVICE_ROLE_KEY")
-  }
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  })
-}
+export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+  },
+})
 
 // Database Types
 export interface User {
   id: string
   email: string
-  full_name: string
+  full_name?: string
   avatar_url?: string
-  role: "user" | "admin"
-  github_url?: string
-  linkedin_url?: string
-  bio?: string
-  skills?: string[]
-  created_at: string
-  updated_at: string
+  role?: "user" | "admin" | "organizer"
+  created_at?: string
+  updated_at?: string
 }
 
 export interface Event {
@@ -193,8 +166,68 @@ export interface Partnership {
   updated_at: string
 }
 
-// Auth functions with Google OAuth and Email Integration
-export const signUp = async (email: string, password: string, fullName: string) => {
+export interface AuthError {
+  message: string
+  status?: number
+}
+
+// Helper function to create user profile
+async function createUserProfile(userId: string, email: string, fullName?: string): Promise<User | null> {
+  try {
+    // Check if profile already exists
+    const { data: existingProfile } = await supabase.from("users").select("*").eq("id", userId).single()
+
+    if (existingProfile) {
+      return existingProfile
+    }
+
+    // Determine role based on email
+    const role = email === "sonishriyash@gmail.com" ? "admin" : "user"
+
+    // Create new profile
+    const { data: newProfile, error } = await supabase
+      .from("users")
+      .insert({
+        id: userId,
+        email,
+        full_name: fullName || email.split("@")[0],
+        role,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error("Error creating user profile:", error)
+      // Return basic user data even if profile creation fails
+      return {
+        id: userId,
+        email,
+        full_name: fullName || email.split("@")[0],
+        role,
+      }
+    }
+
+    return newProfile
+  } catch (error) {
+    console.error("Error in createUserProfile:", error)
+    // Return basic user data as fallback
+    return {
+      id: userId,
+      email,
+      full_name: fullName || email.split("@")[0],
+      role: email === "sonishriyash@gmail.com" ? "admin" : "user",
+    }
+  }
+}
+
+// Sign up function
+export async function signUp(
+  email: string,
+  password: string,
+  fullName: string,
+): Promise<{ user: User | null; error: AuthError | null }> {
   try {
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -207,281 +240,153 @@ export const signUp = async (email: string, password: string, fullName: string) 
     })
 
     if (error) {
-      console.error("Auth signup error:", error)
-      return { data: null, error }
+      return { user: null, error: { message: error.message } }
     }
 
-    // Only create profile if user was successfully created and confirmed
-    if (data.user && data.user.email_confirmed_at) {
+    if (data.user) {
+      // Create user profile
+      const userProfile = await createUserProfile(data.user.id, email, fullName)
+
+      // Send welcome email (optional, don't fail if it doesn't work)
       try {
-        await createUserProfile(data.user.id, {
-          email: data.user.email!,
-          full_name: fullName,
-          role: data.user.email === "sonishriyash@gmail.com" ? "admin" : "user",
+        await fetch("/api/emails/welcome", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, name: fullName }),
         })
-      } catch (profileError) {
-        console.error("Profile creation error:", profileError)
-        // Don't fail signup if profile creation fails
+      } catch (emailError) {
+        console.log("Welcome email failed, but signup succeeded")
       }
 
-      // Send welcome email
-      try {
-        const { sendWelcomeEmail } = await import("./email")
-        await sendWelcomeEmail(data.user.email!, fullName, data.user.id)
-      } catch (emailError) {
-        console.error("Error sending welcome email:", emailError)
-        // Don't fail the signup if email fails
-      }
+      return { user: userProfile, error: null }
     }
 
-    return { data, error: null }
+    return { user: null, error: { message: "Signup failed" } }
   } catch (error) {
-    console.error("Error in signUp:", error)
-    return { data: null, error: { message: "An unexpected error occurred during signup" } }
+    console.error("Signup error:", error)
+    return { user: null, error: { message: "An unexpected error occurred during signup" } }
   }
 }
 
-// Primary signIn function - EXPORTED
-export const signIn = async (email: string, password: string) => {
+// Sign in function
+export async function signIn(email: string, password: string): Promise<{ user: User | null; error: AuthError | null }> {
   try {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
-    return { data, error }
+
+    if (error) {
+      return { user: null, error: { message: error.message } }
+    }
+
+    if (data.user) {
+      // Get or create user profile
+      let userProfile = await getUserProfile(data.user.id)
+
+      if (!userProfile) {
+        userProfile = await createUserProfile(data.user.id, email, data.user.user_metadata?.full_name)
+      }
+
+      return { user: userProfile, error: null }
+    }
+
+    return { user: null, error: { message: "Login failed" } }
   } catch (error) {
-    console.error("Error in signIn:", error)
-    return { data: null, error }
+    console.error("Login error:", error)
+    return { user: null, error: { message: "An unexpected error occurred during login" } }
   }
 }
 
-export const signInWithGoogle = async () => {
-  try {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-        queryParams: {
-          access_type: "offline",
-          prompt: "consent",
-        },
-      },
-    })
-    return { data, error }
-  } catch (error) {
-    console.error("Error in signInWithGoogle:", error)
-    return { data: null, error }
-  }
-}
-
-export const signOut = async () => {
+// Sign out function
+export async function signOut(): Promise<{ error: AuthError | null }> {
   try {
     const { error } = await supabase.auth.signOut()
     if (error) {
-      throw error
+      return { error: { message: error.message } }
     }
+    return { error: null }
   } catch (error) {
-    console.error("Error in signOut:", error)
-    throw error
+    console.error("Signout error:", error)
+    return { error: { message: "An unexpected error occurred during signout" } }
   }
 }
 
-export const getCurrentUser = async () => {
+// Get user profile
+export async function getUserProfile(userId: string): Promise<User | null> {
+  try {
+    const { data, error } = await supabase.from("users").select("*").eq("id", userId).single()
+
+    if (error || !data) {
+      return null
+    }
+
+    return data
+  } catch (error) {
+    console.error("Error getting user profile:", error)
+    return null
+  }
+}
+
+// Get current user
+export async function getCurrentUser(): Promise<User | null> {
   try {
     const {
       data: { user },
-      error,
     } = await supabase.auth.getUser()
 
-    if (error) {
-      console.error("Auth error:", error)
-      return null
-    }
+    if (!user) return null
 
-    if (!user) {
-      return null
-    }
-
-    // Get user profile from users table
-    const { data: profile, error: profileError } = await supabase.from("users").select("*").eq("id", user.id).single()
-
-    if (profileError && profileError.code !== "PGRST116") {
-      console.error("Profile fetch error:", profileError)
-      return null
-    }
-
-    // If no profile exists, create one
-    if (!profile) {
-      const newProfileData = {
-        email: user.email!,
-        full_name: user.user_metadata?.full_name || user.user_metadata?.name || "",
-        avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || "",
-        role: user.email === "sonishriyash@gmail.com" ? "admin" : "user",
-      }
-
-      const { data: createdProfile, error: createError } = await createUserProfile(user.id, newProfileData)
-
-      if (createError) {
-        console.error("Profile creation error:", createError)
-        // Return basic user info even if profile creation fails
-        return {
-          id: user.id,
-          email: user.email!,
-          full_name: newProfileData.full_name,
-          role: newProfileData.role,
-          avatar_url: newProfileData.avatar_url,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }
-      }
-
-      // Send welcome email for new users
-      try {
-        const { sendWelcomeEmail } = await import("./email")
-        await sendWelcomeEmail(user.email!, newProfileData.full_name, user.id)
-      } catch (emailError) {
-        console.error("Error sending welcome email:", emailError)
-      }
-
-      return createdProfile
-    }
-
-    return profile
+    const userProfile = await getUserProfile(user.id)
+    return userProfile
   } catch (error) {
     console.error("Error getting current user:", error)
     return null
   }
 }
 
-export const getSession = async () => {
+// Google sign in
+export async function signInWithGoogle(): Promise<{ error: AuthError | null }> {
   try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-    return session
-  } catch (error) {
-    console.error("Error getting session:", error)
-    return null
-  }
-}
-
-// Create user profile in database
-export const createUserProfile = async (
-  userId: string,
-  userData: {
-    email: string
-    full_name: string
-    role?: "user" | "admin"
-    avatar_url?: string
-  },
-) => {
-  try {
-    // Check if profile already exists
-    const { data: existingProfile } = await supabase.from("users").select("id").eq("id", userId).single()
-
-    if (existingProfile) {
-      console.log("Profile already exists for user:", userId)
-      return { data: existingProfile, error: null }
-    }
-
-    const profileData = {
-      id: userId,
-      email: userData.email,
-      full_name: userData.full_name || "",
-      role: userData.email === "sonishriyash@gmail.com" ? "admin" : userData.role || "user",
-      avatar_url: userData.avatar_url || null,
-      bio: null,
-      github_url: null,
-      linkedin_url: null,
-      skills: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
-
-    const { data, error } = await supabase.from("users").insert([profileData]).select().single()
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    })
 
     if (error) {
-      console.error("Database error creating profile:", error)
-      return { data: null, error }
+      return { error: { message: error.message } }
     }
 
-    return { data, error: null }
+    return { error: null }
   } catch (error) {
-    console.error("Error in createUserProfile:", error)
-    return { data: null, error: { message: "Failed to create user profile" } }
+    console.error("Google signin error:", error)
+    return { error: { message: "An unexpected error occurred during Google signin" } }
   }
 }
 
-// Get user profile from database
-export const getUserProfile = async (userId: string) => {
-  try {
-    const { data, error } = await supabase.from("users").select("*").eq("id", userId).single()
-
-    if (error && error.code === "PGRST116") {
-      // Profile doesn't exist, return null without error
-      return { data: null, error: null }
-    }
-
-    return { data, error }
-  } catch (error) {
-    console.error("Error in getUserProfile:", error)
-    return { data: null, error }
+// Server-side client for admin operations
+export const createServerClient = () => {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!serviceRoleKey) {
+    throw new Error("Missing env.SUPABASE_SERVICE_ROLE_KEY")
   }
+  return createClient(supabaseUrl, serviceRoleKey)
 }
 
-// Update user profile with better error handling
-export const updateUserProfile = async (userId: string, updates: Partial<User>) => {
-  try {
-    // First, check if user exists
-    const { data: existingUser, error: fetchError } = await supabase
-      .from("users")
-      .select("id")
-      .eq("id", userId)
-      .single()
-
-    if (fetchError && fetchError.code === "PGRST116") {
-      // User doesn't exist, create new profile
-      const { data: authData, error: authError } = await supabase.auth.getUser()
-      if (authError || !authData.user) {
-        throw new Error("User not authenticated to create profile.")
-      }
-
-      const { data, error } = await supabase
-        .from("users")
-        .insert({
-          id: userId,
-          email: authData.user.email,
-          full_name: updates.full_name || "",
-          bio: updates.bio || null,
-          github_url: updates.github_url || null,
-          linkedin_url: updates.linkedin_url || null,
-          skills: updates.skills || null,
-          role: authData.user.email === "sonishriyash@gmail.com" ? "admin" : "user",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .select()
-
-      return { data, error }
-    } else if (fetchError) {
-      return { data: null, error: fetchError }
-    }
-
-    // User exists, update profile
-    const { data, error } = await supabase
-      .from("users")
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", userId)
-      .select()
-
-    return { data, error }
-  } catch (error) {
-    console.error("Error in updateUserProfile:", error)
-    return { data: null, error }
+// Create server component client (for use in server components)
+export function createServerComponentClient() {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!serviceRoleKey) {
+    throw new Error("Missing env.SUPABASE_SERVICE_ROLE_KEY")
   }
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  })
 }
 
 // Admin check function with enhanced logic for sonishriyash@gmail.com
@@ -1033,7 +938,7 @@ export const getAllUsers = async () => {
   }
 }
 
-export const updateUserRole = async (userId: string, role: "user" | "admin") => {
+export const updateUserRole = async (userId: string, role: "user" | "admin" | "organizer") => {
   try {
     const { data, error } = await supabase
       .from("users")

@@ -1,56 +1,34 @@
--- Fix RLS policies for users table to allow profile creation
--- Drop existing policies
+-- Drop existing policies if they exist
 DROP POLICY IF EXISTS "Users can view own profile" ON users;
 DROP POLICY IF EXISTS "Users can update own profile" ON users;
-DROP POLICY IF EXISTS "Users can insert own profile" ON users;
-DROP POLICY IF EXISTS "Admins can view all profiles" ON users;
+DROP POLICY IF EXISTS "Service role can insert users" ON users;
+DROP POLICY IF EXISTS "Admins can view all users" ON users;
 
--- Enable RLS
+-- Enable RLS on users table
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 
--- Allow users to insert their own profile during signup
-CREATE POLICY "Users can insert own profile" ON users
-  FOR INSERT
-  WITH CHECK (auth.uid() = id);
-
--- Allow users to view their own profile
+-- Policy for users to view their own profile
 CREATE POLICY "Users can view own profile" ON users
-  FOR SELECT
-  USING (auth.uid() = id);
+  FOR SELECT USING (auth.uid() = id);
 
--- Allow users to update their own profile
+-- Policy for users to update their own profile
 CREATE POLICY "Users can update own profile" ON users
-  FOR UPDATE
-  USING (auth.uid() = id)
-  WITH CHECK (auth.uid() = id);
+  FOR UPDATE USING (auth.uid() = id);
 
--- Allow admins to view all profiles
-CREATE POLICY "Admins can view all profiles" ON users
-  FOR SELECT
-  USING (
+-- Policy for service role to insert new users (for signup process)
+CREATE POLICY "Service role can insert users" ON users
+  FOR INSERT WITH CHECK (true);
+
+-- Policy for admins to view all users
+CREATE POLICY "Admins can view all users" ON users
+  FOR SELECT USING (
     EXISTS (
       SELECT 1 FROM users 
-      WHERE id = auth.uid() 
-      AND (role = 'admin' OR email = 'sonishriyash@gmail.com')
+      WHERE id = auth.uid() AND role = 'admin'
     )
   );
-
--- Allow admins to update any profile
-CREATE POLICY "Admins can update any profile" ON users
-  FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1 FROM users 
-      WHERE id = auth.uid() 
-      AND (role = 'admin' OR email = 'sonishriyash@gmail.com')
-    )
-  );
-
--- Allow service role to insert profiles (for auth triggers)
-CREATE POLICY "Service role can insert profiles" ON users
-  FOR INSERT
-  WITH CHECK (true);
 
 -- Grant necessary permissions
-GRANT ALL ON users TO authenticated;
 GRANT ALL ON users TO service_role;
+GRANT SELECT, INSERT, UPDATE ON users TO authenticated;
+GRANT SELECT ON users TO anon;
