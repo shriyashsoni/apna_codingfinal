@@ -32,6 +32,19 @@ export default function SignupForm({ onSuccess }: SignupFormProps) {
     setError(null)
     setSuccess(null)
 
+    // Validation
+    if (!fullName.trim()) {
+      setError("Full name is required")
+      setLoading(false)
+      return
+    }
+
+    if (!email.trim()) {
+      setError("Email is required")
+      setLoading(false)
+      return
+    }
+
     if (password !== confirmPassword) {
       setError("Passwords do not match")
       setLoading(false)
@@ -45,14 +58,15 @@ export default function SignupForm({ onSuccess }: SignupFormProps) {
     }
 
     try {
-      const { data, error } = await signUp(email, password, fullName)
+      const { data, error } = await signUp(email.trim(), password, fullName.trim())
 
       if (error) {
-        setError(error.message)
+        console.error("Signup error:", error)
+        setError(error.message || "Failed to create account")
         return
       }
 
-      if (data.user) {
+      if (data?.user) {
         setSuccess("Account created successfully! Please check your email to verify your account.")
 
         // Success callback
@@ -70,7 +84,7 @@ export default function SignupForm({ onSuccess }: SignupFormProps) {
       }
     } catch (error) {
       console.error("Signup error:", error)
-      setError("An unexpected error occurred")
+      setError("An unexpected error occurred. Please try again.")
     } finally {
       setLoading(false)
     }
@@ -84,7 +98,8 @@ export default function SignupForm({ onSuccess }: SignupFormProps) {
       const { error } = await signInWithGoogle()
 
       if (error) {
-        setError(error.message)
+        console.error("Google sign in error:", error)
+        setError(error.message || "Failed to sign in with Google")
       }
       // Note: Google OAuth will redirect to callback, so we don't handle success here
     } catch (error) {
@@ -124,6 +139,7 @@ export default function SignupForm({ onSuccess }: SignupFormProps) {
               className="bg-black border-gray-700 text-white pl-10 focus:border-yellow-400"
               placeholder="Enter your full name"
               required
+              disabled={loading}
             />
           </div>
         </div>
@@ -142,6 +158,7 @@ export default function SignupForm({ onSuccess }: SignupFormProps) {
               className="bg-black border-gray-700 text-white pl-10 focus:border-yellow-400"
               placeholder="Enter your email"
               required
+              disabled={loading}
             />
           </div>
         </div>
@@ -160,11 +177,13 @@ export default function SignupForm({ onSuccess }: SignupFormProps) {
               className="bg-black border-gray-700 text-white pl-10 pr-10 focus:border-yellow-400"
               placeholder="Create a password"
               required
+              disabled={loading}
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+              disabled={loading}
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
@@ -185,11 +204,13 @@ export default function SignupForm({ onSuccess }: SignupFormProps) {
               className="bg-black border-gray-700 text-white pl-10 pr-10 focus:border-yellow-400"
               placeholder="Confirm your password"
               required
+              disabled={loading}
             />
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
               className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+              disabled={loading}
             >
               {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>

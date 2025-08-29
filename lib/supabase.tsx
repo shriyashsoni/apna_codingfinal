@@ -206,13 +206,23 @@ export const signUp = async (email: string, password: string, fullName: string) 
       },
     })
 
-    // Create user profile in database
-    if (data.user && !error) {
-      await createUserProfile(data.user.id, {
-        email: data.user.email!,
-        full_name: fullName,
-        role: data.user.email === "sonishriyash@gmail.com" ? "admin" : "user",
-      })
+    if (error) {
+      console.error("Auth signup error:", error)
+      return { data: null, error }
+    }
+
+    // Only create profile if user was successfully created and confirmed
+    if (data.user && data.user.email_confirmed_at) {
+      try {
+        await createUserProfile(data.user.id, {
+          email: data.user.email!,
+          full_name: fullName,
+          role: data.user.email === "sonishriyash@gmail.com" ? "admin" : "user",
+        })
+      } catch (profileError) {
+        console.error("Profile creation error:", profileError)
+        // Don't fail signup if profile creation fails
+      }
 
       // Send welcome email
       try {
@@ -224,10 +234,10 @@ export const signUp = async (email: string, password: string, fullName: string) 
       }
     }
 
-    return { data, error }
+    return { data, error: null }
   } catch (error) {
     console.error("Error in signUp:", error)
-    return { data: null, error }
+    return { data: null, error: { message: "An unexpected error occurred during signup" } }
   }
 }
 
@@ -302,31 +312,33 @@ export const getCurrentUser = async () => {
 
     // If no profile exists, create one
     if (!profile) {
-      const newProfile = {
-        id: user.id,
+      const newProfileData = {
         email: user.email!,
         full_name: user.user_metadata?.full_name || user.user_metadata?.name || "",
         avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || "",
         role: user.email === "sonishriyash@gmail.com" ? "admin" : "user",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
       }
 
-      const { data: createdProfile, error: createError } = await supabase
-        .from("users")
-        .insert([newProfile])
-        .select()
-        .single()
+      const { data: createdProfile, error: createError } = await createUserProfile(user.id, newProfileData)
 
       if (createError) {
         console.error("Profile creation error:", createError)
-        return null
+        // Return basic user info even if profile creation fails
+        return {
+          id: user.id,
+          email: user.email!,
+          full_name: newProfileData.full_name,
+          role: newProfileData.role,
+          avatar_url: newProfileData.avatar_url,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }
       }
 
-      // Send welcome email for new Google users
+      // Send welcome email for new users
       try {
         const { sendWelcomeEmail } = await import("./email")
-        await sendWelcomeEmail(user.email!, newProfile.full_name, user.id)
+        await sendWelcomeEmail(user.email!, newProfileData.full_name, user.id)
       } catch (emailError) {
         console.error("Error sending welcome email:", emailError)
       }
@@ -364,26 +376,39 @@ export const createUserProfile = async (
   },
 ) => {
   try {
-    const { data, error } = await supabase
-      .from("users")
-      .upsert(
-        {
-          id: userId,
-          ...userData,
-          role: userData.email === "sonishriyash@gmail.com" ? "admin" : userData.role || "user",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: "id",
-        },
-      )
-      .select()
+    // Check if profile already exists
+    const { data: existingProfile } = await supabase.from("users").select("id").eq("id", userId).single()
 
-    return { data, error }
+    if (existingProfile) {
+      console.log("Profile already exists for user:", userId)
+      return { data: existingProfile, error: null }
+    }
+
+    const profileData = {
+      id: userId,
+      email: userData.email,
+      full_name: userData.full_name || "",
+      role: userData.email === "sonishriyash@gmail.com" ? "admin" : userData.role || "user",
+      avatar_url: userData.avatar_url || null,
+      bio: null,
+      github_url: null,
+      linkedin_url: null,
+      skills: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+
+    const { data, error } = await supabase.from("users").insert([profileData]).select().single()
+
+    if (error) {
+      console.error("Database error creating profile:", error)
+      return { data: null, error }
+    }
+
+    return { data, error: null }
   } catch (error) {
     console.error("Error in createUserProfile:", error)
-    return { data: null, error }
+    return { data: null, error: { message: "Failed to create user profile" } }
   }
 }
 
