@@ -1,347 +1,435 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import Link from "next/link"
+import {
+  Calendar,
+  MapPin,
+  Users,
+  Search,
+  Filter,
+  Clock,
+  DollarSign,
+  ChevronDown,
+  Lock,
+  LogIn,
+  Eye,
+  ArrowRight,
+  Trophy,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { FloatingElements } from "@/components/floating-elements"
-import { AuthModal } from "@/components/auth/auth-modal"
-import { supabase, getCurrentUser, type User } from "@/lib/supabase"
-import { Calendar, MapPin, Users, Search, Clock, Eye, Lock, Globe, Building, DollarSign, Code } from "lucide-react"
-import Image from "next/image"
-
-interface Event {
-  id: string
-  title: string
-  description: string
-  event_date: string
-  event_time: string
-  location: string
-  event_mode: "online" | "offline" | "hybrid"
-  max_participants: number
-  registration_count: number
-  event_type: string
-  status: "upcoming" | "ongoing" | "completed" | "cancelled"
-  image_url?: string
-  price: number
-  technologies: string[]
-  organizer_name: string
-  requirements?: string
-  agenda?: string
-  speaker_info?: string
-  created_at: string
-}
+import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { toast } from "sonner"
+import { getEvents, searchEvents, getCurrentUser, generateSlug, type Event } from "@/lib/supabase"
+import AuthModal from "@/components/auth/auth-modal"
+import FloatingElements from "@/components/floating-elements"
 
 export default function EventsPage() {
   const [events, setEvents] = useState<Event[]>([])
   const [filteredEvents, setFilteredEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectedType, setSelectedType] = useState("all")
-  const [selectedMode, setSelectedMode] = useState("all")
-  const [user, setUser] = useState<User | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedType, setSelectedType] = useState("All")
+  const [user, setUser] = useState<any>(null)
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login")
+  const [isVisible, setIsVisible] = useState(false)
+
+  const eventTypes = ["All", "workshop", "webinar", "conference", "meetup", "bootcamp", "seminar"]
 
   useEffect(() => {
-    fetchEvents()
+    setIsVisible(true)
+    loadEvents()
     checkUser()
   }, [])
 
   useEffect(() => {
     filterEvents()
-  }, [events, searchTerm, selectedType, selectedMode])
+  }, [events, searchQuery, selectedType])
 
   const checkUser = async () => {
-    const currentUser = await getCurrentUser()
-    setUser(currentUser)
+    try {
+      const currentUser = await getCurrentUser()
+      setUser(currentUser)
+    } catch (error) {
+      console.error("Error checking user:", error)
+    }
   }
 
-  const fetchEvents = async () => {
+  const loadEvents = async () => {
     try {
-      const { data, error } = await supabase.from("events").select("*").order("event_date", { ascending: true })
-
+      const { data, error } = await getEvents()
       if (error) {
-        console.error("Error fetching events:", error)
+        console.error("Error loading events:", error)
+        toast.error("Failed to load events")
       } else {
         setEvents(data || [])
       }
     } catch (error) {
-      console.error("Error:", error)
+      console.error("Error loading events:", error)
+      toast.error("Failed to load events")
     } finally {
       setLoading(false)
     }
   }
 
-  const filterEvents = () => {
-    let filtered = events
-
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (event) =>
-          event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          event.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          event.organizer_name.toLowerCase().includes(searchTerm.toLowerCase()),
-      )
+  const filterEvents = async () => {
+    try {
+      if (searchQuery || selectedType !== "All") {
+        const { data, error } = await searchEvents(searchQuery, selectedType === "All" ? undefined : selectedType)
+        if (error) {
+          console.error("Error searching events:", error)
+        } else {
+          setFilteredEvents(data || [])
+        }
+      } else {
+        setFilteredEvents(events)
+      }
+    } catch (error) {
+      console.error("Error filtering events:", error)
+      setFilteredEvents(events)
     }
-
-    if (selectedType !== "all") {
-      filtered = filtered.filter((event) => event.event_type === selectedType)
-    }
-
-    if (selectedMode !== "all") {
-      filtered = filtered.filter((event) => event.event_mode === selectedMode)
-    }
-
-    setFilteredEvents(filtered)
   }
 
-  const handleEventClick = (eventId: string) => {
+  const handleAuthSuccess = () => {
+    setShowAuthModal(false)
+    checkUser()
+    toast.success("Welcome! You can now access full event details.")
+  }
+
+  const handleEventClick = (event: Event) => {
     if (!user) {
+      setAuthMode("login")
       setShowAuthModal(true)
+      toast.info("Please sign in to view full event details and register")
       return
     }
-    // Navigate to event details
-    window.location.href = `/events/${eventId}`
+    // If user is logged in, navigate to event page
+    const slug = generateSlug(event.title, event.id)
+    window.location.href = `/events/${slug}`
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    })
+  }
+
+  const formatTime = (dateString: string) => {
+    return new Date(dateString).toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  }
+
+  const getDaysUntilEvent = (dateString: string) => {
+    const eventDate = new Date(dateString)
+    const today = new Date()
+    const diffTime = eventDate.getTime() - today.getTime()
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    return diffDays
   }
 
   const getEventTypeColor = (type: string) => {
     const colors = {
-      workshop: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-      hackathon: "bg-purple-500/20 text-purple-400 border-purple-500/30",
-      conference: "bg-green-500/20 text-green-400 border-green-500/30",
-      meetup: "bg-orange-500/20 text-orange-400 border-orange-500/30",
-      webinar: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
-      competition: "bg-red-500/20 text-red-400 border-red-500/30",
+      workshop: "bg-blue-500",
+      webinar: "bg-green-500",
+      conference: "bg-purple-500",
+      meetup: "bg-orange-500",
+      bootcamp: "bg-red-500",
+      seminar: "bg-indigo-500",
     }
-    return colors[type as keyof typeof colors] || "bg-gray-500/20 text-gray-400 border-gray-500/30"
+    return colors[type as keyof typeof colors] || "bg-gray-500"
   }
 
   const getStatusColor = (status: string) => {
-    const colors = {
-      upcoming: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-      ongoing: "bg-green-500/20 text-green-400 border-green-500/30",
-      completed: "bg-gray-500/20 text-gray-400 border-gray-500/30",
-      cancelled: "bg-red-500/20 text-red-400 border-red-500/30",
-    }
-    return colors[status as keyof typeof colors] || "bg-gray-500/20 text-gray-400 border-gray-500/30"
-  }
-
-  const getModeIcon = (mode: string) => {
-    switch (mode) {
-      case "online":
-        return <Globe className="h-4 w-4" />
-      case "offline":
-        return <Building className="h-4 w-4" />
-      case "hybrid":
-        return <Code className="h-4 w-4" />
+    switch (status) {
+      case "upcoming":
+        return "bg-blue-500 text-white"
+      case "ongoing":
+        return "bg-green-500 text-white"
+      case "completed":
+        return "bg-gray-500 text-white"
+      case "cancelled":
+        return "bg-red-500 text-white"
       default:
-        return <Globe className="h-4 w-4" />
+        return "bg-gray-500 text-white"
     }
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto"></div>
-          <p className="text-white mt-4">Loading events...</p>
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <FloatingElements />
+        <div className="text-center relative z-10">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-yellow-400 mx-auto mb-4"></div>
+          <p className="text-gray-300">Loading events...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-black text-white relative overflow-hidden">
+    <div className="min-h-screen bg-black text-white relative">
       <FloatingElements />
 
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onSuccess={handleAuthSuccess}
+        mode={authMode}
+      />
+
       {/* Hero Section */}
-      <section className="relative pt-32 pb-20">
-        <div className="container mx-auto px-4">
+      <section className="relative pt-32 pb-20 overflow-hidden">
+        <div className="container mx-auto px-4 relative z-10">
           <div className="text-center max-w-4xl mx-auto">
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-white via-yellow-400 to-white bg-clip-text text-transparent">
-              Upcoming Events
-            </h1>
-            <p className="text-xl md:text-2xl text-gray-300 mb-8">
-              Join our community events, workshops, and hackathons to level up your coding skills
-            </p>
+            <div className={`transition-all duration-1000 ${isVisible ? "animate-fadeInUp" : "opacity-0"}`}>
+              <div className="inline-flex items-center bg-gray-900/30 backdrop-blur-sm px-4 py-2 rounded-full mb-6 border border-gray-700/50">
+                <span className="bg-yellow-400 text-black px-2 py-1 rounded-full text-xs font-bold mr-2">EVENTS</span>
+                <span className="text-gray-300">Tech Workshops & Conferences</span>
+              </div>
+
+              <h1 className="text-5xl lg:text-7xl font-bold text-white mb-6">
+                Exclusive Tech <span className="text-yellow-400">Events</span>
+              </h1>
+
+              <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto leading-relaxed">
+                Join our exclusive tech events, workshops, and conferences. Learn from industry experts, network with
+                developers, and advance your career.
+              </p>
+
+              {/* Authentication Notice - Only show if not logged in */}
+              {!user && (
+                <div className="bg-gray-900/30 backdrop-blur-sm p-6 rounded-2xl border border-gray-700/50 max-w-2xl mx-auto mb-8">
+                  <div className="flex items-center justify-center mb-4">
+                    <div className="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center">
+                      <Lock className="w-5 h-5 text-black" />
+                    </div>
+                  </div>
+                  <h3 className="text-lg font-semibold text-white mb-2">Sign In to Access Full Details</h3>
+                  <p className="text-gray-300 text-sm mb-4">
+                    Browse events freely, but sign in to view full details, register, and access exclusive content.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <Button
+                      onClick={() => {
+                        setAuthMode("login")
+                        setShowAuthModal(true)
+                      }}
+                      className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
+                    >
+                      <LogIn className="w-4 h-4 mr-2" />
+                      Sign In
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setAuthMode("signup")
+                        setShowAuthModal(true)
+                      }}
+                      className="border border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black backdrop-blur-sm"
+                    >
+                      Create Account
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Search and Filter */}
+              <div className="flex flex-col md:flex-row gap-4 max-w-2xl mx-auto">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <Input
+                    placeholder="Search events..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 bg-gray-900/50 border-gray-700 text-white placeholder-gray-400 focus:border-yellow-400"
+                  />
+                </div>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button className="bg-gray-900/50 border border-gray-700 text-white hover:bg-gray-800 hover:border-yellow-400">
+                      <Filter className="w-4 h-4 mr-2" />
+                      {selectedType}
+                      <ChevronDown className="w-4 h-4 ml-2" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="bg-gray-900 border-gray-700">
+                    {eventTypes.map((type) => (
+                      <DropdownMenuItem
+                        key={type}
+                        onClick={() => setSelectedType(type)}
+                        className="text-white hover:bg-gray-800 capitalize"
+                      >
+                        {type}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Filters Section */}
-      <section className="py-8 border-b border-gray-800">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-            {/* Search */}
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                type="text"
-                placeholder="Search events..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 bg-gray-900/50 border-gray-700 text-white placeholder-gray-400 focus:border-yellow-400"
-              />
-            </div>
-
-            {/* Filters */}
-            <div className="flex gap-4">
-              <select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                className="bg-gray-900 border border-gray-700 text-white px-4 py-2 rounded-lg focus:border-yellow-400"
-              >
-                <option value="all">All Types</option>
-                <option value="workshop">Workshop</option>
-                <option value="hackathon">Hackathon</option>
-                <option value="conference">Conference</option>
-                <option value="meetup">Meetup</option>
-                <option value="webinar">Webinar</option>
-                <option value="competition">Competition</option>
-              </select>
-
-              <select
-                value={selectedMode}
-                onChange={(e) => setSelectedMode(e.target.value)}
-                className="bg-gray-900 border border-gray-700 text-white px-4 py-2 rounded-lg focus:border-yellow-400"
-              >
-                <option value="all">All Modes</option>
-                <option value="online">Online</option>
-                <option value="offline">Offline</option>
-                <option value="hybrid">Hybrid</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Events Grid */}
-      <section className="py-20">
-        <div className="container mx-auto px-4">
+      {/* Events Grid - Always visible */}
+      <section className="py-20 relative">
+        <div className="container mx-auto px-4 relative z-10">
           {filteredEvents.length === 0 ? (
             <div className="text-center py-20">
-              <div className="text-6xl mb-4">🎪</div>
-              <h3 className="text-2xl font-bold mb-4">No Events Found</h3>
-              <p className="text-gray-400">
-                {searchTerm || selectedType !== "all" || selectedMode !== "all"
-                  ? "Try adjusting your filters to see more events."
-                  : "Check back soon for upcoming events!"}
-              </p>
+              <Calendar className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+              <h3 className="text-2xl font-semibold text-white mb-2">No Events Found</h3>
+              <p className="text-gray-400">Try adjusting your search criteria or check back later for new events.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {filteredEvents.map((event, index) => (
-                <Card
+                <div
                   key={event.id}
-                  className="bg-gray-900/30 backdrop-blur-sm border-gray-800 hover:border-yellow-400/50 transition-all duration-300 hover:scale-105 cursor-pointer group"
-                  style={{
-                    animationDelay: `${index * 0.1}s`,
-                  }}
+                  className={`transition-all duration-1000 ${isVisible ? "animate-fadeInUp" : "opacity-0"}`}
+                  style={{ animationDelay: `${index * 100}ms` }}
                 >
-                  <CardHeader className="p-0">
-                    {event.image_url && (
-                      <div className="relative h-48 overflow-hidden rounded-t-lg">
-                        <Image
-                          src={event.image_url || "/placeholder.svg"}
+                  <Card className="group bg-gray-900/30 backdrop-blur-sm border-gray-700/50 overflow-hidden hover:border-yellow-400/50 transition-all duration-500 hover:scale-105 cursor-pointer relative">
+                    <div className="p-0">
+                      {/* Event Image */}
+                      <div className="relative h-48 overflow-hidden">
+                        <img
+                          src={event.image_url || "/images/hackathon-hero.png"}
                           alt={event.title}
-                          fill
-                          className="object-cover group-hover:scale-110 transition-transform duration-300"
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                        <div className="absolute top-4 left-4 flex gap-2">
-                          <Badge className={getEventTypeColor(event.event_type)}>{event.event_type}</Badge>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+
+                        {/* Event Type Badge */}
+                        <div className="absolute top-4 left-4">
+                          <Badge className={`${getEventTypeColor(event.event_type)} text-white font-semibold`}>
+                            {event.event_type.toUpperCase()}
+                          </Badge>
+                        </div>
+
+                        {/* Status Badge */}
+                        <div className="absolute top-4 right-4">
                           <Badge className={getStatusColor(event.status)}>{event.status}</Badge>
                         </div>
-                      </div>
-                    )}
-                  </CardHeader>
 
-                  <CardContent className="p-6">
-                    <div className="space-y-4">
-                      <div>
-                        <h3 className="text-xl font-bold mb-2 group-hover:text-yellow-400 transition-colors">
-                          {event.title}
-                        </h3>
-                        <p className="text-gray-400 text-sm line-clamp-2">{event.description}</p>
-                      </div>
-
-                      <div className="space-y-2 text-sm">
-                        <div className="flex items-center gap-2 text-gray-300">
-                          <Calendar className="h-4 w-4 text-yellow-400" />
-                          <span>{new Date(event.event_date).toLocaleDateString()}</span>
-                          <Clock className="h-4 w-4 text-yellow-400 ml-2" />
-                          <span>{event.event_time}</span>
-                        </div>
-
-                        <div className="flex items-center gap-2 text-gray-300">
-                          <MapPin className="h-4 w-4 text-yellow-400" />
-                          <span className="truncate">{event.location}</span>
-                          <div className="flex items-center gap-1 ml-2">
-                            {getModeIcon(event.event_mode)}
-                            <span className="capitalize">{event.event_mode}</span>
+                        {/* Days Until Event */}
+                        {event.status === "upcoming" && (
+                          <div className="absolute bottom-4 right-4">
+                            <div className="bg-black/50 backdrop-blur-sm px-3 py-1 rounded-full">
+                              <div className="flex items-center gap-2">
+                                <Calendar className="w-4 h-4 text-white" />
+                                <span className="text-white text-sm">
+                                  {getDaysUntilEvent(event.event_date) > 0
+                                    ? `${getDaysUntilEvent(event.event_date)}d`
+                                    : "Today"}
+                                </span>
+                              </div>
+                            </div>
                           </div>
-                        </div>
+                        )}
 
-                        <div className="flex items-center gap-2 text-gray-300">
-                          <Users className="h-4 w-4 text-yellow-400" />
-                          <span>
-                            {event.registration_count}/{event.max_participants} registered
-                          </span>
-                        </div>
-
-                        {event.price > 0 && (
-                          <div className="flex items-center gap-2 text-gray-300">
-                            <DollarSign className="h-4 w-4 text-yellow-400" />
-                            <span>₹{event.price}</span>
+                        {/* Free Badge */}
+                        {event.registration_fee === 0 && (
+                          <div className="absolute bottom-4 left-4">
+                            <Badge className="bg-green-500 text-white font-bold">FREE</Badge>
                           </div>
                         )}
                       </div>
 
-                      {event.technologies && event.technologies.length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {event.technologies.slice(0, 3).map((tech, techIndex) => (
-                            <Badge key={techIndex} variant="outline" className="text-xs border-gray-600 text-gray-300">
-                              {tech}
-                            </Badge>
-                          ))}
-                          {event.technologies.length > 3 && (
-                            <Badge variant="outline" className="text-xs border-gray-600 text-gray-300">
-                              +{event.technologies.length - 3}
-                            </Badge>
+                      {/* Event Info */}
+                      <div className="p-6">
+                        <h3 className="text-xl font-bold text-white mb-3 group-hover:text-yellow-400 transition-colors duration-300 line-clamp-2">
+                          {event.title}
+                        </h3>
+
+                        {/* Description */}
+                        <p className="text-gray-300 text-sm mb-4 line-clamp-2">{event.description}</p>
+
+                        {/* Event Details */}
+                        <div className="space-y-2 mb-4">
+                          <div className="flex items-center gap-4 text-gray-400 text-sm">
+                            <div className="flex items-center gap-2">
+                              <Calendar className="w-4 h-4" />
+                              <span>{formatDate(event.event_date)}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Clock className="w-4 h-4" />
+                              <span>{formatTime(event.event_date)}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 text-gray-400 text-sm">
+                            <MapPin className="w-4 h-4" />
+                            <span className="truncate">{event.location}</span>
+                          </div>
+
+                          <div className="flex items-center gap-2 text-gray-400 text-sm">
+                            <Users className="w-4 h-4" />
+                            <span>
+                              {event.current_participants}/{event.max_participants} registered
+                            </span>
+                          </div>
+
+                          {event.registration_fee > 0 && (
+                            <div className="flex items-center gap-2 text-green-400 text-sm">
+                              <DollarSign className="w-4 h-4" />
+                              <span className="font-semibold">${event.registration_fee}</span>
+                            </div>
                           )}
                         </div>
-                      )}
 
-                      <div className="pt-4 border-t border-gray-800">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-400">by {event.organizer_name}</span>
-                          <Button
-                            onClick={() => handleEventClick(event.id)}
-                            className={`${
-                              user
-                                ? "bg-yellow-400 hover:bg-yellow-500 text-black"
-                                : "bg-gray-700 hover:bg-gray-600 text-white"
-                            } transition-colors`}
-                            size="sm"
-                          >
-                            {user ? (
-                              <>
-                                <Eye className="h-4 w-4 mr-1" />
-                                View Details
-                              </>
-                            ) : (
-                              <>
-                                <Lock className="h-4 w-4 mr-1" />
-                                Sign in to View
-                              </>
+                        {/* Technologies */}
+                        {event.technologies && event.technologies.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-4">
+                            {event.technologies.slice(0, 3).map((tech, techIndex) => (
+                              <Badge
+                                key={techIndex}
+                                variant="outline"
+                                className="border-yellow-400 text-yellow-400 text-xs"
+                              >
+                                {tech}
+                              </Badge>
+                            ))}
+                            {event.technologies.length > 3 && (
+                              <Badge variant="outline" className="border-gray-600 text-gray-400 text-xs">
+                                +{event.technologies.length - 3} more
+                              </Badge>
                             )}
-                          </Button>
-                        </div>
+                          </div>
+                        )}
+
+                        {/* Action Button */}
+                        <Button
+                          onClick={() => handleEventClick(event)}
+                          className={`w-full ${
+                            user
+                              ? "bg-yellow-400 hover:bg-yellow-500 text-black"
+                              : "bg-gray-700 hover:bg-gray-600 text-white border border-yellow-400/50"
+                          } font-semibold transition-all duration-300`}
+                        >
+                          {user ? (
+                            <>
+                              <Eye className="w-4 h-4 mr-2" />
+                              View Details & Register
+                            </>
+                          ) : (
+                            <>
+                              <Lock className="w-4 h-4 mr-2" />
+                              Sign in to View Details
+                            </>
+                          )}
+                        </Button>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </Card>
+                </div>
               ))}
             </div>
           )}
@@ -349,36 +437,61 @@ export default function EventsPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 border-t border-gray-800">
+      <section className="py-20 bg-gray-900/20 backdrop-blur-sm">
         <div className="container mx-auto px-4">
-          <div className="text-center max-w-3xl mx-auto bg-gray-900/20 backdrop-blur-sm rounded-2xl p-12 border border-gray-800">
-            <h2 className="text-3xl md:text-4xl font-bold mb-6">Want to Host an Event?</h2>
-            <p className="text-xl text-gray-300 mb-8">Share your knowledge with the community and help others grow</p>
+          <div className="bg-gray-900/30 backdrop-blur-sm p-12 rounded-3xl border border-gray-700/50 text-center">
+            <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6">
+              Ready to <span className="text-yellow-400">Level Up</span> Your Skills?
+            </h2>
+            <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
+              Join our community of developers and get access to exclusive events, workshops, and networking
+              opportunities.
+            </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold">
-                Become an Organizer
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="border-gray-700 text-white hover:bg-gray-800 bg-transparent"
-              >
-                Learn More
-              </Button>
+              {!user ? (
+                <>
+                  <Button
+                    onClick={() => {
+                      setAuthMode("signup")
+                      setShowAuthModal(true)
+                    }}
+                    className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold text-lg px-8 py-4 rounded-xl"
+                  >
+                    <LogIn className="w-5 h-5 mr-2" />
+                    Join Apna Coding
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setAuthMode("login")
+                      setShowAuthModal(true)
+                    }}
+                    className="border border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black text-lg px-8 py-4 rounded-xl backdrop-blur-sm"
+                  >
+                    Sign In
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Link href="/community">
+                    <Button className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold text-lg px-8 py-4 rounded-xl">
+                      <Users className="w-5 h-5 mr-2" />
+                      Join Community
+                      <ArrowRight className="w-5 h-5 ml-2" />
+                    </Button>
+                  </Link>
+                  <Link href="/hackathons">
+                    <Button className="border border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black text-lg px-8 py-4 rounded-xl backdrop-blur-sm">
+                      <Trophy className="w-5 h-5 mr-2" />
+                      View Hackathons
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
       </section>
-
-      {/* Auth Modal */}
-      <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-        onSuccess={() => {
-          setShowAuthModal(false)
-          checkUser()
-        }}
-      />
     </div>
   )
 }
