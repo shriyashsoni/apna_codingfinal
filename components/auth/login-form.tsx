@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { signIn, signInWithGoogle } from "@/lib/supabase"
+import { signIn, signInWithGoogle, createUserProfile } from "@/lib/supabase"
 import { Eye, EyeOff, Mail, Lock, Chrome } from "lucide-react"
 
 interface LoginFormProps {
@@ -27,42 +27,33 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     setLoading(true)
     setError(null)
 
-    // Client-side validation
-    if (!email.trim()) {
-      setError("Email is required")
-      setLoading(false)
-      return
-    }
-
-    if (!password.trim()) {
-      setError("Password is required")
-      setLoading(false)
-      return
-    }
-
     try {
-      const { data, error } = await signIn(email.trim(), password)
+      const { data, error } = await signIn(email, password)
 
       if (error) {
-        setError(error.message || "Failed to sign in")
+        setError(error.message)
         return
       }
 
-      if (data?.user) {
+      if (data.user) {
+        // Ensure user profile exists in database
+        await createUserProfile(data.user.id, {
+          email: data.user.email!,
+          full_name: data.user.user_metadata?.full_name || data.user.email!.split("@")[0],
+          avatar_url: data.user.user_metadata?.avatar_url,
+        })
+
         // Success callback
         if (onSuccess) {
           onSuccess()
-        } else {
-          router.push("/dashboard")
         }
 
-        // Clear form
-        setEmail("")
-        setPassword("")
+        // Redirect to dashboard
+        router.push("/dashboard")
       }
     } catch (error) {
       console.error("Login error:", error)
-      setError("An unexpected error occurred. Please try again.")
+      setError("An unexpected error occurred")
     } finally {
       setLoading(false)
     }
@@ -76,7 +67,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
       const { error } = await signInWithGoogle()
 
       if (error) {
-        setError(error.message || "Failed to sign in with Google")
+        setError(error.message)
       }
       // Note: Google OAuth will redirect to callback, so we don't handle success here
     } catch (error) {
@@ -110,7 +101,6 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
               className="bg-black border-gray-700 text-white pl-10 focus:border-yellow-400"
               placeholder="Enter your email"
               required
-              disabled={loading}
             />
           </div>
         </div>
@@ -129,13 +119,11 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
               className="bg-black border-gray-700 text-white pl-10 pr-10 focus:border-yellow-400"
               placeholder="Enter your password"
               required
-              disabled={loading}
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
-              disabled={loading}
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
