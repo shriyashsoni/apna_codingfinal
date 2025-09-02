@@ -23,14 +23,19 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { toast } from "sonner"
-import { getEvents, searchEvents, getCurrentUser, generateSlug, type Event } from "@/lib/supabase"
+import type { Event } from "@/lib/supabase"
 import AuthModal from "@/components/auth/auth-modal"
 import FloatingElements from "@/components/floating-elements"
 
-export default function EventsPage() {
-  const [events, setEvents] = useState<Event[]>([])
+interface EventsPageProps {
+  initialEvents: Event[]
+  error?: any
+}
+
+export default function EventsPageClient({ initialEvents, error }: EventsPageProps) {
+  const [events, setEvents] = useState<Event[]>(initialEvents)
   const [filteredEvents, setFilteredEvents] = useState<Event[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedType, setSelectedType] = useState("All")
   const [user, setUser] = useState<any>(null)
@@ -42,7 +47,6 @@ export default function EventsPage() {
 
   useEffect(() => {
     setIsVisible(true)
-    loadEvents()
     checkUser()
   }, [])
 
@@ -52,39 +56,22 @@ export default function EventsPage() {
 
   const checkUser = async () => {
     try {
-      const currentUser = await getCurrentUser()
+      const currentUser = await window.supabase_client.auth.user()
       setUser(currentUser)
     } catch (error) {
       console.error("Error checking user:", error)
     }
   }
 
-  const loadEvents = async () => {
-    try {
-      const { data, error } = await getEvents()
-      if (error) {
-        console.error("Error loading events:", error)
-        toast.error("Failed to load events")
-      } else {
-        setEvents(data || [])
-      }
-    } catch (error) {
-      console.error("Error loading events:", error)
-      toast.error("Failed to load events")
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const filterEvents = async () => {
     try {
       if (searchQuery || selectedType !== "All") {
-        const { data, error } = await searchEvents(searchQuery, selectedType === "All" ? undefined : selectedType)
-        if (error) {
-          console.error("Error searching events:", error)
-        } else {
-          setFilteredEvents(data || [])
-        }
+        const filtered = events.filter((event) => {
+          const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase())
+          const matchesType = selectedType === "All" || event.event_type === selectedType
+          return matchesSearch && matchesType
+        })
+        setFilteredEvents(filtered)
       } else {
         setFilteredEvents(events)
       }
@@ -494,4 +481,8 @@ export default function EventsPage() {
       </section>
     </div>
   )
+}
+
+function generateSlug(title: string, id: string) {
+  return title.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + id
 }

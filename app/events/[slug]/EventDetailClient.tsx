@@ -1,39 +1,25 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import Image from "next/image"
-import Link from "next/link"
-import { motion } from "framer-motion"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
 import {
   Calendar,
   MapPin,
   Users,
   Clock,
-  Globe,
   DollarSign,
-  Share2,
   ExternalLink,
-  User,
-  Tag,
+  Share2,
   CheckCircle,
   AlertCircle,
-  ArrowLeft,
-  Bookmark,
-  BookmarkCheck,
-  Twitter,
-  Facebook,
-  Linkedin,
-  Copy,
-  MessageCircle,
-  Lock,
-  LogIn,
+  User,
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { toast } from "sonner"
-import { getCurrentUser, registerForEvent, checkEventRegistration, type Event } from "@/lib/supabase"
+import { type Event, getCurrentUser, registerForEvent, checkEventRegistration } from "@/lib/supabase"
 import AuthModal from "@/components/auth/auth-modal"
 
 interface EventDetailClientProps {
@@ -44,153 +30,82 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
   const [user, setUser] = useState<any>(null)
   const [isRegistered, setIsRegistered] = useState(false)
   const [isRegistering, setIsRegistering] = useState(false)
-  const [isBookmarked, setIsBookmarked] = useState(false)
-  const [loading, setLoading] = useState(true)
   const [showAuthModal, setShowAuthModal] = useState(false)
-  const [showEventDetails, setShowEventDetails] = useState(false)
-  const [authMode, setAuthMode] = useState<"login" | "signup">("login")
+  const [registrationStatus, setRegistrationStatus] = useState<string | null>(null)
+  const router = useRouter()
 
   useEffect(() => {
-    checkUserAndRegistration()
-  }, [event.id])
+    checkAuth()
+  }, [])
 
-  const checkUserAndRegistration = async () => {
-    try {
-      const currentUser = await getCurrentUser()
-      setUser(currentUser)
+  const checkAuth = async () => {
+    const currentUser = await getCurrentUser()
+    setUser(currentUser)
 
-      if (currentUser) {
-        const registered = await checkEventRegistration(event.id, currentUser.id)
-        setIsRegistered(registered)
-        setShowEventDetails(true) // Show details if user is logged in
-      } else {
-        setShowEventDetails(false) // Hide details if user is not logged in
-      }
-    } catch (error) {
-      console.error("Error checking user and registration:", error)
-    } finally {
-      setLoading(false)
+    if (currentUser) {
+      const registered = await checkEventRegistration(event.id, currentUser.id)
+      setIsRegistered(registered)
     }
-  }
-
-  const handleAuthSuccess = () => {
-    setShowAuthModal(false)
-    checkUserAndRegistration() // Refresh user data after successful auth
-    toast.success("Welcome! You can now view event details and register.")
   }
 
   const handleRegister = async () => {
     if (!user) {
-      setAuthMode("signup")
       setShowAuthModal(true)
-      toast.error("Please sign in to register for this event")
       return
     }
 
-    if (isRegistered) {
-      toast.info("You are already registered for this event!")
-      return
-    }
-
-    if (event.current_participants >= event.max_participants) {
-      toast.error("This event has reached maximum capacity.")
+    if (event.registration_link) {
+      window.open(event.registration_link, "_blank")
       return
     }
 
     setIsRegistering(true)
+    setRegistrationStatus(null)
+
     try {
       const result = await registerForEvent(event.id, user.id)
+
       if (result.success) {
         setIsRegistered(true)
-        toast.success("🎉 Successfully registered for the event! Check your email for confirmation.")
+        setRegistrationStatus("Successfully registered for the event!")
       } else {
-        toast.error(result.error || "Failed to register for the event.")
+        setRegistrationStatus(result.error || "Registration failed")
       }
     } catch (error) {
       console.error("Registration error:", error)
-      toast.error("An unexpected error occurred. Please try again.")
+      setRegistrationStatus("An unexpected error occurred")
     } finally {
       setIsRegistering(false)
     }
   }
 
-  const handleViewDetails = () => {
-    if (!user) {
-      setAuthMode("login")
-      setShowAuthModal(true)
-      toast.info("Please sign in to view full event details")
-      return
-    }
-    setShowEventDetails(true)
-  }
-
-  const handleShare = async (platform: string) => {
-    if (!user) {
-      setAuthMode("login")
-      setShowAuthModal(true)
-      toast.error("Please sign in to share this event")
-      return
-    }
-
-    const url = window.location.href
-    const title = event.title
-    const description = event.description.substring(0, 100) + "..."
-
-    switch (platform) {
-      case "twitter":
-        window.open(
-          `https://twitter.com/intent/tweet?text=${encodeURIComponent(
-            title,
-          )}&url=${encodeURIComponent(url)}&hashtags=ApnaCoding,TechEvent`,
-          "_blank",
-        )
-        break
-      case "facebook":
-        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, "_blank")
-        break
-      case "linkedin":
-        window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`, "_blank")
-        break
-      case "whatsapp":
-        window.open(`https://wa.me/?text=${encodeURIComponent(`${title} - ${url}`)}`, "_blank")
-        break
-      case "copy":
-        try {
-          await navigator.clipboard.writeText(url)
-          toast.success("Link copied to clipboard!")
-        } catch (error) {
-          toast.error("Failed to copy link to clipboard.")
-        }
-        break
-      case "native":
-        if (navigator.share) {
-          try {
-            await navigator.share({
-              title,
-              text: description,
-              url,
-            })
-          } catch (error) {
-            console.log("Share cancelled")
-          }
-        }
-        break
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: event.title,
+          text: event.description,
+          url: window.location.href,
+        })
+      } catch (error) {
+        console.log("Error sharing:", error)
+      }
+    } else {
+      // Fallback to copying URL
+      navigator.clipboard.writeText(window.location.href)
+      alert("Event URL copied to clipboard!")
     }
   }
 
-  const toggleBookmark = () => {
-    if (!user) {
-      setAuthMode("login")
-      setShowAuthModal(true)
-      toast.error("Please sign in to bookmark events")
-      return
-    }
-    setIsBookmarked(!isBookmarked)
-    toast.success(isBookmarked ? "Removed from bookmarks" : "Added to bookmarks")
-  }
+  const eventDate = new Date(event.event_date)
+  const endDate = event.end_date ? new Date(event.end_date) : null
+  const isUpcoming = eventDate > new Date()
+  const isOngoing = eventDate <= new Date() && (!endDate || endDate >= new Date())
+  const participationPercentage =
+    event.max_participants > 0 ? (event.current_participants / event.max_participants) * 100 : 0
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString("en-US", {
       weekday: "long",
       year: "numeric",
       month: "long",
@@ -198,631 +113,259 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
     })
   }
 
-  const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString("en-US", {
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
     })
   }
 
-  const getDaysUntilEvent = () => {
-    const eventDate = new Date(event.event_date)
-    const today = new Date()
-    const diffTime = eventDate.getTime() - today.getTime()
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    return diffDays
-  }
+  return (
+    <div className="min-h-screen bg-black text-white">
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <Button variant="ghost" onClick={() => router.back()} className="mb-4 text-gray-400 hover:text-white">
+            ← Back to Events
+          </Button>
 
-  const getEventTypeColor = (type: string) => {
-    const colors = {
-      workshop: "bg-blue-500",
-      webinar: "bg-green-500",
-      conference: "bg-purple-500",
-      meetup: "bg-orange-500",
-      bootcamp: "bg-red-500",
-      seminar: "bg-indigo-500",
-    }
-    return colors[type as keyof typeof colors] || "bg-gray-500"
-  }
+          <div className="flex flex-col lg:flex-row gap-8">
+            {/* Event Image */}
+            <div className="lg:w-1/2">
+              <div className="relative aspect-video rounded-lg overflow-hidden">
+                <Image
+                  src={event.image_url || "/placeholder.svg?height=400&width=600"}
+                  alt={event.title}
+                  fill
+                  className="object-cover"
+                />
+                <div className="absolute top-4 left-4">
+                  <Badge
+                    variant={
+                      event.status === "upcoming" ? "default" : event.status === "ongoing" ? "secondary" : "outline"
+                    }
+                    className="bg-yellow-400 text-black"
+                  >
+                    {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
+                  </Badge>
+                </div>
+                <div className="absolute top-4 right-4">
+                  <Button variant="secondary" size="sm" onClick={handleShare} className="bg-black/50 hover:bg-black/70">
+                    <Share2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "upcoming":
-        return "bg-blue-500"
-      case "ongoing":
-        return "bg-green-500"
-      case "completed":
-        return "bg-gray-500"
-      case "cancelled":
-        return "bg-red-500"
-      default:
-        return "bg-gray-500"
-    }
-  }
+            {/* Event Details */}
+            <div className="lg:w-1/2">
+              <div className="mb-4">
+                <Badge variant="outline" className="mb-2">
+                  {event.event_type}
+                </Badge>
+                <h1 className="text-3xl lg:text-4xl font-bold mb-4">{event.title}</h1>
+                <p className="text-gray-300 text-lg leading-relaxed">{event.description}</p>
+              </div>
 
-  const daysUntilEvent = getDaysUntilEvent()
-  const isEventFull = event.current_participants >= event.max_participants
-  const registrationProgress = (event.current_participants / event.max_participants) * 100
+              {/* Event Info Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div className="flex items-center gap-3">
+                  <Calendar className="w-5 h-5 text-yellow-400" />
+                  <div>
+                    <p className="font-medium">{formatDate(eventDate)}</p>
+                    <p className="text-sm text-gray-400">{formatTime(eventDate)}</p>
+                  </div>
+                </div>
 
-  // Show loading state
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
-          <p className="text-gray-300">Loading event...</p>
+                {endDate && (
+                  <div className="flex items-center gap-3">
+                    <Clock className="w-5 h-5 text-yellow-400" />
+                    <div>
+                      <p className="font-medium">Ends: {formatDate(endDate)}</p>
+                      <p className="text-sm text-gray-400">{formatTime(endDate)}</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3">
+                  <MapPin className="w-5 h-5 text-yellow-400" />
+                  <div>
+                    <p className="font-medium">{event.location}</p>
+                    <p className="text-sm text-gray-400 capitalize">{event.event_mode}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <User className="w-5 h-5 text-yellow-400" />
+                  <div>
+                    <p className="font-medium">{event.organizer}</p>
+                    <p className="text-sm text-gray-400">Organizer</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Users className="w-5 h-5 text-yellow-400" />
+                  <div>
+                    <p className="font-medium">
+                      {event.current_participants} / {event.max_participants} participants
+                    </p>
+                    <Progress value={participationPercentage} className="w-24 mt-1" />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <DollarSign className="w-5 h-5 text-yellow-400" />
+                  <div>
+                    <p className="font-medium">
+                      {event.registration_fee === 0 ? "Free" : `₹${event.registration_fee}`}
+                    </p>
+                    <p className="text-sm text-gray-400">Registration Fee</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Registration Status */}
+              {registrationStatus && (
+                <div
+                  className={`p-3 rounded-lg mb-4 flex items-center gap-2 ${
+                    registrationStatus.includes("Success")
+                      ? "bg-green-900/20 border border-green-800 text-green-400"
+                      : "bg-red-900/20 border border-red-800 text-red-400"
+                  }`}
+                >
+                  {registrationStatus.includes("Success") ? (
+                    <CheckCircle className="w-4 h-4" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4" />
+                  )}
+                  <span className="text-sm">{registrationStatus}</span>
+                </div>
+              )}
+
+              {/* Registration Button */}
+              <div className="mb-6">
+                {isRegistered ? (
+                  <Button disabled className="w-full bg-green-600 hover:bg-green-700">
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Registered
+                  </Button>
+                ) : event.registration_open && isUpcoming ? (
+                  <Button
+                    onClick={handleRegister}
+                    disabled={isRegistering || event.current_participants >= event.max_participants}
+                    className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
+                  >
+                    {isRegistering ? (
+                      "Registering..."
+                    ) : event.current_participants >= event.max_participants ? (
+                      "Event Full"
+                    ) : event.registration_link ? (
+                      <>
+                        Register Now <ExternalLink className="w-4 h-4 ml-2" />
+                      </>
+                    ) : (
+                      "Register Now"
+                    )}
+                  </Button>
+                ) : (
+                  <Button disabled className="w-full">
+                    {!event.registration_open ? "Registration Closed" : "Event Started"}
+                  </Button>
+                )}
+              </div>
+
+              {/* Technologies */}
+              {event.technologies && event.technologies.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold mb-3">Technologies</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {event.technologies.map((tech, index) => (
+                      <Badge key={index} variant="secondary">
+                        {tech}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Additional Information */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Agenda */}
+          {event.agenda && (
+            <Card className="bg-gray-900 border-gray-800">
+              <CardHeader>
+                <CardTitle className="text-white">Agenda</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-gray-300 whitespace-pre-line">{event.agenda}</div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Requirements */}
+          {event.requirements && event.requirements.length > 0 && (
+            <Card className="bg-gray-900 border-gray-800">
+              <CardHeader>
+                <CardTitle className="text-white">Requirements</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-gray-300">
+                  {event.requirements.map((req, index) => (
+                    <li key={index} className="flex items-start gap-2">
+                      <span className="text-yellow-400 mt-1">•</span>
+                      <span>{req}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Speaker Info */}
+          {event.speaker_info && (
+            <Card className="bg-gray-900 border-gray-800">
+              <CardHeader>
+                <CardTitle className="text-white">Speaker Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-gray-300 whitespace-pre-line">{event.speaker_info}</div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Tags */}
+          {event.tags && event.tags.length > 0 && (
+            <Card className="bg-gray-900 border-gray-800">
+              <CardHeader>
+                <CardTitle className="text-white">Tags</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  {event.tags.map((tag, index) => (
+                    <Badge key={index} variant="outline">
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
-    )
-  }
 
-  return (
-    <div className="min-h-screen pt-20 bg-black text-white">
       {/* Auth Modal */}
       <AuthModal
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
-        onSuccess={handleAuthSuccess}
-        mode={authMode}
+        onSuccess={() => {
+          setShowAuthModal(false)
+          checkAuth()
+        }}
+        mode="login"
       />
-
-      {/* Hero Section */}
-      <section className="relative h-96 overflow-hidden">
-        <Image
-          src={
-            event.image_url ||
-            "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/EVENT%20COSTOM%20TEMPLATE-kZL4AvoUZPDjOKW6HBkYlCocOyCR7I.png" ||
-            "/placeholder.svg" ||
-            "/placeholder.svg"
-          }
-          alt={event.title}
-          fill
-          className="object-cover"
-          priority
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
-
-        {/* Authentication Overlay for Non-Logged Users */}
-        {!user && (
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-20">
-            <div className="text-center space-y-4 max-w-md mx-auto px-6">
-              <Lock className="w-16 h-16 text-yellow-400 mx-auto" />
-              <h2 className="text-2xl font-bold text-white">Event Details Locked</h2>
-              <p className="text-gray-300">
-                Sign in to view full event details, register, and access exclusive content.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Button
-                  onClick={() => {
-                    setAuthMode("login")
-                    setShowAuthModal(true)
-                  }}
-                  className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
-                >
-                  <LogIn className="w-4 h-4 mr-2" />
-                  Sign In
-                </Button>
-                <Button
-                  onClick={() => {
-                    setAuthMode("signup")
-                    setShowAuthModal(true)
-                  }}
-                  variant="outline"
-                  className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black bg-transparent"
-                >
-                  Create Account
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Back Button */}
-        <div className="absolute top-6 left-6 z-10">
-          <Link href="/events">
-            <Button variant="outline" className="bg-black/50 border-gray-700 text-white hover:bg-black/70">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Events
-            </Button>
-          </Link>
-        </div>
-
-        {/* Share & Bookmark Buttons - Only show if user is logged in */}
-        {user && (
-          <div className="absolute top-6 right-6 z-10 flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={toggleBookmark}
-              className="bg-black/50 border-gray-700 text-white hover:bg-black/70"
-            >
-              {isBookmarked ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
-            </Button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="bg-black/50 border-gray-700 text-white hover:bg-black/70"
-                >
-                  <Share2 className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="bg-gray-900 border-gray-700">
-                <DropdownMenuItem onClick={() => handleShare("twitter")} className="text-white hover:bg-gray-800">
-                  <Twitter className="w-4 h-4 mr-2" />
-                  Share on Twitter
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleShare("facebook")} className="text-white hover:bg-gray-800">
-                  <Facebook className="w-4 h-4 mr-2" />
-                  Share on Facebook
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleShare("linkedin")} className="text-white hover:bg-gray-800">
-                  <Linkedin className="w-4 h-4 mr-2" />
-                  Share on LinkedIn
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleShare("whatsapp")} className="text-white hover:bg-gray-800">
-                  <MessageCircle className="w-4 h-4 mr-2" />
-                  Share on WhatsApp
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleShare("copy")} className="text-white hover:bg-gray-800">
-                  <Copy className="w-4 h-4 mr-2" />
-                  Copy Link
-                </DropdownMenuItem>
-                {navigator.share && (
-                  <DropdownMenuItem onClick={() => handleShare("native")} className="text-white hover:bg-gray-800">
-                    <Share2 className="w-4 h-4 mr-2" />
-                    Share...
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )}
-
-        {/* Event Badges */}
-        <div className="absolute bottom-6 left-6 flex gap-2">
-          <Badge className={`${getEventTypeColor(event.event_type)} text-white font-bold`}>
-            {event.event_type.toUpperCase()}
-          </Badge>
-          <Badge className={`${getStatusColor(event.status)} text-white font-bold`}>{event.status.toUpperCase()}</Badge>
-          {event.registration_fee === 0 && <Badge className="bg-green-500 text-white font-bold">FREE</Badge>}
-        </div>
-
-        {/* Days Until Event */}
-        {event.status === "upcoming" && (
-          <div className="absolute bottom-6 right-6">
-            <Badge className="bg-yellow-400 text-black font-bold text-lg px-4 py-2">
-              {daysUntilEvent > 0 ? `${daysUntilEvent} DAYS LEFT` : daysUntilEvent === 0 ? "TODAY" : "PAST"}
-            </Badge>
-          </div>
-        )}
-      </section>
-
-      {/* Event Content - Only show if user is logged in */}
-      {user && showEventDetails ? (
-        <section className="py-16">
-          <div className="container mx-auto px-4">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Main Content */}
-              <div className="lg:col-span-2 space-y-8">
-                {/* Event Title & Description */}
-                <motion.div
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6 }}
-                >
-                  <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
-                    {event.title}
-                  </h1>
-                  <p className="text-xl text-gray-300 leading-relaxed">{event.description}</p>
-                </motion.div>
-
-                {/* Event Details */}
-                <motion.div
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.2 }}
-                >
-                  <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm">
-                    <CardHeader>
-                      <CardTitle className="text-white flex items-center gap-2">
-                        <Calendar className="w-5 h-5 text-yellow-400" />
-                        Event Details
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex items-center gap-3 text-gray-300">
-                          <Calendar className="w-5 h-5 text-yellow-400" />
-                          <div>
-                            <div className="font-semibold">{formatDate(event.event_date)}</div>
-                            <div className="text-sm text-gray-400">{formatTime(event.event_date)}</div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3 text-gray-300">
-                          <MapPin className="w-5 h-5 text-yellow-400" />
-                          <div>
-                            <div className="font-semibold">{event.location}</div>
-                            <div className="text-sm text-gray-400 capitalize">{event.event_mode} Event</div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3 text-gray-300">
-                          <User className="w-5 h-5 text-yellow-400" />
-                          <div>
-                            <div className="font-semibold">{event.organizer}</div>
-                            <div className="text-sm text-gray-400">Event Organizer</div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3 text-gray-300">
-                          <Globe className="w-5 h-5 text-yellow-400" />
-                          <div>
-                            <div className="font-semibold capitalize">{event.event_mode}</div>
-                            <div className="text-sm text-gray-400">Event Mode</div>
-                          </div>
-                        </div>
-
-                        {event.registration_fee > 0 && (
-                          <div className="flex items-center gap-3 text-gray-300">
-                            <DollarSign className="w-5 h-5 text-yellow-400" />
-                            <div>
-                              <div className="font-semibold text-yellow-400">${event.registration_fee}</div>
-                              <div className="text-sm text-gray-400">Registration Fee</div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-
-                {/* Technologies */}
-                {event.technologies && event.technologies.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: 0.4 }}
-                  >
-                    <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm">
-                      <CardHeader>
-                        <CardTitle className="text-white flex items-center gap-2">
-                          <Tag className="w-5 h-5 text-yellow-400" />
-                          Technologies & Topics
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex flex-wrap gap-2">
-                          {event.technologies.map((tech, index) => (
-                            <Badge key={index} className="bg-gray-700 text-gray-300 hover:bg-gray-600">
-                              {tech}
-                            </Badge>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                )}
-
-                {/* Additional Info */}
-                {(event.requirements || event.agenda || event.speaker_info) && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: 0.6 }}
-                  >
-                    <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm">
-                      <CardHeader>
-                        <CardTitle className="text-white">Additional Information</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        {event.requirements && (
-                          <div>
-                            <h4 className="font-semibold text-yellow-400 mb-2">Requirements</h4>
-                            <ul className="text-gray-300 space-y-1">
-                              {event.requirements.map((req, index) => (
-                                <li key={index} className="flex items-start gap-2">
-                                  <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
-                                  {req}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {event.agenda && (
-                          <div>
-                            <h4 className="font-semibold text-yellow-400 mb-2">Agenda</h4>
-                            <p className="text-gray-300 whitespace-pre-line">{event.agenda}</p>
-                          </div>
-                        )}
-
-                        {event.speaker_info && (
-                          <div>
-                            <h4 className="font-semibold text-yellow-400 mb-2">Speaker Information</h4>
-                            <p className="text-gray-300 whitespace-pre-line">{event.speaker_info}</p>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                )}
-              </div>
-
-              {/* Sidebar */}
-              <div className="space-y-6">
-                {/* Registration Card */}
-                <motion.div
-                  initial={{ opacity: 0, x: 30 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.6, delay: 0.3 }}
-                >
-                  <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm sticky top-24">
-                    <CardHeader>
-                      <CardTitle className="text-white flex items-center gap-2">
-                        <Users className="w-5 h-5 text-yellow-400" />
-                        Registration
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {/* Participant Count */}
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-yellow-400">
-                          {event.current_participants}/{event.max_participants}
-                        </div>
-                        <div className="text-sm text-gray-400">Participants Registered</div>
-                      </div>
-
-                      {/* Progress Bar */}
-                      <div className="w-full bg-gray-700 rounded-full h-2">
-                        <div
-                          className="bg-yellow-400 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${Math.min(registrationProgress, 100)}%` }}
-                        />
-                      </div>
-
-                      {/* Registration Status */}
-                      {loading ? (
-                        <div className="text-center text-gray-400">Loading...</div>
-                      ) : isRegistered ? (
-                        <div className="text-center">
-                          <div className="flex items-center justify-center gap-2 text-green-400 mb-2">
-                            <CheckCircle className="w-5 h-5" />
-                            <span className="font-semibold">You're Registered!</span>
-                          </div>
-                          <p className="text-sm text-gray-400">Check your email for event details</p>
-                        </div>
-                      ) : isEventFull ? (
-                        <div className="text-center">
-                          <div className="flex items-center justify-center gap-2 text-red-400 mb-2">
-                            <AlertCircle className="w-5 h-5" />
-                            <span className="font-semibold">Event Full</span>
-                          </div>
-                          <p className="text-sm text-gray-400">This event has reached maximum capacity</p>
-                        </div>
-                      ) : event.status === "completed" ? (
-                        <div className="text-center">
-                          <div className="flex items-center justify-center gap-2 text-gray-400 mb-2">
-                            <Clock className="w-5 h-5" />
-                            <span className="font-semibold">Event Completed</span>
-                          </div>
-                        </div>
-                      ) : event.status === "cancelled" ? (
-                        <div className="text-center">
-                          <div className="flex items-center justify-center gap-2 text-red-400 mb-2">
-                            <AlertCircle className="w-5 h-5" />
-                            <span className="font-semibold">Event Cancelled</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          {event.registration_fee > 0 && (
-                            <div className="text-center">
-                              <div className="text-2xl font-bold text-yellow-400">${event.registration_fee}</div>
-                              <div className="text-sm text-gray-400">Registration Fee</div>
-                            </div>
-                          )}
-
-                          <Button
-                            onClick={handleRegister}
-                            disabled={isRegistering || !event.registration_open}
-                            className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold py-3"
-                          >
-                            {isRegistering ? (
-                              <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-black mr-2" />
-                                Registering...
-                              </>
-                            ) : event.registration_fee === 0 ? (
-                              "Register for Free"
-                            ) : (
-                              `Register for $${event.registration_fee}`
-                            )}
-                          </Button>
-
-                          {event.registration_link && (
-                            <Button
-                              variant="outline"
-                              className="w-full border-gray-700 text-white hover:bg-gray-800 bg-transparent"
-                              onClick={() => window.open(event.registration_link, "_blank")}
-                            >
-                              <ExternalLink className="w-4 h-4 mr-2" />
-                              External Registration
-                            </Button>
-                          )}
-
-                          {!event.registration_open && (
-                            <p className="text-sm text-red-400 text-center">Registration is currently closed</p>
-                          )}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </motion.div>
-
-                {/* Event Tags */}
-                {event.tags && event.tags.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, x: 30 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.6, delay: 0.5 }}
-                  >
-                    <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm">
-                      <CardHeader>
-                        <CardTitle className="text-white flex items-center gap-2">
-                          <Tag className="w-5 h-5 text-yellow-400" />
-                          Tags
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex flex-wrap gap-2">
-                          {event.tags.map((tag, index) => (
-                            <Badge key={index} variant="outline" className="border-gray-600 text-gray-300">
-                              #{tag}
-                            </Badge>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
-      ) : (
-        // Show limited preview for non-logged users
-        <section className="py-16">
-          <div className="container mx-auto px-4">
-            <div className="text-center space-y-8">
-              <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-                <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
-                  {event.title}
-                </h1>
-                <p className="text-xl text-gray-300 leading-relaxed max-w-3xl mx-auto">
-                  {event.description.substring(0, 200)}...
-                </p>
-              </motion.div>
-
-              {/* Limited Event Info */}
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-              >
-                <Card className="bg-gray-900/30 border-gray-800 backdrop-blur-sm max-w-2xl mx-auto">
-                  <CardContent className="p-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="flex items-center gap-3 text-gray-300">
-                        <Calendar className="w-5 h-5 text-yellow-400" />
-                        <div>
-                          <div className="font-semibold">{formatDate(event.event_date)}</div>
-                          <div className="text-sm text-gray-400">Event Date</div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-3 text-gray-300">
-                        <MapPin className="w-5 h-5 text-yellow-400" />
-                        <div>
-                          <div className="font-semibold capitalize">{event.event_mode}</div>
-                          <div className="text-sm text-gray-400">Event Mode</div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-3 text-gray-300">
-                        <User className="w-5 h-5 text-yellow-400" />
-                        <div>
-                          <div className="font-semibold">{event.organizer}</div>
-                          <div className="text-sm text-gray-400">Organizer</div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-3 text-gray-300">
-                        <Users className="w-5 h-5 text-yellow-400" />
-                        <div>
-                          <div className="font-semibold">{event.max_participants} spots</div>
-                          <div className="text-sm text-gray-400">Available</div>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-
-              {/* Call to Action */}
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.4 }}
-              >
-                <Card className="bg-gradient-to-r from-yellow-400/10 to-orange-500/10 border-yellow-400/30 max-w-2xl mx-auto">
-                  <CardContent className="p-8 text-center">
-                    <Lock className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
-                    <h3 className="text-2xl font-bold text-white mb-4">Unlock Full Event Details</h3>
-                    <p className="text-gray-300 mb-6">
-                      Sign in to view complete event information, register, access speaker details, agenda, and more!
-                    </p>
-                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                      <Button
-                        onClick={() => {
-                          setAuthMode("login")
-                          setShowAuthModal(true)
-                        }}
-                        className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-3"
-                      >
-                        <LogIn className="w-4 h-4 mr-2" />
-                        Sign In to View Details
-                      </Button>
-                      <Button
-                        onClick={() => {
-                          setAuthMode("signup")
-                          setShowAuthModal(true)
-                        }}
-                        variant="outline"
-                        className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black px-8 py-3 bg-transparent"
-                      >
-                        Create Free Account
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Related Events CTA */}
-      <section className="py-16 bg-gradient-to-r from-yellow-400/10 to-orange-500/10">
-        <div className="container mx-auto px-4 text-center">
-          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-            <h2 className="text-3xl font-bold mb-4">Discover More Events</h2>
-            <p className="text-gray-400 mb-8 max-w-2xl mx-auto">
-              Explore other exciting tech events, workshops, and conferences from Apna Coding.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/events">
-                <Button className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-3">
-                  <Calendar className="w-4 h-4 mr-2" />
-                  View All Events
-                </Button>
-              </Link>
-              <Link href="/community">
-                <Button
-                  variant="outline"
-                  className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black px-8 py-3 bg-transparent"
-                >
-                  <Users className="w-4 h-4 mr-2" />
-                  Join Community
-                </Button>
-              </Link>
-            </div>
-          </motion.div>
-        </div>
-      </section>
     </div>
   )
 }

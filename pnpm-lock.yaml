@@ -30,7 +30,7 @@ importers:
         specifier: latest
         version: 1.1.15(@types/react-dom@18.0.0)(@types/react@18.0.0)(react-dom@18.0.0(react@18.0.0))(react@18.0.0)
       '@radix-ui/react-dropdown-menu':
-        specifier: ^2.0.6
+        specifier: latest
         version: 2.1.16(@types/react-dom@18.0.0)(@types/react@18.0.0)(react-dom@18.0.0(react@18.0.0))(react@18.0.0)
       '@radix-ui/react-label':
         specifier: latest
@@ -100,7 +100,7 @@ importers:
         version: 3.1.2(@types/react@18.0.0)(react-dom@18.0.0(react@18.0.0))(react-is@18.3.1)(react@18.0.0)(redux@5.0.1)
       resend:
         specifier: latest
-        version: 6.2.0-preview-contacts.0(@react-email/render@1.2.1(react-dom@18.0.0(react@18.0.0))(react@18.0.0))
+        version: 6.0.2(@react-email/render@1.2.1(react-dom@18.0.0(react@18.0.0))(react@18.0.0))
       sonner:
         specifier: latest
         version: 2.0.7(react-dom@18.0.0(react@18.0.0))(react@18.0.0)
@@ -2588,8 +2588,8 @@ packages:
   reselect@5.1.1:
     resolution: {integrity: sha512-K/BG6eIky/SBpzfHZv/dd+9JBFiS4SWV7FIujVyJRux6e45+73RaUHXLmIR1f7WOMaQ0U1km6qwklRQxpJJY0w==}
 
-  resend@6.2.0-preview-contacts.0:
-    resolution: {integrity: sha512-pbXz5Ia+7wF08lJsr6FiwLW5Sgoup2lm9jY4czBDvv8uUhRePR0ZGWKErkoaYazm8WkVibMZwuqCtugZQ+G+dA==}
+  resend@6.0.2:
+    resolution: {integrity: sha512-um08qWpSVvEVqAePEy/bsa7pqtnJK+qTCZ0Et7YE7xuqM46J0C9gnSbIJKR3LIcRVMgO9jUeot8rH0UI84eqMQ==}
     engines: {node: '>=18'}
     peerDependencies:
       '@react-email/render': ^1.1.0
@@ -5612,7 +5612,7 @@ snapshots:
 
   reselect@5.1.1: {}
 
-  resend@6.2.0-preview-contacts.0(@react-email/render@1.2.1(react-dom@18.0.0(react@18.0.0))(react@18.0.0)):
+  resend@6.0.2(@react-email/render@1.2.1(react-dom@18.0.0(react@18.0.0))(react@18.0.0)):
     optionalDependencies:
       '@react-email/render': 1.2.1(react-dom@18.0.0(react@18.0.0))(react@18.0.0)
 
