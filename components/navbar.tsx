@@ -2,373 +2,165 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import Image from "next/image"
-import { motion, AnimatePresence } from "framer-motion"
-import {
-  Menu,
-  X,
-  ChevronDown,
-  User,
-  LogOut,
-  Settings,
-  Shield,
-  BookOpen,
-  Crown,
-  Plus,
-  Calendar,
-  Briefcase,
-} from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import AuthModal from "@/components/auth/auth-modal"
-import { getCurrentUser, signOut, getUserProfile, getUserOrganizerStatus, type User as UserType } from "@/lib/supabase"
-import { getOrganizerRoles } from "@/lib/permissions"
+import { getCurrentUser, signOut } from "@/lib/supabase"
+import type { User } from "@/lib/supabase"
+import { AuthModal } from "@/components/auth/auth-modal"
 
-function Navbar() {
-  const [isOpen, setIsOpen] = useState(false)
+export default function Navbar() {
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authMode, setAuthMode] = useState<"login" | "signup">("login")
-  const [user, setUser] = useState<any>(null)
-  const [userProfile, setUserProfile] = useState<UserType | null>(null)
-  const [organizerStatus, setOrganizerStatus] = useState<{ is_organizer: boolean; organizer_types: string[] }>({
-    is_organizer: false,
-    organizer_types: [],
-  })
-  const [organizerRoles, setOrganizerRoles] = useState<any[]>([])
-  const [showUserMenu, setShowUserMenu] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [authError, setAuthError] = useState<string | null>(null)
+
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    // Check for auth errors in URL parameters
+    const error = searchParams.get("error")
+    if (error) {
+      setAuthError(decodeURIComponent(error))
+      // Clear the error from URL
+      const newUrl = window.location.pathname
+      window.history.replaceState({}, "", newUrl)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     checkUser()
-
-    // Check for auth parameter in URL
-    const urlParams = new URLSearchParams(window.location.search)
-    const authParam = urlParams.get("auth")
-    if (authParam === "signup" || authParam === "login") {
-      setAuthMode(authParam as "login" | "signup")
-      setShowAuthModal(true)
-    }
-
-    // Check for error parameters
-    const error = urlParams.get("error")
-    const message = urlParams.get("message")
-    if (error) {
-      console.error("Auth error from URL:", error, message)
-      // You could show a toast notification here
-    }
   }, [])
 
   const checkUser = async () => {
     try {
-      console.log("Checking current user...")
+      setLoading(true)
       const currentUser = await getCurrentUser()
-      console.log("Current user:", currentUser?.email || "Not logged in")
+      console.log("Current user in navbar:", currentUser)
       setUser(currentUser)
-
-      if (currentUser) {
-        const [profileResult, orgStatusResult, rolesResult] = await Promise.all([
-          getUserProfile(currentUser.id),
-          getUserOrganizerStatus(currentUser.id),
-          getOrganizerRoles(currentUser.id),
-        ])
-
-        setUserProfile(profileResult.data)
-        setOrganizerStatus(orgStatusResult)
-        setOrganizerRoles(rolesResult.data || [])
-      }
     } catch (error) {
       console.error("Error checking user:", error)
+      setUser(null)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleAuthSuccess = () => {
-    console.log("Auth success, refreshing user data...")
-    setShowAuthModal(false)
-    checkUser()
-    // Remove auth parameter from URL
-    const url = new URL(window.location.href)
-    url.searchParams.delete("auth")
-    url.searchParams.delete("error")
-    url.searchParams.delete("message")
-    window.history.replaceState({}, "", url.toString())
-  }
-
   const handleSignOut = async () => {
     try {
-      console.log("Signing out...")
+      console.log("Signing out user...")
       await signOut()
       setUser(null)
-      setUserProfile(null)
-      setOrganizerStatus({ is_organizer: false, organizer_types: [] })
-      setOrganizerRoles([])
-      setShowUserMenu(false)
-      console.log("Sign out successful")
+      console.log("User signed out successfully")
 
-      // Redirect to home page after sign out
-      window.location.href = "/"
+      // Redirect to home page
+      router.push("/")
+
+      // Force page refresh to clear any cached state
+      setTimeout(() => {
+        window.location.reload()
+      }, 100)
     } catch (error) {
       console.error("Error signing out:", error)
     }
   }
 
+  const handleAuthSuccess = () => {
+    setShowAuthModal(false)
+    setAuthError(null)
+    checkUser() // Refresh user state
+
+    // Redirect to dashboard after successful auth
+    router.push("/dashboard")
+  }
+
   const openAuthModal = (mode: "login" | "signup") => {
     setAuthMode(mode)
     setShowAuthModal(true)
-  }
-
-  const navItems = [
-    { name: "Home", href: "/" },
-    { name: "Events", href: "/events" },
-    { name: "Hackathons", href: "/hackathons" },
-    { name: "Jobs", href: "/jobs" },
-    { name: "AI Tools", href: "/ai-tools" },
-    { name: "Community", href: "/community" },
-    { name: "About", href: "/about" },
-    { name: "Contact", href: "/contact" },
-  ]
-
-  const getRoleDisplayName = (roleName: string) => {
-    switch (roleName) {
-      case "hackathon_organizer":
-        return "Hackathon Organizer"
-      case "event_organizer":
-        return "Event Organizer"
-      case "job_poster":
-        return "Job Poster"
-      default:
-        return roleName.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())
-    }
-  }
-
-  const getOrganizerPostingOptions = () => {
-    return organizerRoles
-      .map((role) => {
-        switch (role.role_name) {
-          case "hackathon_organizer":
-            return {
-              label: "Post Hackathon",
-              href: "/admin/hackathons/new",
-              icon: <Calendar className="w-4 h-4 mr-2" />,
-              color: "text-purple-400",
-            }
-          case "event_organizer":
-            return {
-              label: "Post Event",
-              href: "/admin/events/new",
-              icon: <BookOpen className="w-4 h-4 mr-2" />,
-              color: "text-blue-400",
-            }
-          case "job_poster":
-            return {
-              label: "Post Job/Internship",
-              href: "/admin/jobs/new",
-              icon: <Briefcase className="w-4 h-4 mr-2" />,
-              color: "text-green-400",
-            }
-          default:
-            return null
-        }
-      })
-      .filter(Boolean)
+    setAuthError(null)
   }
 
   return (
     <>
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-md border-b border-gray-800">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
+      <nav className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
             {/* Logo */}
             <Link href="/" className="flex items-center space-x-2">
-              <Image src="/logo.png" alt="Apna Coding" width={40} height={40} className="rounded-lg" />
-              <span className="text-xl font-bold text-white">Apna Coding</span>
+              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">AC</span>
+              </div>
+              <span className="font-bold text-xl text-gray-900">Apna Coding</span>
             </Link>
 
             {/* Desktop Navigation */}
-            <div className="hidden lg:flex items-center space-x-8">
-              {navItems.map((item) => (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className="text-gray-300 hover:text-yellow-400 transition-colors duration-200 font-medium"
-                >
-                  {item.name}
-                </Link>
-              ))}
+            <div className="hidden md:flex items-center space-x-8">
+              <Link href="/events" className="text-gray-700 hover:text-blue-600 transition-colors">
+                Events
+              </Link>
+              <Link href="/hackathons" className="text-gray-700 hover:text-blue-600 transition-colors">
+                Hackathons
+              </Link>
+              <Link href="/jobs" className="text-gray-700 hover:text-blue-600 transition-colors">
+                Jobs
+              </Link>
+              <Link href="/courses" className="text-gray-700 hover:text-blue-600 transition-colors">
+                Courses
+              </Link>
+              <Link href="/ai-tools" className="text-gray-700 hover:text-blue-600 transition-colors">
+                AI Tools
+              </Link>
+              <Link href="/community" className="text-gray-700 hover:text-blue-600 transition-colors">
+                Community
+              </Link>
             </div>
 
             {/* Auth Section */}
-            <div className="hidden lg:flex items-center space-x-4">
+            <div className="hidden md:flex items-center space-x-4">
               {loading ? (
-                <div className="w-8 h-8 bg-gray-700 rounded-full animate-pulse" />
+                <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
               ) : user ? (
-                <div className="relative">
-                  <button
-                    onClick={() => setShowUserMenu(!showUserMenu)}
-                    className="flex items-center space-x-2 bg-gray-800 hover:bg-gray-700 rounded-lg px-3 py-2 transition-colors"
-                  >
-                    {userProfile?.avatar_url ? (
-                      <Image
-                        src={userProfile.avatar_url || "/placeholder.svg"}
-                        alt={userProfile.full_name || "User"}
-                        width={32}
-                        height={32}
-                        className="rounded-full"
+                <div className="flex items-center space-x-4">
+                  <Link href="/dashboard">
+                    <Button variant="ghost" className="text-gray-700 hover:text-blue-600">
+                      Dashboard
+                    </Button>
+                  </Link>
+                  {user.role === "admin" && (
+                    <Link href="/admin">
+                      <Button variant="ghost" className="text-purple-600 hover:text-purple-700">
+                        Admin
+                      </Button>
+                    </Link>
+                  )}
+                  <div className="flex items-center space-x-2">
+                    {user.avatar_url && (
+                      <img
+                        src={user.avatar_url || "/placeholder.svg"}
+                        alt={user.full_name}
+                        className="w-8 h-8 rounded-full"
                       />
-                    ) : (
-                      <div className="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center">
-                        <User className="w-4 h-4 text-black" />
-                      </div>
                     )}
-                    <div className="text-left">
-                      <div className="text-white text-sm font-medium flex items-center gap-1">
-                        {userProfile?.full_name || user.email?.split("@")[0]}
-                        {userProfile?.role === "admin" && <Shield className="w-3 h-3 text-yellow-400" />}
-                        {organizerStatus.is_organizer && <Crown className="w-3 h-3 text-purple-400" />}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {userProfile?.role === "admin" && (
-                          <Badge className="bg-yellow-400 text-black text-xs px-1 py-0">Admin</Badge>
-                        )}
-                        {organizerStatus.is_organizer && (
-                          <Badge className="bg-purple-400 text-black text-xs px-1 py-0">Organizer</Badge>
-                        )}
-                      </div>
-                    </div>
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
-                  </button>
-
-                  <AnimatePresence>
-                    {showUserMenu && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 10 }}
-                        className="absolute right-0 mt-2 w-64 bg-gray-900 border border-gray-700 rounded-lg shadow-lg py-2"
-                      >
-                        {/* User Info Header */}
-                        <div className="px-4 py-2 border-b border-gray-700">
-                          <div className="text-white font-medium">
-                            {userProfile?.full_name || user.email?.split("@")[0]}
-                          </div>
-                          <div className="text-gray-400 text-sm">{user.email}</div>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {userProfile?.role === "admin" && (
-                              <Badge className="bg-yellow-400 text-black text-xs">
-                                <Shield className="w-2 h-2 mr-1" />
-                                Admin
-                              </Badge>
-                            )}
-                            {organizerRoles.map((role) => (
-                              <Badge key={role.id} className="bg-purple-400 text-black text-xs">
-                                <Crown className="w-2 h-2 mr-1" />
-                                {getRoleDisplayName(role.role_name)}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-
-                        <Link
-                          href="/dashboard"
-                          className="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-800 hover:text-white"
-                          onClick={() => setShowUserMenu(false)}
-                        >
-                          <BookOpen className="w-4 h-4 mr-2" />
-                          Dashboard
-                        </Link>
-                        <Link
-                          href="/dashboard/profile"
-                          className="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-800 hover:text-white"
-                          onClick={() => setShowUserMenu(false)}
-                        >
-                          <Settings className="w-4 h-4 mr-2" />
-                          Profile Settings
-                        </Link>
-
-                        {/* Organizer Posting Options */}
-                        {organizerStatus.is_organizer && (
-                          <>
-                            <hr className="border-gray-700 my-2" />
-                            <div className="px-4 py-1">
-                              <div className="text-xs text-purple-400 font-semibold flex items-center">
-                                <Plus className="w-3 h-3 mr-1" />
-                                Create Content
-                              </div>
-                            </div>
-                            {getOrganizerPostingOptions().map((option, index) => (
-                              <Link
-                                key={index}
-                                href={option.href}
-                                className={`flex items-center px-4 py-2 ${option.color} hover:bg-gray-800`}
-                                onClick={() => setShowUserMenu(false)}
-                              >
-                                {option.icon}
-                                {option.label}
-                              </Link>
-                            ))}
-                            <hr className="border-gray-700 my-2" />
-                            <div className="px-4 py-1">
-                              <div className="text-xs text-purple-400 font-semibold">Manage Content</div>
-                            </div>
-                            {organizerRoles.map((role) => (
-                              <Link
-                                key={role.id}
-                                href={
-                                  role.role_name === "hackathon_organizer"
-                                    ? "/admin/hackathons"
-                                    : role.role_name === "event_organizer"
-                                      ? "/admin/events"
-                                      : "/admin/jobs"
-                                }
-                                className="flex items-center px-4 py-2 text-purple-400 hover:bg-gray-800"
-                                onClick={() => setShowUserMenu(false)}
-                              >
-                                <Crown className="w-4 h-4 mr-2" />
-                                Manage {getRoleDisplayName(role.role_name).split(" ")[1]}
-                              </Link>
-                            ))}
-                          </>
-                        )}
-
-                        {userProfile?.role === "admin" && (
-                          <>
-                            <hr className="border-gray-700 my-2" />
-                            <Link
-                              href="/admin"
-                              className="flex items-center px-4 py-2 text-yellow-400 hover:bg-gray-800"
-                              onClick={() => setShowUserMenu(false)}
-                            >
-                              <Shield className="w-4 h-4 mr-2" />
-                              Admin Panel
-                            </Link>
-                          </>
-                        )}
-                        <hr className="border-gray-700 my-2" />
-                        <button
-                          onClick={handleSignOut}
-                          className="flex items-center w-full px-4 py-2 text-gray-300 hover:bg-gray-800 hover:text-white"
-                        >
-                          <LogOut className="w-4 h-4 mr-2" />
-                          Sign Out
-                        </button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                    <span className="text-sm text-gray-700">Hi, {user.full_name}</span>
+                  </div>
+                  <Button onClick={handleSignOut} variant="outline" size="sm">
+                    Sign Out
+                  </Button>
                 </div>
               ) : (
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2">
                   <Button
-                    variant="ghost"
                     onClick={() => openAuthModal("login")}
-                    className="text-gray-300 hover:text-white"
-                    data-auth-modal
+                    variant="ghost"
+                    className="text-gray-700 hover:text-blue-600"
                   >
                     Login
                   </Button>
                   <Button
                     onClick={() => openAuthModal("signup")}
-                    className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
                   >
                     Sign Up
                   </Button>
@@ -376,186 +168,111 @@ function Navbar() {
               )}
             </div>
 
-            {/* Mobile Menu Button */}
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="lg:hidden text-white hover:text-yellow-400 transition-colors"
-            >
-              {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
+            {/* Mobile menu button */}
+            <div className="md:hidden">
+              <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="text-gray-700 hover:text-blue-600 focus:outline-none"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {isMenuOpen ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  )}
+                </svg>
+              </button>
+            </div>
           </div>
 
           {/* Mobile Navigation */}
-          <AnimatePresence>
-            {isOpen && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                className="lg:hidden border-t border-gray-800 py-4"
-              >
-                <div className="flex flex-col space-y-4">
-                  {navItems.map((item) => (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      className="text-gray-300 hover:text-yellow-400 transition-colors duration-200 font-medium"
-                      onClick={() => setIsOpen(false)}
-                    >
-                      {item.name}
+          {isMenuOpen && (
+            <div className="md:hidden py-4 border-t border-gray-200">
+              <div className="flex flex-col space-y-4">
+                <Link href="/events" className="text-gray-700 hover:text-blue-600 transition-colors">
+                  Events
+                </Link>
+                <Link href="/hackathons" className="text-gray-700 hover:text-blue-600 transition-colors">
+                  Hackathons
+                </Link>
+                <Link href="/jobs" className="text-gray-700 hover:text-blue-600 transition-colors">
+                  Jobs
+                </Link>
+                <Link href="/courses" className="text-gray-700 hover:text-blue-600 transition-colors">
+                  Courses
+                </Link>
+                <Link href="/ai-tools" className="text-gray-700 hover:text-blue-600 transition-colors">
+                  AI Tools
+                </Link>
+                <Link href="/community" className="text-gray-700 hover:text-blue-600 transition-colors">
+                  Community
+                </Link>
+
+                {loading ? (
+                  <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                ) : user ? (
+                  <div className="flex flex-col space-y-2 pt-4 border-t border-gray-200">
+                    <Link href="/dashboard">
+                      <Button variant="ghost" className="w-full justify-start text-gray-700 hover:text-blue-600">
+                        Dashboard
+                      </Button>
                     </Link>
-                  ))}
-
-                  {user ? (
-                    <div className="pt-4 border-t border-gray-800">
-                      <div className="flex items-center space-x-2 mb-4">
-                        {userProfile?.avatar_url ? (
-                          <Image
-                            src={userProfile.avatar_url || "/placeholder.svg"}
-                            alt={userProfile.full_name || "User"}
-                            width={32}
-                            height={32}
-                            className="rounded-full"
-                          />
-                        ) : (
-                          <div className="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center">
-                            <User className="w-4 h-4 text-black" />
-                          </div>
-                        )}
-                        <div>
-                          <div className="text-white text-sm font-medium flex items-center gap-1">
-                            {userProfile?.full_name || user.email?.split("@")[0]}
-                            {userProfile?.role === "admin" && <Shield className="w-3 h-3 text-yellow-400" />}
-                            {organizerStatus.is_organizer && <Crown className="w-3 h-3 text-purple-400" />}
-                          </div>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {userProfile?.role === "admin" && (
-                              <Badge className="bg-yellow-400 text-black text-xs">Admin</Badge>
-                            )}
-                            {organizerStatus.is_organizer && (
-                              <Badge className="bg-purple-400 text-black text-xs">Organizer</Badge>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex flex-col space-y-2">
-                        <Link
-                          href="/dashboard"
-                          className="flex items-center text-gray-300 hover:text-white"
-                          onClick={() => setIsOpen(false)}
-                        >
-                          <BookOpen className="w-4 h-4 mr-2" />
-                          Dashboard
-                        </Link>
-                        <Link
-                          href="/dashboard/profile"
-                          className="flex items-center text-gray-300 hover:text-white"
-                          onClick={() => setIsOpen(false)}
-                        >
-                          <Settings className="w-4 h-4 mr-2" />
-                          Profile Settings
-                        </Link>
-
-                        {/* Mobile Organizer Posting Options */}
-                        {organizerStatus.is_organizer && (
-                          <>
-                            <div className="text-xs text-purple-400 font-semibold mt-2 flex items-center">
-                              <Plus className="w-3 h-3 mr-1" />
-                              Create Content
-                            </div>
-                            {getOrganizerPostingOptions().map((option, index) => (
-                              <Link
-                                key={index}
-                                href={option.href}
-                                className={`flex items-center ${option.color}`}
-                                onClick={() => setIsOpen(false)}
-                              >
-                                {option.icon}
-                                {option.label}
-                              </Link>
-                            ))}
-                            <div className="text-xs text-purple-400 font-semibold mt-2">Manage Content</div>
-                            {organizerRoles.map((role) => (
-                              <Link
-                                key={role.id}
-                                href={
-                                  role.role_name === "hackathon_organizer"
-                                    ? "/admin/hackathons"
-                                    : role.role_name === "event_organizer"
-                                      ? "/admin/events"
-                                      : "/admin/jobs"
-                                }
-                                className="flex items-center text-purple-400"
-                                onClick={() => setIsOpen(false)}
-                              >
-                                <Crown className="w-4 h-4 mr-2" />
-                                Manage {getRoleDisplayName(role.role_name).split(" ")[1]}
-                              </Link>
-                            ))}
-                          </>
-                        )}
-
-                        {userProfile?.role === "admin" && (
-                          <Link
-                            href="/admin"
-                            className="flex items-center text-yellow-400"
-                            onClick={() => setIsOpen(false)}
-                          >
-                            <Shield className="w-4 h-4 mr-2" />
-                            Admin Panel
-                          </Link>
-                        )}
-                        <button
-                          onClick={() => {
-                            handleSignOut()
-                            setIsOpen(false)
-                          }}
-                          className="flex items-center text-gray-300 hover:text-white"
-                        >
-                          <LogOut className="w-4 h-4 mr-2" />
-                          Sign Out
-                        </button>
-                      </div>
+                    {user.role === "admin" && (
+                      <Link href="/admin">
+                        <Button variant="ghost" className="w-full justify-start text-purple-600 hover:text-purple-700">
+                          Admin
+                        </Button>
+                      </Link>
+                    )}
+                    <div className="flex items-center space-x-2 px-3 py-2">
+                      {user.avatar_url && (
+                        <img
+                          src={user.avatar_url || "/placeholder.svg"}
+                          alt={user.full_name}
+                          className="w-8 h-8 rounded-full"
+                        />
+                      )}
+                      <span className="text-sm text-gray-700">Hi, {user.full_name}</span>
                     </div>
-                  ) : (
-                    <div className="flex flex-col space-y-3 pt-4 border-t border-gray-800">
-                      <Button
-                        variant="ghost"
-                        onClick={() => {
-                          openAuthModal("login")
-                          setIsOpen(false)
-                        }}
-                        className="text-gray-300 hover:text-white justify-start"
-                      >
-                        Login
-                      </Button>
-                      <Button
-                        onClick={() => {
-                          openAuthModal("signup")
-                          setIsOpen(false)
-                        }}
-                        className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold justify-start"
-                      >
-                        Sign Up
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                    <Button onClick={handleSignOut} variant="outline" className="w-full bg-transparent">
+                      Sign Out
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col space-y-2 pt-4 border-t border-gray-200">
+                    <Button
+                      onClick={() => openAuthModal("login")}
+                      variant="ghost"
+                      className="w-full justify-start text-gray-700 hover:text-blue-600"
+                    >
+                      Login
+                    </Button>
+                    <Button
+                      onClick={() => openAuthModal("signup")}
+                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                    >
+                      Sign Up
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </nav>
 
       {/* Auth Modal */}
       <AuthModal
         isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
+        onClose={() => {
+          setShowAuthModal(false)
+          setAuthError(null)
+        }}
         mode={authMode}
+        onModeChange={setAuthMode}
         onSuccess={handleAuthSuccess}
+        initialError={authError}
       />
     </>
   )
 }
-
-export default Navbar

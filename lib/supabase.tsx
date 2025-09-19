@@ -70,6 +70,29 @@ export interface User {
   updated_at: string
 }
 
+export interface Course {
+  id: string
+  title: string
+  description: string
+  instructor: string
+  duration: string
+  level: "beginner" | "intermediate" | "advanced"
+  price: number
+  image_url?: string
+  technologies: string[]
+  syllabus?: string[]
+  prerequisites?: string[]
+  learning_outcomes?: string[]
+  status: "active" | "inactive" | "draft"
+  enrollment_count: number
+  rating?: number
+  course_url?: string
+  certificate_provided?: boolean
+  created_by?: string
+  created_at: string
+  updated_at: string
+}
+
 export interface Event {
   id: string
   title: string
@@ -677,6 +700,108 @@ export const getUserOrganizerStatus = async (userId: string) => {
   } catch (error) {
     console.error("Error in getUserOrganizerStatus:", error)
     return { is_organizer: false, organizer_types: [] }
+  }
+}
+
+// Database functions for Courses
+export const getCourses = async () => {
+  try {
+    const { data, error } = await supabase
+      .from("courses")
+      .select("*")
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+    return { data, error }
+  } catch (error) {
+    console.error("Error in getCourses:", error)
+    return { data: null, error }
+  }
+}
+
+export const getAllCourses = async () => {
+  try {
+    const { data, error } = await supabase.from("courses").select("*").order("created_at", { ascending: false })
+    return { data, error }
+  } catch (error) {
+    console.error("Error in getAllCourses:", error)
+    return { data: null, error }
+  }
+}
+
+export const createCourse = async (course: Omit<Course, "id" | "created_at" | "updated_at">) => {
+  try {
+    const currentUser = await getCurrentUser()
+    const { data, error } = await supabase
+      .from("courses")
+      .insert([
+        {
+          ...course,
+          created_by: currentUser?.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ])
+      .select()
+    return { data, error }
+  } catch (error) {
+    console.error("Error in createCourse:", error)
+    return { data: null, error }
+  }
+}
+
+export const updateCourse = async (id: string, updates: Partial<Course>) => {
+  try {
+    const { data, error } = await supabase
+      .from("courses")
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+    return { data, error }
+  } catch (error) {
+    console.error("Error in updateCourse:", error)
+    return { data: null, error }
+  }
+}
+
+export const deleteCourse = async (id: string) => {
+  try {
+    const { data, error } = await supabase.from("courses").delete().eq("id", id)
+    return { data, error }
+  } catch (error) {
+    console.error("Error in deleteCourse:", error)
+    return { data: null, error }
+  }
+}
+
+export const getCourseById = async (id: string) => {
+  try {
+    const { data, error } = await supabase.from("courses").select("*").eq("id", id).single()
+    return { data, error }
+  } catch (error) {
+    console.error("Error in getCourseById:", error)
+    return { data: null, error }
+  }
+}
+
+export const searchCourses = async (query: string, level?: string) => {
+  try {
+    let queryBuilder = supabase.from("courses").select("*").eq("status", "active")
+
+    if (query) {
+      queryBuilder = queryBuilder.or(
+        `title.ilike.%${query}%,description.ilike.%${query}%,instructor.ilike.%${query}%,technologies.cs.{${query}}`,
+      )
+    }
+
+    if (level && level !== "All") {
+      queryBuilder = queryBuilder.eq("level", level)
+    }
+
+    const { data, error } = await queryBuilder.order("created_at", { ascending: false })
+    return { data, error }
+  } catch (error) {
+    console.error("Error in searchCourses:", error)
+    return { data: null, error }
   }
 }
 
