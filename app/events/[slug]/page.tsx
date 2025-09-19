@@ -1,8 +1,8 @@
-import type { Metadata } from "next"
 import { notFound } from "next/navigation"
-import { getEventBySlugId, generateSlug } from "@/lib/supabase"
+import { Suspense } from "react"
+import { getEventBySlugId, extractIdFromSlug, getAllEvents } from "@/lib/supabase"
 import EventDetailClient from "./EventDetailClient"
-import SEO from "@/components/seo"
+import type { Metadata } from "next"
 
 interface EventPageProps {
   params: {
@@ -10,131 +10,178 @@ interface EventPageProps {
   }
 }
 
+// Loading component
+function EventLoading() {
+  return (
+    <div className="min-h-screen bg-black text-white flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
+        <p className="text-gray-300">Loading event...</p>
+      </div>
+    </div>
+  )
+}
+
 export async function generateMetadata({ params }: EventPageProps): Promise<Metadata> {
-  const { data: event } = await getEventBySlugId(params.slug)
+  try {
+    console.log("🔍 Generating metadata for slug:", params.slug)
 
-  if (!event) {
-    return {
-      title: "Event Not Found - Apna Coding",
-      description: "The requested event could not be found.",
+    const eventId = extractIdFromSlug(params.slug)
+    console.log("🔍 Extracted ID for metadata:", eventId)
+
+    const { data: event } = await getEventBySlugId(eventId)
+
+    if (!event) {
+      return {
+        title: "Event Not Found - Apna Coding",
+        description: "The requested event could not be found.",
+      }
     }
-  }
 
-  const eventDate = new Date(event.event_date).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  })
-
-  return {
-    title: `${event.title} - ${eventDate} | Apna Coding`,
-    description: event.description.substring(0, 160),
-    keywords: [
-      event.title,
-      "coding event",
-      "tech event",
-      "programming",
-      "apna coding",
-      ...event.technologies,
-      event.event_type,
-    ].join(", "),
-    openGraph: {
-      title: event.title,
-      description: event.description,
-      type: "article",
-      publishedTime: event.created_at,
-      modifiedTime: event.updated_at,
-      images: event.image_url
-        ? [
-            {
-              url: event.image_url,
-              width: 1200,
-              height: 630,
-              alt: event.title,
-            },
-          ]
-        : [],
-      locale: "en_US",
-      siteName: "Apna Coding",
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: event.title,
-      description: event.description.substring(0, 200),
-      images: event.image_url ? [event.image_url] : [],
-    },
-    alternates: {
-      canonical: `/events/${generateSlug(event.title, event.id)}`,
-    },
+    return {
+      title: `${event.title} - Apna Coding Events`,
+      description: event.description.substring(0, 160),
+      keywords: [
+        event.title,
+        event.event_type,
+        event.organizer,
+        ...event.technologies,
+        ...(event.tags || []),
+        "tech events",
+        "workshops",
+        "webinars",
+        "conferences",
+        "coding events",
+        "apna coding",
+      ].join(", "),
+      openGraph: {
+        title: event.title,
+        description: event.description.substring(0, 160),
+        images: event.image_url ? [{ url: event.image_url }] : [],
+        type: "website",
+        siteName: "Apna Coding",
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: event.title,
+        description: event.description.substring(0, 160),
+        images: event.image_url ? [event.image_url] : [],
+      },
+    }
+  } catch (error) {
+    console.error("❌ Error generating metadata:", error)
+    return {
+      title: "Event - Apna Coding",
+      description: "Discover amazing tech events and workshops from Apna Coding.",
+    }
   }
 }
 
 export default async function EventPage({ params }: EventPageProps) {
-  const { data: event, error } = await getEventBySlugId(params.slug)
+  try {
+    console.log("🚀 Event page loading - Raw slug:", params.slug)
+    console.log("🚀 Full params object:", JSON.stringify(params, null, 2))
 
-  if (error || !event) {
-    console.error("Event not found:", params.slug, error)
+    // Decode the slug in case it's URL encoded
+    const decodedSlug = decodeURIComponent(params.slug)
+    console.log("🔍 Decoded slug:", decodedSlug)
+
+    // Extract the event ID from the slug
+    const eventId = extractIdFromSlug(decodedSlug)
+    console.log("🔍 Extracted event ID:", eventId)
+
+    // Try to get the event
+    const { data: event, error } = await getEventBySlugId(eventId)
+
+    console.log("📝 Event lookup result:", {
+      found: !!event,
+      error: error?.message,
+      eventTitle: event?.title,
+      eventId: event?.id,
+    })
+
+    // If we have an error or no event, log more details
+    if (error) {
+      console.error("❌ Event lookup error:", error)
+    }
+
+    if (!event) {
+      console.log("❌ Event not found for slug:", params.slug)
+      console.log("❌ Tried event ID:", eventId)
+
+      // Let's also check what events are available
+      try {
+        const { data: allEvents } = await getAllEvents()
+        console.log("📊 Total events in database:", allEvents?.length || 0)
+        if (allEvents && allEvents.length > 0) {
+          console.log(
+            "📋 First few events:",
+            allEvents.slice(0, 3).map((e) => ({ id: e.id, title: e.title })),
+          )
+        }
+      } catch (debugError) {
+        console.error("❌ Error fetching debug info:", debugError)
+      }
+
+      notFound()
+    }
+
+    console.log("✅ Event found successfully:", event.title)
+    console.log("✅ Event details:", {
+      id: event.id,
+      title: event.title,
+      status: event.status,
+      date: event.event_date,
+    })
+
+    return (
+      <Suspense fallback={<EventLoading />}>
+        <EventDetailClient event={event} />
+      </Suspense>
+    )
+  } catch (error) {
+    console.error("💥 Critical error in EventPage:", error)
+    console.error("💥 Error stack:", error instanceof Error ? error.stack : "No stack trace")
     notFound()
   }
+}
 
-  const eventDate = new Date(event.event_date).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  })
+// Generate static params for better performance
+export async function generateStaticParams() {
+  try {
+    console.log("🔧 Generating static params for events...")
 
-  const structuredData = {
-    "@context": "https://schema.org",
-    "@type": "Event",
-    name: event.title,
-    description: event.description,
-    startDate: event.event_date,
-    endDate: event.end_date || event.event_date,
-    eventStatus: "https://schema.org/EventScheduled",
-    eventAttendanceMode:
-      event.event_mode === "online"
-        ? "https://schema.org/OnlineEventAttendanceMode"
-        : event.event_mode === "offline"
-          ? "https://schema.org/OfflineEventAttendanceMode"
-          : "https://schema.org/MixedEventAttendanceMode",
-    location:
-      event.event_mode === "online"
-        ? {
-            "@type": "VirtualLocation",
-            url: event.registration_link || "https://apnacoding.com",
-          }
-        : {
-            "@type": "Place",
-            name: event.location,
-            address: event.location,
-          },
-    image: event.image_url || "/placeholder.svg?height=400&width=600",
-    organizer: {
-      "@type": "Organization",
-      name: event.organizer || "Apna Coding",
-      url: "https://apnacoding.com",
-    },
-    offers: {
-      "@type": "Offer",
-      price: event.registration_fee.toString(),
-      priceCurrency: "INR",
-      availability: event.registration_open ? "https://schema.org/InStock" : "https://schema.org/SoldOut",
-      url: event.registration_link || `https://apnacoding.com/events/${params.slug}`,
-    },
+    const { data: events } = await getAllEvents()
+
+    if (!events || events.length === 0) {
+      console.log("⚠️ No events found for static generation")
+      return []
+    }
+
+    console.log(`📊 Generating static params for ${events.length} events`)
+
+    const params = events.flatMap((event) => {
+      // Generate both the SEO slug and direct ID as params
+      const seoSlug =
+        event.title
+          .toLowerCase()
+          .replace(/[^a-z0-9 -]/g, "")
+          .replace(/\s+/g, "-")
+          .replace(/-+/g, "-")
+          .trim() +
+        "-" +
+        event.id.substring(0, 8)
+
+      return [
+        { slug: event.id }, // Direct ID access
+        { slug: seoSlug }, // SEO-friendly slug
+      ]
+    })
+
+    console.log(`✅ Generated ${params.length} static params`)
+    return params
+  } catch (error) {
+    console.error("❌ Error generating static params:", error)
+    return []
   }
-
-  return (
-    <>
-      <SEO
-        title={`${event.title} - ${eventDate}`}
-        description={event.description}
-        keywords={[event.title, "coding event", "tech event", ...event.technologies].join(", ")}
-        image={event.image_url}
-        url={`/events/${params.slug}`}
-        type="article"
-        structuredData={structuredData}
-      />
-      <EventDetailClient event={event} />
-    </>
-  )
 }
