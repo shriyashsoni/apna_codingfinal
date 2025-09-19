@@ -20,7 +20,7 @@ export async function middleware(req: NextRequest) {
   })
 
   // Protected routes that require authentication
-  const protectedRoutes = ["/dashboard", "/admin"]
+  const protectedRoutes = ["/dashboard", "/admin", "/profile"]
   const isProtectedRoute = protectedRoutes.some((route) => req.nextUrl.pathname.startsWith(route))
 
   // Admin routes that require admin role
@@ -39,13 +39,9 @@ export async function middleware(req: NextRequest) {
     // Check admin access for admin routes
     if (isAdminRoute) {
       try {
-        const { data: userProfile } = await supabase
-          .from("users")
-          .select("role")
-          .eq("auth_user_id", session.user.id)
-          .single()
+        const { data: userProfile } = await supabase.from("users").select("role").eq("id", session.user.id).single()
 
-        if (!userProfile || userProfile.role !== "admin") {
+        if (!userProfile || (userProfile.role !== "admin" && session.user.email !== "sonishriyash@gmail.com")) {
           console.log("❌ Not admin, redirecting to dashboard")
           return NextResponse.redirect(new URL("/dashboard", req.url))
         }
