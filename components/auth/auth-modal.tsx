@@ -3,8 +3,8 @@
 import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { LoginForm } from "./login-form"
-import { SignupForm } from "./signup-form"
+import LoginForm from "./login-form"
+import SignupForm from "./signup-form"
 
 interface AuthModalProps {
   isOpen: boolean
@@ -12,7 +12,7 @@ interface AuthModalProps {
   defaultTab?: "login" | "signup"
 }
 
-export function AuthModal({ isOpen, onClose, defaultTab = "login" }: AuthModalProps) {
+export default function AuthModal({ isOpen, onClose, defaultTab = "login" }: AuthModalProps) {
   const [activeTab, setActiveTab] = useState<"login" | "signup">(defaultTab)
 
   const handleClose = () => {
@@ -81,3 +81,6 @@ export function AuthModal({ isOpen, onClose, defaultTab = "login" }: AuthModalPr
     </Dialog>
   )
 }
+
+// Export both named and default exports to fix import issues
+export { AuthModal }

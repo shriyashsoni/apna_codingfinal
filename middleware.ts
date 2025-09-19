@@ -4,57 +4,65 @@ import type { NextRequest } from "next/server"
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
-  const pathname = req.nextUrl.pathname
+  const supabase = createMiddlewareClient({ req, res })
 
-  // Skip middleware for static files and API routes
-  if (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/api") ||
-    pathname.startsWith("/static") ||
-    pathname.includes(".") ||
-    pathname === "/favicon.ico"
-  ) {
-    return res
-  }
+  // Refresh session if expired - required for Server Components
+  const {
+    data: { session },
+    error,
+  } = await supabase.auth.getSession()
 
-  try {
-    const supabase = createMiddlewareClient({ req, res })
+  console.log("🔍 Middleware check:", {
+    path: req.nextUrl.pathname,
+    hasSession: !!session,
+    userEmail: session?.user?.email,
+    error: error?.message,
+  })
 
-    // Get session
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
+  // Protected routes that require authentication
+  const protectedRoutes = ["/dashboard", "/admin"]
+  const isProtectedRoute = protectedRoutes.some((route) => req.nextUrl.pathname.startsWith(route))
 
-    // Protected routes that require authentication
-    const protectedRoutes = ["/dashboard", "/admin", "/profile"]
-    const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route))
+  // Admin routes that require admin role
+  const adminRoutes = ["/admin"]
+  const isAdminRoute = adminRoutes.some((route) => req.nextUrl.pathname.startsWith(route))
 
-    // Admin routes that require admin role
-    const adminRoutes = ["/admin"]
-    const isAdminRoute = adminRoutes.some((route) => pathname.startsWith(route))
-
-    if (isProtectedRoute && !session) {
-      // Redirect to home page if not authenticated
+  if (isProtectedRoute) {
+    if (!session) {
+      console.log("❌ No session, redirecting to login")
       const redirectUrl = new URL("/", req.url)
-      redirectUrl.searchParams.set("error", "authentication_required")
+      redirectUrl.searchParams.set("auth", "login")
+      redirectUrl.searchParams.set("message", "Please sign in to access this page")
       return NextResponse.redirect(redirectUrl)
     }
 
-    if (isAdminRoute && session) {
-      // Check if user is admin
-      const { data: user } = await supabase.from("users").select("role, email").eq("id", session.user.id).single()
+    // Check admin access for admin routes
+    if (isAdminRoute) {
+      try {
+        const { data: userProfile } = await supabase
+          .from("users")
+          .select("role")
+          .eq("auth_user_id", session.user.id)
+          .single()
 
-      if (!user || (user.role !== "admin" && user.email !== "sonishriyash@gmail.com")) {
-        // Redirect to dashboard if not admin
+        if (!userProfile || userProfile.role !== "admin") {
+          console.log("❌ Not admin, redirecting to dashboard")
+          return NextResponse.redirect(new URL("/dashboard", req.url))
+        }
+      } catch (error) {
+        console.error("❌ Error checking admin status:", error)
         return NextResponse.redirect(new URL("/dashboard", req.url))
       }
     }
-
-    return res
-  } catch (error) {
-    console.error("Middleware error:", error)
-    return res
   }
+
+  // Redirect authenticated users away from auth pages
+  if (session && req.nextUrl.pathname === "/" && req.nextUrl.searchParams.has("auth")) {
+    console.log("✅ User already authenticated, redirecting to dashboard")
+    return NextResponse.redirect(new URL("/dashboard", req.url))
+  }
+
+  return res
 }
 
 export const config = {
@@ -66,6 +74,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public folder
      */
-    "/((?!_next/static|_next/image|favicon.ico|public/).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 }

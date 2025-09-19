@@ -13,7 +13,7 @@ interface LoginFormProps {
   onClose?: () => void
 }
 
-export function LoginForm({ onClose }: LoginFormProps) {
+export default function LoginForm({ onClose }: LoginFormProps) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
