@@ -51,6 +51,9 @@ export interface User {
   linkedin_url?: string
   bio?: string
   skills?: string[]
+  email_verified?: boolean
+  profile_completed?: boolean
+  last_login?: string
   created_at: string
   updated_at: string
 }
@@ -60,6 +63,7 @@ export interface Event {
   title: string
   description: string
   image_url?: string
+  banner_url?: string
   event_date: string
   end_date?: string
   location: string
@@ -75,8 +79,16 @@ export interface Event {
   event_mode: "online" | "offline" | "hybrid"
   tags: string[]
   requirements?: string[]
+  prerequisites?: string[]
+  learning_outcomes?: string[]
   agenda?: string
   speaker_info?: string
+  certificate_provided?: boolean
+  recording_available?: boolean
+  live_streaming?: boolean
+  social_links?: { [key: string]: string }
+  featured?: boolean
+  slug?: string
   created_by?: string
   created_at: string
   updated_at: string
@@ -223,6 +235,8 @@ export const createUserProfile = async (
       github_url: null,
       linkedin_url: null,
       skills: null,
+      email_verified: false,
+      profile_completed: false,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }
@@ -275,6 +289,11 @@ export const signUp = async (email: string, password: string, fullName: string) 
 
     if (password.length < 6) {
       return { data: null, error: { message: "Password must be at least 6 characters long" } }
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return { data: null, error: { message: "Please enter a valid email address" } }
     }
 
     const { data, error } = await supabase.auth.signUp({
@@ -330,6 +349,11 @@ export const signIn = async (email: string, password: string) => {
       return { data: null, error: { message: "Email and password are required" } }
     }
 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return { data: null, error: { message: "Please enter a valid email address" } }
+    }
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -337,7 +361,23 @@ export const signIn = async (email: string, password: string) => {
 
     if (error) {
       console.error("Auth signin error:", error)
+      // Provide user-friendly error messages
+      if (error.message.includes("Invalid login credentials")) {
+        return { data: null, error: { message: "Invalid email or password" } }
+      }
+      if (error.message.includes("Email not confirmed")) {
+        return { data: null, error: { message: "Please check your email and confirm your account" } }
+      }
       return { data: null, error }
+    }
+
+    // Update last login time
+    if (data.user) {
+      try {
+        await supabase.from("users").update({ last_login: new Date().toISOString() }).eq("id", data.user.id)
+      } catch (updateError) {
+        console.error("Error updating last login (non-blocking):", updateError)
+      }
     }
 
     return { data, error: null }
@@ -675,15 +715,48 @@ export const getEventBySlugId = async (slugId: string) => {
   try {
     console.log("🔍 Looking for event with slug ID:", slugId)
 
+    // Use the database function for better performance
+    const { data, error } = await supabase.rpc("get_event_by_slug_or_id", {
+      identifier: slugId,
+    })
+
+    if (error) {
+      console.error("Database function error:", error)
+      // Fallback to manual search
+      return await fallbackEventSearch(slugId)
+    }
+
+    if (data && data.length > 0) {
+      console.log("✅ Found event:", data[0].title)
+      return { data: data[0], error: null }
+    }
+
+    console.log("❌ No event found for slug:", slugId)
+    return { data: null, error: { message: "Event not found", code: "PGRST116" } }
+  } catch (error) {
+    console.error("❌ Error in getEventBySlugId:", error)
+    return await fallbackEventSearch(slugId)
+  }
+}
+
+// Fallback search function
+const fallbackEventSearch = async (slugId: string) => {
+  try {
     // 1. First try exact ID match
     const { data: exactMatch, error: exactError } = await supabase.from("events").select("*").eq("id", slugId).single()
 
     if (exactMatch && !exactError) {
-      console.log("✅ Found event by exact ID:", exactMatch.title)
       return { data: exactMatch, error: null }
     }
 
-    // 2. Try to find by partial UUID match (first 8 characters)
+    // 2. Try slug match
+    const { data: slugMatch, error: slugError } = await supabase.from("events").select("*").eq("slug", slugId).single()
+
+    if (slugMatch && !slugError) {
+      return { data: slugMatch, error: null }
+    }
+
+    // 3. Try partial ID match
     if (slugId.length >= 8) {
       const { data: partialMatches, error: partialError } = await supabase
         .from("events")
@@ -691,70 +764,13 @@ export const getEventBySlugId = async (slugId: string) => {
         .ilike("id", `${slugId}%`)
 
       if (!partialError && partialMatches && partialMatches.length > 0) {
-        console.log("✅ Found event by partial ID match:", partialMatches[0].title)
         return { data: partialMatches[0], error: null }
       }
     }
 
-    // 3. Try to extract UUID-like pattern from slug and search
-    const uuidPattern = /[a-f0-9]{8}-?[a-f0-9]{4}-?[a-f0-9]{4}-?[a-f0-9]{4}-?[a-f0-9]{12}/i
-    const uuidMatch = slugId.match(uuidPattern)
-
-    if (uuidMatch) {
-      const uuid = uuidMatch[0]
-      console.log("🔍 Trying UUID pattern:", uuid)
-
-      const { data: uuidData, error: uuidError } = await supabase.from("events").select("*").eq("id", uuid).single()
-
-      if (uuidData && !uuidError) {
-        console.log("✅ Found event by UUID pattern:", uuidData.title)
-        return { data: uuidData, error: null }
-      }
-    }
-
-    // 4. Get all events and try to match by generated slug
-    const { data: allEvents, error: allError } = await supabase.from("events").select("*")
-
-    if (!allError && allEvents) {
-      for (const event of allEvents) {
-        const generatedSlug = generateSlug(event.title, event.id)
-        if (generatedSlug === slugId) {
-          console.log("✅ Found event by generated slug match:", event.title)
-          return { data: event, error: null }
-        }
-
-        // Also try matching with just the ID part
-        const idPart = event.id.substring(0, 8)
-        if (slugId.endsWith(idPart) || slugId.includes(idPart)) {
-          console.log("✅ Found event by ID part match:", event.title)
-          return { data: event, error: null }
-        }
-      }
-    }
-
-    // 5. Final fallback - search by title similarity
-    const titleSearch = slugId
-      .replace(/-/g, " ")
-      .replace(/[0-9a-f]{8,}/gi, "")
-      .trim()
-
-    if (titleSearch.length > 3) {
-      const { data: titleEvents, error: titleError } = await supabase
-        .from("events")
-        .select("*")
-        .ilike("title", `%${titleSearch}%`)
-        .limit(1)
-
-      if (!titleError && titleEvents && titleEvents.length > 0) {
-        console.log("✅ Found event by title search:", titleEvents[0].title)
-        return { data: titleEvents[0], error: null }
-      }
-    }
-
-    console.log("❌ No event found for slug:", slugId)
     return { data: null, error: { message: "Event not found", code: "PGRST116" } }
   } catch (error) {
-    console.error("❌ Error in getEventBySlugId:", error)
+    console.error("Fallback search error:", error)
     return { data: null, error }
   }
 }

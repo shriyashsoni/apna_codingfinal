@@ -37,11 +37,15 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
 
       if (data.user) {
         // Ensure user profile exists in database
-        await createUserProfile(data.user.id, {
-          email: data.user.email!,
-          full_name: data.user.user_metadata?.full_name || data.user.email!.split("@")[0],
-          avatar_url: data.user.user_metadata?.avatar_url,
-        })
+        try {
+          await createUserProfile(data.user.id, {
+            email: data.user.email!,
+            full_name: data.user.user_metadata?.full_name || data.user.email!.split("@")[0],
+            avatar_url: data.user.user_metadata?.avatar_url,
+          })
+        } catch (profileError) {
+          console.error("Profile creation error (non-blocking):", profileError)
+        }
 
         // Success callback
         if (onSuccess) {
