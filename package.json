@@ -27,7 +27,6 @@
     "@radix-ui/react-tabs": "latest",
     "@radix-ui/react-toast": "^1.1.5",
     "@react-email/render": "latest",
-    "@supabase/auth-helpers-nextjs": "latest",
     "@supabase/supabase-js": "latest",
     "@types/node": "^20.10.5",
     "@types/react": "^18.2.45",

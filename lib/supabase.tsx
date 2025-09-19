@@ -10,11 +10,30 @@ if (!supabaseAnonKey) {
   throw new Error("Missing env.NEXT_PUBLIC_SUPABASE_ANON_KEY")
 }
 
+// Create a singleton Supabase client with proper session handling
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
+    storage: {
+      getItem: (key: string) => {
+        if (typeof window !== "undefined") {
+          return window.localStorage.getItem(key)
+        }
+        return null
+      },
+      setItem: (key: string, value: string) => {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(key, value)
+        }
+      },
+      removeItem: (key: string) => {
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem(key)
+        }
+      },
+    },
   },
 })
 
@@ -34,6 +53,24 @@ export function createClientComponentClient() {
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: true,
+      storage: {
+        getItem: (key: string) => {
+          if (typeof window !== "undefined") {
+            return window.localStorage.getItem(key)
+          }
+          return null
+        },
+        setItem: (key: string, value: string) => {
+          if (typeof window !== "undefined") {
+            window.localStorage.setItem(key, value)
+          }
+        },
+        removeItem: (key: string) => {
+          if (typeof window !== "undefined") {
+            window.localStorage.removeItem(key)
+          }
+        },
+      },
     },
   })
 }
@@ -66,29 +103,6 @@ export interface User {
   email_verified?: boolean
   profile_completed?: boolean
   last_login?: string
-  created_at: string
-  updated_at: string
-}
-
-export interface Course {
-  id: string
-  title: string
-  description: string
-  instructor: string
-  duration: string
-  level: "beginner" | "intermediate" | "advanced"
-  price: number
-  image_url?: string
-  technologies: string[]
-  syllabus?: string[]
-  prerequisites?: string[]
-  learning_outcomes?: string[]
-  status: "active" | "inactive" | "draft"
-  enrollment_count: number
-  rating?: number
-  course_url?: string
-  certificate_provided?: boolean
-  created_by?: string
   created_at: string
   updated_at: string
 }
@@ -315,7 +329,7 @@ export const createUserProfile = async (
   }
 }
 
-// Enhanced signup function with better error handling
+// Enhanced signup function with better error handling and session management
 export const signUp = async (email: string, password: string, fullName: string) => {
   try {
     // Input validation
@@ -332,6 +346,8 @@ export const signUp = async (email: string, password: string, fullName: string) 
       return { data: null, error: { message: "Please enter a valid email address" } }
     }
 
+    console.log("🔄 Attempting to sign up user:", email)
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -343,9 +359,11 @@ export const signUp = async (email: string, password: string, fullName: string) 
     })
 
     if (error) {
-      console.error("Auth signup error:", error)
+      console.error("❌ Auth signup error:", error)
       return { data: null, error }
     }
+
+    console.log("✅ Signup successful for:", email)
 
     // Only try to create profile if signup was successful
     if (data.user) {
@@ -356,7 +374,7 @@ export const signUp = async (email: string, password: string, fullName: string) 
           role: data.user.email === "sonishriyash@gmail.com" ? "admin" : "user",
         })
       } catch (profileError) {
-        console.error("Profile creation error (non-blocking):", profileError)
+        console.error("⚠️ Profile creation error (non-blocking):", profileError)
         // Don't fail signup if profile creation fails
       }
 
@@ -365,19 +383,19 @@ export const signUp = async (email: string, password: string, fullName: string) 
         const { sendWelcomeEmail } = await import("./email")
         await sendWelcomeEmail(data.user.email!, fullName, data.user.id)
       } catch (emailError) {
-        console.error("Welcome email error (non-blocking):", emailError)
+        console.error("⚠️ Welcome email error (non-blocking):", emailError)
         // Don't fail signup if email fails
       }
     }
 
     return { data, error: null }
   } catch (error) {
-    console.error("Error in signUp:", error)
+    console.error("❌ Error in signUp:", error)
     return { data: null, error: { message: "An unexpected error occurred during signup" } }
   }
 }
 
-// Enhanced signIn function with proper session handling
+// Enhanced signIn function with proper session handling and redirection
 export const signIn = async (email: string, password: string) => {
   try {
     // Input validation
@@ -390,7 +408,7 @@ export const signIn = async (email: string, password: string) => {
       return { data: null, error: { message: "Please enter a valid email address" } }
     }
 
-    console.log("Attempting to sign in user:", email)
+    console.log("🔄 Attempting to sign in user:", email)
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -398,7 +416,7 @@ export const signIn = async (email: string, password: string) => {
     })
 
     if (error) {
-      console.error("Auth signin error:", error)
+      console.error("❌ Auth signin error:", error)
       // Provide user-friendly error messages
       if (error.message.includes("Invalid login credentials")) {
         return { data: null, error: { message: "Invalid email or password" } }
@@ -409,10 +427,10 @@ export const signIn = async (email: string, password: string) => {
       return { data: null, error }
     }
 
-    console.log("Sign in successful for:", email)
+    console.log("✅ Sign in successful for:", email)
 
     // Update last login time and ensure profile exists
-    if (data.user) {
+    if (data.user && data.session) {
       try {
         // Check if profile exists
         const { data: profile, error: profileError } = await supabase
@@ -423,7 +441,7 @@ export const signIn = async (email: string, password: string) => {
 
         if (profileError && profileError.code === "PGRST116") {
           // Profile doesn't exist, create it
-          console.log("Creating profile for existing user:", email)
+          console.log("🔄 Creating profile for existing user:", email)
           await createUserProfile(data.user.id, {
             email: data.user.email!,
             full_name: data.user.user_metadata?.full_name || data.user.email!.split("@")[0],
@@ -431,6 +449,7 @@ export const signIn = async (email: string, password: string) => {
           })
         } else if (!profileError) {
           // Profile exists, update last login
+          console.log("🔄 Updating last login for user:", email)
           await supabase
             .from("users")
             .update({
@@ -439,21 +458,33 @@ export const signIn = async (email: string, password: string) => {
             })
             .eq("id", data.user.id)
         }
+
+        // Store session info in localStorage for immediate access
+        if (typeof window !== "undefined") {
+          localStorage.setItem(
+            "sb-user-session",
+            JSON.stringify({
+              user: data.user,
+              session: data.session,
+              timestamp: Date.now(),
+            }),
+          )
+        }
       } catch (updateError) {
-        console.error("Error updating user profile (non-blocking):", updateError)
+        console.error("⚠️ Error updating user profile (non-blocking):", updateError)
       }
     }
 
     return { data, error: null }
   } catch (error) {
-    console.error("Error in signIn:", error)
+    console.error("❌ Error in signIn:", error)
     return { data: null, error: { message: "An unexpected error occurred during signin" } }
   }
 }
 
 export const signInWithGoogle = async () => {
   try {
-    console.log("Initiating Google OAuth")
+    console.log("🔄 Initiating Google OAuth")
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -466,58 +497,108 @@ export const signInWithGoogle = async () => {
     })
 
     if (error) {
-      console.error("Google OAuth error:", error)
+      console.error("❌ Google OAuth error:", error)
     } else {
-      console.log("Google OAuth initiated successfully")
+      console.log("✅ Google OAuth initiated successfully")
     }
 
     return { data, error }
   } catch (error) {
-    console.error("Error in signInWithGoogle:", error)
+    console.error("❌ Error in signInWithGoogle:", error)
     return { data: null, error: { message: "Failed to sign in with Google" } }
   }
 }
 
 export const signOut = async () => {
   try {
-    console.log("Signing out user")
+    console.log("🔄 Signing out user")
+
+    // Clear local storage
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("sb-user-session")
+      localStorage.clear()
+    }
+
     const { error } = await supabase.auth.signOut()
     if (error) {
       throw error
     }
-    console.log("Sign out successful")
+
+    console.log("✅ Sign out successful")
   } catch (error) {
-    console.error("Error in signOut:", error)
+    console.error("❌ Error in signOut:", error)
     throw error
   }
 }
 
+// Enhanced getCurrentUser with better session handling
 export const getCurrentUser = async () => {
   try {
+    // First try to get user from current session
     const {
       data: { user },
       error,
     } = await supabase.auth.getUser()
 
     if (error) {
-      console.error("Auth error:", error)
+      console.error("❌ Auth error:", error)
       return null
     }
 
     if (!user) {
+      // Try to get from localStorage as fallback
+      if (typeof window !== "undefined") {
+        const storedSession = localStorage.getItem("sb-user-session")
+        if (storedSession) {
+          try {
+            const parsed = JSON.parse(storedSession)
+            // Check if session is still valid (not older than 1 hour)
+            if (Date.now() - parsed.timestamp < 3600000) {
+              console.log("🔄 Using stored session for user")
+              // Verify with a fresh session check
+              const {
+                data: { session },
+              } = await supabase.auth.getSession()
+              if (session?.user) {
+                return await getUserWithProfile(session.user.id)
+              }
+            } else {
+              localStorage.removeItem("sb-user-session")
+            }
+          } catch (parseError) {
+            console.error("❌ Error parsing stored session:", parseError)
+            localStorage.removeItem("sb-user-session")
+          }
+        }
+      }
       return null
     }
 
+    return await getUserWithProfile(user.id)
+  } catch (error) {
+    console.error("❌ Error getting current user:", error)
+    return null
+  }
+}
+
+// Helper function to get user with profile
+const getUserWithProfile = async (userId: string) => {
+  try {
     // Get user profile from users table
-    const { data: profile, error: profileError } = await supabase.from("users").select("*").eq("id", user.id).single()
+    const { data: profile, error: profileError } = await supabase.from("users").select("*").eq("id", userId).single()
 
     if (profileError && profileError.code !== "PGRST116") {
-      console.error("Profile fetch error:", profileError)
+      console.error("❌ Profile fetch error:", profileError)
       return null
     }
 
     // If no profile exists, create one
     if (!profile) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) return null
+
       const newProfileData = {
         email: user.email!,
         full_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email!.split("@")[0],
@@ -533,7 +614,7 @@ export const getCurrentUser = async () => {
           const { sendWelcomeEmail } = await import("./email")
           await sendWelcomeEmail(user.email!, newProfileData.full_name, user.id)
         } catch (emailError) {
-          console.error("Welcome email error (non-blocking):", emailError)
+          console.error("⚠️ Welcome email error (non-blocking):", emailError)
         }
 
         return createdProfile
@@ -553,7 +634,7 @@ export const getCurrentUser = async () => {
 
     return profile
   } catch (error) {
-    console.error("Error getting current user:", error)
+    console.error("❌ Error in getUserWithProfile:", error)
     return null
   }
 }
@@ -565,7 +646,7 @@ export const getSession = async () => {
     } = await supabase.auth.getSession()
     return session
   } catch (error) {
-    console.error("Error getting session:", error)
+    console.error("❌ Error getting session:", error)
     return null
   }
 }
@@ -582,7 +663,7 @@ export const getUserProfile = async (userId: string) => {
 
     return { data, error }
   } catch (error) {
-    console.error("Error in getUserProfile:", error)
+    console.error("❌ Error in getUserProfile:", error)
     return { data: null, error }
   }
 }
@@ -637,7 +718,7 @@ export const updateUserProfile = async (userId: string, updates: Partial<User>) 
 
     return { data, error }
   } catch (error) {
-    console.error("Error in updateUserProfile:", error)
+    console.error("❌ Error in updateUserProfile:", error)
     return { data: null, error }
   }
 }
@@ -662,7 +743,7 @@ export const isAdmin = async (email?: string) => {
     if (error) return false
     return data?.role === "admin"
   } catch (error) {
-    console.error("Error in isAdmin:", error)
+    console.error("❌ Error in isAdmin:", error)
     return false
   }
 }
@@ -672,7 +753,7 @@ export async function checkUserAuth() {
     const user = await getCurrentUser()
     return user
   } catch (error) {
-    console.error("Error checking user auth:", error)
+    console.error("❌ Error checking user auth:", error)
     return null
   }
 }
@@ -687,7 +768,7 @@ export const getUserOrganizerStatus = async (userId: string) => {
       .eq("is_active", true)
 
     if (error) {
-      console.error("Error fetching organizer status:", error)
+      console.error("❌ Error fetching organizer status:", error)
       return { is_organizer: false, organizer_types: [] }
     }
 
@@ -698,110 +779,8 @@ export const getUserOrganizerStatus = async (userId: string) => {
       organizer_types,
     }
   } catch (error) {
-    console.error("Error in getUserOrganizerStatus:", error)
+    console.error("❌ Error in getUserOrganizerStatus:", error)
     return { is_organizer: false, organizer_types: [] }
-  }
-}
-
-// Database functions for Courses
-export const getCourses = async () => {
-  try {
-    const { data, error } = await supabase
-      .from("courses")
-      .select("*")
-      .eq("status", "active")
-      .order("created_at", { ascending: false })
-    return { data, error }
-  } catch (error) {
-    console.error("Error in getCourses:", error)
-    return { data: null, error }
-  }
-}
-
-export const getAllCourses = async () => {
-  try {
-    const { data, error } = await supabase.from("courses").select("*").order("created_at", { ascending: false })
-    return { data, error }
-  } catch (error) {
-    console.error("Error in getAllCourses:", error)
-    return { data: null, error }
-  }
-}
-
-export const createCourse = async (course: Omit<Course, "id" | "created_at" | "updated_at">) => {
-  try {
-    const currentUser = await getCurrentUser()
-    const { data, error } = await supabase
-      .from("courses")
-      .insert([
-        {
-          ...course,
-          created_by: currentUser?.id,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-      ])
-      .select()
-    return { data, error }
-  } catch (error) {
-    console.error("Error in createCourse:", error)
-    return { data: null, error }
-  }
-}
-
-export const updateCourse = async (id: string, updates: Partial<Course>) => {
-  try {
-    const { data, error } = await supabase
-      .from("courses")
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq("id", id)
-      .select()
-    return { data, error }
-  } catch (error) {
-    console.error("Error in updateCourse:", error)
-    return { data: null, error }
-  }
-}
-
-export const deleteCourse = async (id: string) => {
-  try {
-    const { data, error } = await supabase.from("courses").delete().eq("id", id)
-    return { data, error }
-  } catch (error) {
-    console.error("Error in deleteCourse:", error)
-    return { data: null, error }
-  }
-}
-
-export const getCourseById = async (id: string) => {
-  try {
-    const { data, error } = await supabase.from("courses").select("*").eq("id", id).single()
-    return { data, error }
-  } catch (error) {
-    console.error("Error in getCourseById:", error)
-    return { data: null, error }
-  }
-}
-
-export const searchCourses = async (query: string, level?: string) => {
-  try {
-    let queryBuilder = supabase.from("courses").select("*").eq("status", "active")
-
-    if (query) {
-      queryBuilder = queryBuilder.or(
-        `title.ilike.%${query}%,description.ilike.%${query}%,instructor.ilike.%${query}%,technologies.cs.{${query}}`,
-      )
-    }
-
-    if (level && level !== "All") {
-      queryBuilder = queryBuilder.eq("level", level)
-    }
-
-    const { data, error } = await queryBuilder.order("created_at", { ascending: false })
-    return { data, error }
-  } catch (error) {
-    console.error("Error in searchCourses:", error)
-    return { data: null, error }
   }
 }
 
@@ -815,7 +794,7 @@ export const getEvents = async () => {
       .order("event_date", { ascending: true })
     return { data, error }
   } catch (error) {
-    console.error("Error in getEvents:", error)
+    console.error("❌ Error in getEvents:", error)
     return { data: null, error }
   }
 }
@@ -826,7 +805,7 @@ export const getAllEvents = async () => {
     const { data, error } = await supabase.from("events").select("*").order("event_date", { ascending: false }) // Show newest first
     return { data, error }
   } catch (error) {
-    console.error("Error in getAllEvents:", error)
+    console.error("❌ Error in getAllEvents:", error)
     return { data: null, error }
   }
 }
@@ -847,7 +826,7 @@ export const createEvent = async (event: Omit<Event, "id" | "created_at" | "upda
       .select()
     return { data, error }
   } catch (error) {
-    console.error("Error in createEvent:", error)
+    console.error("❌ Error in createEvent:", error)
     return { data: null, error }
   }
 }
@@ -861,7 +840,7 @@ export const updateEvent = async (id: string, updates: Partial<Event>) => {
       .select()
     return { data, error }
   } catch (error) {
-    console.error("Error in updateEvent:", error)
+    console.error("❌ Error in updateEvent:", error)
     return { data: null, error }
   }
 }
@@ -871,7 +850,7 @@ export const deleteEvent = async (id: string) => {
     const { data, error } = await supabase.from("events").delete().eq("id", id)
     return { data, error }
   } catch (error) {
-    console.error("Error in deleteEvent:", error)
+    console.error("❌ Error in deleteEvent:", error)
     return { data: null, error }
   }
 }
@@ -881,7 +860,7 @@ export const getEventById = async (id: string) => {
     const { data, error } = await supabase.from("events").select("*").eq("id", id).single()
     return { data, error }
   } catch (error) {
-    console.error("Error in getEventById:", error)
+    console.error("❌ Error in getEventById:", error)
     return { data: null, error }
   }
 }
@@ -897,7 +876,7 @@ export const getEventBySlugId = async (slugId: string) => {
     })
 
     if (error) {
-      console.error("Database function error:", error)
+      console.error("❌ Database function error:", error)
       // Fallback to manual search
       return await fallbackEventSearch(slugId)
     }
@@ -946,7 +925,7 @@ const fallbackEventSearch = async (slugId: string) => {
 
     return { data: null, error: { message: "Event not found", code: "PGRST116" } }
   } catch (error) {
-    console.error("Fallback search error:", error)
+    console.error("❌ Fallback search error:", error)
     return { data: null, error }
   }
 }
@@ -1014,7 +993,7 @@ export const getHackathons = async () => {
     const { data, error } = await supabase.from("hackathons").select("*").order("start_date", { ascending: true })
     return { data, error }
   } catch (error) {
-    console.error("Error in getHackathons:", error)
+    console.error("❌ Error in getHackathons:", error)
     return { data: null, error }
   }
 }
@@ -1024,7 +1003,7 @@ export const getAllHackathons = async () => {
     const { data, error } = await supabase.from("hackathons").select("*").order("created_at", { ascending: false })
     return { data, error }
   } catch (error) {
-    console.error("Error in getAllHackathons:", error)
+    console.error("❌ Error in getAllHackathons:", error)
     return { data: null, error }
   }
 }
@@ -1045,7 +1024,7 @@ export const createHackathon = async (hackathon: Omit<Hackathon, "id" | "created
       .select()
     return { data, error }
   } catch (error) {
-    console.error("Error in createHackathon:", error)
+    console.error("❌ Error in createHackathon:", error)
     return { data: null, error }
   }
 }
@@ -1059,7 +1038,7 @@ export const updateHackathon = async (id: string, updates: Partial<Hackathon>) =
       .select()
     return { data, error }
   } catch (error) {
-    console.error("Error in updateHackathon:", error)
+    console.error("❌ Error in updateHackathon:", error)
     return { data: null, error }
   }
 }
@@ -1069,7 +1048,7 @@ export const deleteHackathon = async (id: string) => {
     const { data, error } = await supabase.from("hackathons").delete().eq("id", id)
     return { data, error }
   } catch (error) {
-    console.error("Error in deleteHackathon:", error)
+    console.error("❌ Error in deleteHackathon:", error)
     return { data: null, error }
   }
 }
@@ -1079,7 +1058,7 @@ export const getHackathonById = async (id: string) => {
     const { data, error } = await supabase.from("hackathons").select("*").eq("id", id).single()
     return { data, error }
   } catch (error) {
-    console.error("Error in getHackathonById:", error)
+    console.error("❌ Error in getHackathonById:", error)
     return { data: null, error }
   }
 }
@@ -1090,7 +1069,7 @@ export const getHackathonBySlug = async (slug: string) => {
     const { data, error } = await supabase.from("hackathons").select("*").eq("slug", slug).single()
     return { data, error }
   } catch (error) {
-    console.error("Error in getHackathonBySlug:", error)
+    console.error("❌ Error in getHackathonBySlug:", error)
     return { data: null, error }
   }
 }
@@ -1105,7 +1084,7 @@ export const getJobs = async () => {
       .order("posted_date", { ascending: false })
     return { data, error }
   } catch (error) {
-    console.error("Error in getJobs:", error)
+    console.error("❌ Error in getJobs:", error)
     return { data: null, error }
   }
 }
@@ -1115,7 +1094,7 @@ export const getAllJobs = async () => {
     const { data, error } = await supabase.from("jobs").select("*").order("created_at", { ascending: false })
     return { data, error }
   } catch (error) {
-    console.error("Error in getAllJobs:", error)
+    console.error("❌ Error in getAllJobs:", error)
     return { data: null, error }
   }
 }
@@ -1136,7 +1115,7 @@ export const createJob = async (job: Omit<Job, "id" | "created_at" | "updated_at
       .select()
     return { data, error }
   } catch (error) {
-    console.error("Error in createJob:", error)
+    console.error("❌ Error in createJob:", error)
     return { data: null, error }
   }
 }
@@ -1150,7 +1129,7 @@ export const updateJob = async (id: string, updates: Partial<Job>) => {
       .select()
     return { data, error }
   } catch (error) {
-    console.error("Error in updateJob:", error)
+    console.error("❌ Error in updateJob:", error)
     return { data: null, error }
   }
 }
@@ -1160,7 +1139,7 @@ export const deleteJob = async (id: string) => {
     const { data, error } = await supabase.from("jobs").delete().eq("id", id)
     return { data, error }
   } catch (error) {
-    console.error("Error in deleteJob:", error)
+    console.error("❌ Error in deleteJob:", error)
     return { data: null, error }
   }
 }
@@ -1170,7 +1149,7 @@ export const getJobById = async (id: string) => {
     const { data, error } = await supabase.from("jobs").select("*").eq("id", id).single()
     return { data, error }
   } catch (error) {
-    console.error("Error in getJobById:", error)
+    console.error("❌ Error in getJobById:", error)
     return { data: null, error }
   }
 }
@@ -1185,7 +1164,7 @@ export const getPartnerships = async () => {
       .order("priority", { ascending: false })
     return { data, error }
   } catch (error) {
-    console.error("Error in getPartnerships:", error)
+    console.error("❌ Error in getPartnerships:", error)
     return { data: null, error }
   }
 }
@@ -1198,7 +1177,7 @@ export const getAllPartnerships = async () => {
       .order("created_at", { ascending: false })
     return { data, error }
   } catch (error) {
-    console.error("Error in getAllPartnerships:", error)
+    console.error("❌ Error in getAllPartnerships:", error)
     return { data: null, error }
   }
 }
@@ -1219,7 +1198,7 @@ export const createPartnership = async (partnership: Omit<Partnership, "id" | "c
       .select()
     return { data, error }
   } catch (error) {
-    console.error("Error in createPartnership:", error)
+    console.error("❌ Error in createPartnership:", error)
     return { data: null, error }
   }
 }
@@ -1233,7 +1212,7 @@ export const updatePartnership = async (id: string, updates: Partial<Partnership
       .select()
     return { data, error }
   } catch (error) {
-    console.error("Error in updatePartnership:", error)
+    console.error("❌ Error in updatePartnership:", error)
     return { data: null, error }
   }
 }
@@ -1243,7 +1222,7 @@ export const deletePartnership = async (id: string) => {
     const { data, error } = await supabase.from("community_partnerships").delete().eq("id", id)
     return { data, error }
   } catch (error) {
-    console.error("Error in deletePartnership:", error)
+    console.error("❌ Error in deletePartnership:", error)
     return { data: null, error }
   }
 }
@@ -1253,7 +1232,7 @@ export const getPartnershipById = async (id: string) => {
     const { data, error } = await supabase.from("community_partnerships").select("*").eq("id", id).single()
     return { data, error }
   } catch (error) {
-    console.error("Error in getPartnershipById:", error)
+    console.error("❌ Error in getPartnershipById:", error)
     return { data: null, error }
   }
 }
@@ -1264,7 +1243,7 @@ export const getAllUsers = async () => {
     const { data, error } = await supabase.from("users").select("*").order("created_at", { ascending: false })
     return { data, error }
   } catch (error) {
-    console.error("Error in getAllUsers:", error)
+    console.error("❌ Error in getAllUsers:", error)
     return { data: null, error }
   }
 }
@@ -1278,7 +1257,7 @@ export const updateUserRole = async (userId: string, role: "user" | "admin") => 
       .select()
     return { data, error }
   } catch (error) {
-    console.error("Error in updateUserRole:", error)
+    console.error("❌ Error in updateUserRole:", error)
     return { data: null, error }
   }
 }
@@ -1288,7 +1267,7 @@ export const deleteUser = async (userId: string) => {
     const { data, error } = await supabase.from("users").delete().eq("id", userId)
     return { data, error }
   } catch (error) {
-    console.error("Error in deleteUser:", error)
+    console.error("❌ Error in deleteUser:", error)
     return { data: null, error }
   }
 }
@@ -1303,7 +1282,7 @@ export const getCommunities = async () => {
       .order("member_count", { ascending: false })
     return { data, error }
   } catch (error) {
-    console.error("Error in getCommunities:", error)
+    console.error("❌ Error in getCommunities:", error)
     return { data: null, error }
   }
 }
@@ -1323,7 +1302,7 @@ export const registerForEvent = async (eventId: string, userId: string) => {
       .select()
 
     if (error) {
-      console.error("Error registering for event:", error)
+      console.error("❌ Error registering for event:", error)
       return { success: false, error: error.message }
     }
 
@@ -1333,7 +1312,7 @@ export const registerForEvent = async (eventId: string, userId: string) => {
     })
 
     if (updateError) {
-      console.error("Error updating participant count:", updateError)
+      console.error("⚠️ Error updating participant count:", updateError)
     }
 
     // Send registration confirmation email automatically
@@ -1353,16 +1332,16 @@ export const registerForEvent = async (eventId: string, userId: string) => {
           eventResult.data.location,
           userId,
         )
-        console.log("Event registration email sent successfully")
+        console.log("✅ Event registration email sent successfully")
       }
     } catch (emailError) {
-      console.error("Error sending registration email:", emailError)
+      console.error("⚠️ Error sending registration email:", emailError)
       // Don't fail the registration if email fails
     }
 
     return { success: true, data }
   } catch (error) {
-    console.error("Error in registerForEvent:", error)
+    console.error("❌ Error in registerForEvent:", error)
     return { success: false, error: "An unexpected error occurred" }
   }
 }
@@ -1377,13 +1356,13 @@ export const checkEventRegistration = async (eventId: string, userId: string) =>
       .single()
 
     if (error && error.code !== "PGRST116") {
-      console.error("Error checking registration:", error)
+      console.error("❌ Error checking registration:", error)
       return false
     }
 
     return !!data
   } catch (error) {
-    console.error("Error in checkEventRegistration:", error)
+    console.error("❌ Error in checkEventRegistration:", error)
     return false
   }
 }
@@ -1403,7 +1382,7 @@ export const registerForHackathon = async (hackathonId: string, userId: string) 
       .select()
 
     if (error) {
-      console.error("Error registering for hackathon:", error)
+      console.error("❌ Error registering for hackathon:", error)
       return { success: false, error: error.message }
     }
 
@@ -1413,7 +1392,7 @@ export const registerForHackathon = async (hackathonId: string, userId: string) 
     })
 
     if (updateError) {
-      console.error("Error updating participant count:", updateError)
+      console.error("⚠️ Error updating participant count:", updateError)
     }
 
     // Send registration confirmation email automatically
@@ -1432,16 +1411,16 @@ export const registerForHackathon = async (hackathonId: string, userId: string) 
           new Date(hackathonResult.data.start_date).toLocaleDateString(),
           userId,
         )
-        console.log("Hackathon registration email sent successfully")
+        console.log("✅ Hackathon registration email sent successfully")
       }
     } catch (emailError) {
-      console.error("Error sending registration email:", emailError)
+      console.error("⚠️ Error sending registration email:", emailError)
       // Don't fail the registration if email fails
     }
 
     return { success: true, data }
   } catch (error) {
-    console.error("Error in registerForHackathon:", error)
+    console.error("❌ Error in registerForHackathon:", error)
     return { success: false, error: "An unexpected error occurred" }
   }
 }
@@ -1456,13 +1435,13 @@ export const checkHackathonRegistration = async (hackathonId: string, userId: st
       .single()
 
     if (error && error.code !== "PGRST116") {
-      console.error("Error checking registration:", error)
+      console.error("❌ Error checking registration:", error)
       return false
     }
 
     return !!data
   } catch (error) {
-    console.error("Error in checkHackathonRegistration:", error)
+    console.error("❌ Error in checkHackathonRegistration:", error)
     return false
   }
 }
@@ -1486,7 +1465,7 @@ export const getAnalytics = async () => {
       registrations: registrationsResult.data || [],
     }
   } catch (error) {
-    console.error("Error fetching analytics:", error)
+    console.error("❌ Error fetching analytics:", error)
     return {
       users: [],
       hackathons: [],
@@ -1581,7 +1560,7 @@ export const getDetailedAnalytics = async () => {
       rawData: data,
     }
   } catch (error) {
-    console.error("Error fetching detailed analytics:", error)
+    console.error("❌ Error fetching detailed analytics:", error)
     return {
       totals: { totalUsers: 0, activeHackathons: 0, jobListings: 0, events: 0 },
       growth: { userGrowth: 0, hackathonGrowth: 0, jobGrowth: 0, eventGrowth: 0 },
@@ -1608,7 +1587,7 @@ export const searchEvents = async (query: string, eventType?: string) => {
     const { data, error } = await queryBuilder.order("event_date", { ascending: true })
     return { data, error }
   } catch (error) {
-    console.error("Error in searchEvents:", error)
+    console.error("❌ Error in searchEvents:", error)
     return { data: null, error }
   }
 }
@@ -1630,7 +1609,7 @@ export const searchHackathons = async (query: string, status?: string) => {
     const { data, error } = await queryBuilder.order("start_date", { ascending: true })
     return { data, error }
   } catch (error) {
-    console.error("Error in searchHackathons:", error)
+    console.error("❌ Error in searchHackathons:", error)
     return { data: null, error }
   }
 }
@@ -1656,7 +1635,7 @@ export const searchJobs = async (query: string, type?: string, experience?: stri
     const { data, error } = await queryBuilder.order("posted_date", { ascending: false })
     return { data, error }
   } catch (error) {
-    console.error("Error in searchJobs:", error)
+    console.error("❌ Error in searchJobs:", error)
     return { data: null, error }
   }
 }
@@ -1678,7 +1657,7 @@ export const searchPartnerships = async (query: string, type?: string) => {
     const { data, error } = await queryBuilder.order("priority", { ascending: false })
     return { data, error }
   } catch (error) {
-    console.error("Error in searchPartnerships:", error)
+    console.error("❌ Error in searchPartnerships:", error)
     return { data: null, error }
   }
 }
