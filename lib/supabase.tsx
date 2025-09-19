@@ -10,7 +10,13 @@ if (!supabaseAnonKey) {
   throw new Error("Missing env.NEXT_PUBLIC_SUPABASE_ANON_KEY")
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+  },
+})
 
 // Server-side client for admin operations
 export const createServerClient = () => {
@@ -23,7 +29,13 @@ export const createServerClient = () => {
 
 // Create client component client (for use in client components)
 export function createClientComponentClient() {
-  return createClient(supabaseUrl, supabaseAnonKey)
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+    },
+  })
 }
 
 // Create server component client (for use in server components)
@@ -235,8 +247,9 @@ export const createUserProfile = async (
       github_url: null,
       linkedin_url: null,
       skills: null,
-      email_verified: false,
-      profile_completed: false,
+      email_verified: true,
+      profile_completed: true,
+      last_login: new Date().toISOString(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }
@@ -341,7 +354,7 @@ export const signUp = async (email: string, password: string, fullName: string) 
   }
 }
 
-// Enhanced signIn function
+// Enhanced signIn function with proper session handling
 export const signIn = async (email: string, password: string) => {
   try {
     // Input validation
@@ -353,6 +366,8 @@ export const signIn = async (email: string, password: string) => {
     if (!emailRegex.test(email)) {
       return { data: null, error: { message: "Please enter a valid email address" } }
     }
+
+    console.log("Attempting to sign in user:", email)
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -371,12 +386,38 @@ export const signIn = async (email: string, password: string) => {
       return { data: null, error }
     }
 
-    // Update last login time
+    console.log("Sign in successful for:", email)
+
+    // Update last login time and ensure profile exists
     if (data.user) {
       try {
-        await supabase.from("users").update({ last_login: new Date().toISOString() }).eq("id", data.user.id)
+        // Check if profile exists
+        const { data: profile, error: profileError } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", data.user.id)
+          .single()
+
+        if (profileError && profileError.code === "PGRST116") {
+          // Profile doesn't exist, create it
+          console.log("Creating profile for existing user:", email)
+          await createUserProfile(data.user.id, {
+            email: data.user.email!,
+            full_name: data.user.user_metadata?.full_name || data.user.email!.split("@")[0],
+            avatar_url: data.user.user_metadata?.avatar_url,
+          })
+        } else if (!profileError) {
+          // Profile exists, update last login
+          await supabase
+            .from("users")
+            .update({
+              last_login: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", data.user.id)
+        }
       } catch (updateError) {
-        console.error("Error updating last login (non-blocking):", updateError)
+        console.error("Error updating user profile (non-blocking):", updateError)
       }
     }
 
@@ -389,6 +430,7 @@ export const signIn = async (email: string, password: string) => {
 
 export const signInWithGoogle = async () => {
   try {
+    console.log("Initiating Google OAuth")
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -399,6 +441,13 @@ export const signInWithGoogle = async () => {
         },
       },
     })
+
+    if (error) {
+      console.error("Google OAuth error:", error)
+    } else {
+      console.log("Google OAuth initiated successfully")
+    }
+
     return { data, error }
   } catch (error) {
     console.error("Error in signInWithGoogle:", error)
@@ -408,10 +457,12 @@ export const signInWithGoogle = async () => {
 
 export const signOut = async () => {
   try {
+    console.log("Signing out user")
     const { error } = await supabase.auth.signOut()
     if (error) {
       throw error
     }
+    console.log("Sign out successful")
   } catch (error) {
     console.error("Error in signOut:", error)
     throw error

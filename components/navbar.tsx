@@ -48,11 +48,21 @@ function Navbar() {
       setAuthMode(authParam as "login" | "signup")
       setShowAuthModal(true)
     }
+
+    // Check for error parameters
+    const error = urlParams.get("error")
+    const message = urlParams.get("message")
+    if (error) {
+      console.error("Auth error from URL:", error, message)
+      // You could show a toast notification here
+    }
   }, [])
 
   const checkUser = async () => {
     try {
+      console.log("Checking current user...")
       const currentUser = await getCurrentUser()
+      console.log("Current user:", currentUser?.email || "Not logged in")
       setUser(currentUser)
 
       if (currentUser) {
@@ -74,22 +84,30 @@ function Navbar() {
   }
 
   const handleAuthSuccess = () => {
+    console.log("Auth success, refreshing user data...")
     setShowAuthModal(false)
     checkUser()
     // Remove auth parameter from URL
     const url = new URL(window.location.href)
     url.searchParams.delete("auth")
+    url.searchParams.delete("error")
+    url.searchParams.delete("message")
     window.history.replaceState({}, "", url.toString())
   }
 
   const handleSignOut = async () => {
     try {
+      console.log("Signing out...")
       await signOut()
       setUser(null)
       setUserProfile(null)
       setOrganizerStatus({ is_organizer: false, organizer_types: [] })
       setOrganizerRoles([])
       setShowUserMenu(false)
+      console.log("Sign out successful")
+
+      // Redirect to home page after sign out
+      window.location.href = "/"
     } catch (error) {
       console.error("Error signing out:", error)
     }
