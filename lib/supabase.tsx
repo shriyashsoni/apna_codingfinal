@@ -165,6 +165,35 @@ export interface Partnership {
   updated_at: string
 }
 
+export interface Course {
+  id: string
+  title: string
+  description: string
+  instructor: string
+  image_url?: string
+  duration: string
+  level: string
+  technologies: string[]
+  category: string
+  status: string
+  price: number
+  original_price?: string
+  students_count: number
+  rating: number
+  redirect_url?: string
+  tags?: string[]
+  seo_title?: string
+  seo_description?: string
+  seo_keywords?: string[]
+  canonical_url?: string
+  og_title?: string
+  og_description?: string
+  og_image?: string
+  created_by?: string
+  created_at: string
+  updated_at: string
+}
+
 // Create user profile in database
 export const createUserProfile = async (
   userId: string,
@@ -548,6 +577,32 @@ export const fetchHackathons = async (options?: {
   }
 }
 
+export const getHackathons = fetchHackathons
+
+export const searchHackathons = async (searchQuery?: string, status?: string) => {
+  const client = createClient()
+
+  try {
+    let query = client.from("hackathons").select("*")
+
+    if (searchQuery) {
+      query = query.or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
+    }
+
+    if (status && status !== "all") {
+      query = query.eq("status", status)
+    }
+
+    query = query.order("start_date", { ascending: true })
+
+    const { data, error } = await query
+    return { data, error }
+  } catch (error) {
+    console.error("Error searching hackathons:", error)
+    return { data: null, error }
+  }
+}
+
 // Fetch jobs
 export const fetchJobs = async (options?: {
   status?: string
@@ -571,6 +626,32 @@ export const fetchJobs = async (options?: {
 
     // Default to ordering by posted_date for recent jobs
     query = query.order("posted_date", { ascending: false })
+
+    const { data, error } = await query
+    return { data, error }
+  } catch (error) {
+    console.error("Error fetching jobs:", error)
+    return { data: null, error }
+  }
+}
+
+export const getJobs = async (options?: { type?: string; featured?: boolean; limit?: number }) => {
+  const client = createClient()
+
+  try {
+    let query = client.from("jobs").select("*")
+
+    if (options?.type) {
+      query = query.eq("type", options.type)
+    }
+    if (options?.featured !== undefined) {
+      query = query.eq("featured", options.featured)
+    }
+    if (options?.limit) {
+      query = query.limit(options.limit)
+    }
+
+    query = query.order("created_at", { ascending: false })
 
     const { data, error } = await query
     return { data, error }
@@ -680,6 +761,192 @@ export const registerForEvent = async (eventId: string, userId: string, addition
     return { data, error }
   } catch (error) {
     console.error("Error registering for event:", error)
+    return { data: null, error }
+  }
+}
+
+// Get all courses (for admin)
+export const getAllCourses = async () => {
+  const client = createClient()
+
+  try {
+    const { data, error } = await client.from("courses").select("*").order("created_at", { ascending: false })
+
+    return { data, error }
+  } catch (error) {
+    console.error("Error fetching all courses:", error)
+    return { data: null, error }
+  }
+}
+
+// Get courses (public - only active courses)
+export const getCourses = async (options?: {
+  status?: string
+  category?: string
+  level?: string
+  limit?: number
+}) => {
+  const client = createClient()
+
+  try {
+    let query = client.from("courses").select("*")
+
+    // Default to active courses for public view
+    if (options?.status) {
+      query = query.eq("status", options.status)
+    } else {
+      query = query.eq("status", "active")
+    }
+
+    if (options?.category) {
+      query = query.eq("category", options.category)
+    }
+    if (options?.level) {
+      query = query.eq("level", options.level)
+    }
+    if (options?.limit) {
+      query = query.limit(options.limit)
+    }
+
+    query = query.order("created_at", { ascending: false })
+
+    const { data, error } = await query
+    return { data, error }
+  } catch (error) {
+    console.error("Error fetching courses:", error)
+    return { data: null, error }
+  }
+}
+
+// Search courses
+export const searchCourses = async (searchTerm: string, category?: string) => {
+  const client = createClient()
+
+  try {
+    let query = client.from("courses").select("*").eq("status", "active")
+
+    if (searchTerm) {
+      query = query.or(`title.ilike.%${searchTerm}%,instructor.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`)
+    }
+
+    if (category && category !== "all") {
+      query = query.eq("category", category)
+    }
+
+    query = query.order("created_at", { ascending: false })
+
+    const { data, error } = await query
+    return { data, error }
+  } catch (error) {
+    console.error("Error searching courses:", error)
+    return { data: null, error }
+  }
+}
+
+// Get course by ID
+export const getCourseById = async (courseId: string) => {
+  const client = createClient()
+
+  try {
+    const { data, error } = await client.from("courses").select("*").eq("id", courseId).single()
+
+    return { data, error }
+  } catch (error) {
+    console.error("Error fetching course:", error)
+    return { data: null, error }
+  }
+}
+
+// Create course
+export const createCourse = async (courseData: Omit<Course, "id" | "created_at" | "updated_at">) => {
+  const client = createClient()
+
+  try {
+    const { data, error } = await client
+      .from("courses")
+      .insert([
+        {
+          ...courseData,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ])
+      .select()
+      .single()
+
+    return { data, error }
+  } catch (error) {
+    console.error("Error creating course:", error)
+    return { data: null, error }
+  }
+}
+
+// Delete course
+export const deleteCourse = async (courseId: string) => {
+  const client = createClient()
+
+  try {
+    const { error } = await client.from("courses").delete().eq("id", courseId)
+
+    return { error }
+  } catch (error) {
+    console.error("Error deleting course:", error)
+    return { error }
+  }
+}
+
+export async function getUserOrganizerStatus(userId: string) {
+  try {
+    const client = createClient()
+
+    const { data: roles, error } = await client
+      .from("organizer_roles")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("is_active", true)
+
+    if (error) {
+      console.error("Error fetching organizer status:", error)
+      return { is_organizer: false, organizer_types: [] }
+    }
+
+    if (!roles || roles.length === 0) {
+      return { is_organizer: false, organizer_types: [] }
+    }
+
+    const organizerTypes = roles.map((role) => role.role_name)
+    return {
+      is_organizer: true,
+      organizer_types: organizerTypes,
+    }
+  } catch (error) {
+    console.error("Error in getUserOrganizerStatus:", error)
+    return { is_organizer: false, organizer_types: [] }
+  }
+}
+
+export const getEvents = async (options?: { status?: string; featured?: boolean; limit?: number }) => {
+  const client = createClient()
+
+  try {
+    let query = client.from("events").select("*")
+
+    if (options?.status) {
+      query = query.eq("status", options.status)
+    }
+    if (options?.featured !== undefined) {
+      query = query.eq("featured", options.featured)
+    }
+    if (options?.limit) {
+      query = query.limit(options.limit)
+    }
+
+    query = query.order("event_date", { ascending: true })
+
+    const { data, error } = await query
+    return { data, error }
+  } catch (error) {
+    console.error("Error fetching events:", error)
     return { data: null, error }
   }
 }

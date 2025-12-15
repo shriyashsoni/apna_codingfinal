@@ -293,3 +293,193 @@ export async function getEmailNotifications(limit = 50) {
     return []
   }
 }
+
+// Send batch emails
+export async function sendBatchEmails(
+  emails: Array<{ to: string; subject: string; html: string; type?: EmailNotification["type"]; userId?: string }>,
+): Promise<{
+  success: boolean
+  results: Array<{ email: string; success: boolean; error?: string; emailId?: string }>
+}> {
+  const results: Array<{ email: string; success: boolean; error?: string; emailId?: string }> = []
+
+  for (const email of emails) {
+    const result = await sendEmail(
+      email.to,
+      email.subject,
+      email.html,
+      email.type || "admin_notification",
+      email.userId,
+    )
+
+    results.push({
+      email: email.to,
+      success: result.success,
+      error: result.error,
+      emailId: result.emailId,
+    })
+  }
+
+  const successCount = results.filter((r) => r.success).length
+  return {
+    success: successCount > 0,
+    results,
+  }
+}
+
+// Send email to all users
+export async function sendEmailToAllUsers(
+  subject: string,
+  html: string,
+  type: EmailNotification["type"] = "bulk_announcement",
+): Promise<{
+  success: boolean
+  totalUsers: number
+  results: Array<{ email: string; success: boolean; error?: string }>
+}> {
+  try {
+    // Import supabase client
+    const { createClientComponentClient } = await import("./supabase-client")
+    const supabase = createClientComponentClient()
+
+    // Fetch all users
+    const { data: users, error } = await supabase.from("users").select("id, email, full_name")
+
+    if (error || !users) {
+      console.error("Error fetching users:", error)
+      return { success: false, totalUsers: 0, results: [] }
+    }
+
+    console.log(`Sending email to ${users.length} users...`)
+
+    // Send emails to all users
+    const results: Array<{ email: string; success: boolean; error?: string }> = []
+
+    for (const user of users) {
+      const result = await sendEmail(user.email, subject, html, type, user.id)
+      results.push({
+        email: user.email,
+        success: result.success,
+        error: result.error,
+      })
+
+      // Add a small delay to avoid rate limiting
+      await new Promise((resolve) => setTimeout(resolve, 100))
+    }
+
+    const successCount = results.filter((r) => r.success).length
+    console.log(`Successfully sent ${successCount}/${users.length} emails`)
+
+    return {
+      success: successCount > 0,
+      totalUsers: users.length,
+      results,
+    }
+  } catch (err) {
+    console.error("Error in sendEmailToAllUsers:", err)
+    return { success: false, totalUsers: 0, results: [] }
+  }
+}
+
+// Send bulk announcement
+export async function sendBulkAnnouncement(
+  title: string,
+  message: string,
+): Promise<{
+  success: boolean
+  totalUsers: number
+  results: Array<{ email: string; success: boolean; error?: string }>
+}> {
+  const subject = `📢 ${title}`
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px; overflow: hidden;">
+      <div style="padding: 40px 30px; text-align: center;">
+        <h1 style="margin: 0 0 20px 0; font-size: 28px;">📢 ${title}</h1>
+        <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; margin: 30px 0;">
+          <p style="font-size: 16px; line-height: 1.6; margin: 0; white-space: pre-wrap;">${message}</p>
+        </div>
+        <a href="https://apnacoding.tech" style="display: inline-block; background: #FFD700; color: #333; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; margin: 20px 0;">
+          Visit Our Platform 🚀
+        </a>
+        <p style="font-size: 14px; margin: 30px 0 0 0; opacity: 0.8;">
+          Stay connected!<br>
+          Team Apna Coding
+        </p>
+      </div>
+    </div>
+  `
+
+  return await sendEmailToAllUsers(subject, html, "bulk_announcement")
+}
+
+// Send platform update
+export async function sendPlatformUpdate(
+  updateTitle: string,
+  updateDetails: string,
+): Promise<{
+  success: boolean
+  totalUsers: number
+  results: Array<{ email: string; success: boolean; error?: string }>
+}> {
+  const subject = `🚀 Platform Update: ${updateTitle}`
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; border-radius: 10px; overflow: hidden;">
+      <div style="padding: 40px 30px; text-align: center;">
+        <h1 style="margin: 0 0 20px 0; font-size: 28px;">🚀 Platform Update</h1>
+        <h2 style="margin: 0 0 20px 0; font-size: 24px;">${updateTitle}</h2>
+        <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; margin: 30px 0; text-align: left;">
+          <p style="font-size: 16px; line-height: 1.6; margin: 0; white-space: pre-wrap;">${updateDetails}</p>
+        </div>
+        <a href="https://apnacoding.tech" style="display: inline-block; background: #FFD700; color: #333; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; margin: 20px 0;">
+          Explore New Features 🎉
+        </a>
+        <p style="font-size: 14px; margin: 30px 0 0 0; opacity: 0.8;">
+          Thank you for being part of our community!<br>
+          Team Apna Coding
+        </p>
+      </div>
+    </div>
+  `
+
+  return await sendEmailToAllUsers(subject, html, "platform_update")
+}
+
+// Get email statistics
+export async function getEmailStats(): Promise<{
+  total: number
+  sent: number
+  failed: number
+  pending: number
+  byType: Record<string, number>
+}> {
+  try {
+    const { createClientComponentClient } = await import("./supabase-client")
+    const supabase = createClientComponentClient()
+
+    const { data: notifications, error } = await supabase.from("email_notifications").select("status, type")
+
+    if (error || !notifications) {
+      console.error("Error fetching email stats:", error)
+      return { total: 0, sent: 0, failed: 0, pending: 0, byType: {} }
+    }
+
+    const stats = {
+      total: notifications.length,
+      sent: notifications.filter((n) => n.status === "sent").length,
+      failed: notifications.filter((n) => n.status === "failed").length,
+      pending: notifications.filter((n) => n.status === "pending").length,
+      byType: {} as Record<string, number>,
+    }
+
+    // Count by type
+    notifications.forEach((notification) => {
+      const type = notification.type || "unknown"
+      stats.byType[type] = (stats.byType[type] || 0) + 1
+    })
+
+    return stats
+  } catch (err) {
+    console.error("Error in getEmailStats:", err)
+    return { total: 0, sent: 0, failed: 0, pending: 0, byType: {} }
+  }
+}
