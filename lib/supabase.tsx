@@ -1,7 +1,10 @@
 import { createClient } from "@/lib/supabase/client"
+import { createServerComponentClient } from "@/lib/supabase-client"
 
 // Re-export the client for backward compatibility
 export const supabase = createClient()
+
+export { createServerComponentClient }
 
 // Database Types
 export interface User {
@@ -948,5 +951,402 @@ export const getEvents = async (options?: { status?: string; featured?: boolean;
   } catch (error) {
     console.error("Error fetching events:", error)
     return { data: null, error }
+  }
+}
+
+export const isAdmin = async (email: string): Promise<boolean> => {
+  const client = createClient()
+
+  try {
+    const { data: user, error } = await client.from("users").select("role").eq("email", email).single()
+
+    if (error || !user) {
+      return false
+    }
+
+    return user.role === "admin"
+  } catch (error) {
+    console.error("Error checking admin status:", error)
+    return false
+  }
+}
+
+export const generateSlug = (title: string, id: string): string => {
+  const slugTitle = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+  return `${slugTitle}-${id}`
+}
+
+export const extractIdFromSlug = (slug: string): string => {
+  const parts = slug.split("-")
+  return parts[parts.length - 1]
+}
+
+export const searchEvents = async (searchQuery?: string, eventType?: string) => {
+  const client = createClient()
+
+  try {
+    let query = client.from("events").select("*")
+
+    if (searchQuery) {
+      query = query.or(
+        `title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,location.ilike.%${searchQuery}%`,
+      )
+    }
+
+    if (eventType && eventType !== "All") {
+      query = query.eq("event_type", eventType)
+    }
+
+    query = query.order("event_date", { ascending: true })
+
+    const { data, error } = await query
+    return { data, error }
+  } catch (error) {
+    console.error("Error searching events:", error)
+    return { data: null, error }
+  }
+}
+
+export const searchJobs = async (searchTerm?: string, jobType?: string, experienceLevel?: string) => {
+  const client = createClient()
+
+  try {
+    let query = client.from("jobs").select("*").eq("status", "active")
+
+    if (searchTerm) {
+      query = query.or(`title.ilike.%${searchTerm}%,company.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`)
+    }
+
+    if (jobType && jobType !== "all") {
+      query = query.eq("type", jobType)
+    }
+
+    if (experienceLevel && experienceLevel !== "all") {
+      query = query.eq("experience", experienceLevel)
+    }
+
+    query = query.order("posted_date", { ascending: false })
+
+    const { data, error } = await query
+    return { data, error }
+  } catch (error) {
+    console.error("Error searching jobs:", error)
+    return { data: null, error }
+  }
+}
+
+export const getAllEvents = async () => {
+  const client = createClient()
+
+  try {
+    const { data, error } = await client.from("events").select("*").order("event_date", { ascending: false })
+
+    return { data, error }
+  } catch (error) {
+    console.error("Error fetching all events:", error)
+    return { data: null, error }
+  }
+}
+
+export const deleteEvent = async (eventId: string) => {
+  const client = createClient()
+
+  try {
+    const { error } = await client.from("events").delete().eq("id", eventId)
+
+    return { error }
+  } catch (error) {
+    console.error("Error deleting event:", error)
+    return { error }
+  }
+}
+
+export const createEvent = async (eventData: Omit<Event, "id" | "created_at" | "updated_at">) => {
+  const client = createClient()
+
+  try {
+    const { data, error } = await client
+      .from("events")
+      .insert([
+        {
+          ...eventData,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ])
+      .select()
+      .single()
+
+    return { data, error }
+  } catch (error) {
+    console.error("Error creating event:", error)
+    return { data: null, error }
+  }
+}
+
+export const getAllHackathons = async () => {
+  const client = createClient()
+
+  try {
+    const { data, error } = await client.from("hackathons").select("*").order("start_date", { ascending: false })
+
+    return { data, error }
+  } catch (error) {
+    console.error("Error fetching all hackathons:", error)
+    return { data: null, error }
+  }
+}
+
+export const deleteHackathon = async (hackathonId: string) => {
+  const client = createClient()
+
+  try {
+    const { error } = await client.from("hackathons").delete().eq("id", hackathonId)
+
+    return { error }
+  } catch (error) {
+    console.error("Error deleting hackathon:", error)
+    return { error }
+  }
+}
+
+export const updateHackathon = async (hackathonId: string, updates: Partial<Hackathon>) => {
+  const client = createClient()
+
+  try {
+    const { data, error } = await client
+      .from("hackathons")
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", hackathonId)
+      .select()
+      .single()
+
+    return { data, error }
+  } catch (error) {
+    console.error("Error updating hackathon:", error)
+    return { data: null, error }
+  }
+}
+
+export const getAllJobs = async () => {
+  const client = createClient()
+
+  try {
+    const { data, error } = await client.from("jobs").select("*").order("posted_date", { ascending: false })
+
+    return { data, error }
+  } catch (error) {
+    console.error("Error fetching all jobs:", error)
+    return { data: null, error }
+  }
+}
+
+export const deleteJob = async (jobId: string) => {
+  const client = createClient()
+
+  try {
+    const { error } = await client.from("jobs").delete().eq("id", jobId)
+
+    return { error }
+  } catch (error) {
+    console.error("Error deleting job:", error)
+    return { error }
+  }
+}
+
+export const createJob = async (jobData: Omit<Job, "id" | "created_at" | "updated_at">) => {
+  const client = createClient()
+
+  try {
+    const { data, error } = await client
+      .from("jobs")
+      .insert([
+        {
+          ...jobData,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ])
+      .select()
+      .single()
+
+    return { data, error }
+  } catch (error) {
+    console.error("Error creating job:", error)
+    return { data: null, error }
+  }
+}
+
+export const getAllUsers = async () => {
+  const client = createClient()
+
+  try {
+    const { data, error } = await client.from("users").select("*").order("created_at", { ascending: false })
+
+    return { data, error }
+  } catch (error) {
+    console.error("Error fetching all users:", error)
+    return { data: null, error }
+  }
+}
+
+export const checkEventRegistration = async (eventId: string, userId: string): Promise<boolean> => {
+  const client = createClient()
+
+  try {
+    const { data, error } = await client
+      .from("event_registrations")
+      .select("id")
+      .eq("event_id", eventId)
+      .eq("user_id", userId)
+      .eq("status", "registered")
+      .single()
+
+    if (error && error.code !== "PGRST116") {
+      console.error("Error checking event registration:", error)
+      return false
+    }
+
+    return !!data
+  } catch (error) {
+    console.error("Error in checkEventRegistration:", error)
+    return false
+  }
+}
+
+export const getEventBySlugId = async (eventId: string) => {
+  const client = createClient()
+
+  try {
+    const { data, error } = await client.from("events").select("*").eq("id", eventId).single()
+
+    return { data, error }
+  } catch (error) {
+    console.error("Error fetching event by slug ID:", error)
+    return { data: null, error }
+  }
+}
+
+export const getHackathonBySlug = async (slug: string) => {
+  const client = createClient()
+
+  try {
+    // Try to extract ID from slug
+    const hackathonId = extractIdFromSlug(slug)
+
+    const { data, error } = await client.from("hackathons").select("*").eq("id", hackathonId).single()
+
+    return { data, error }
+  } catch (error) {
+    console.error("Error fetching hackathon by slug:", error)
+    return { data: null, error }
+  }
+}
+
+export const checkHackathonRegistration = async (hackathonId: string, userId: string): Promise<boolean> => {
+  const client = createClient()
+
+  try {
+    const { data, error } = await client
+      .from("hackathon_registrations")
+      .select("id")
+      .eq("hackathon_id", hackathonId)
+      .eq("user_id", userId)
+      .eq("status", "registered")
+      .single()
+
+    if (error && error.code !== "PGRST116") {
+      console.error("Error checking hackathon registration:", error)
+      return false
+    }
+
+    return !!data
+  } catch (error) {
+    console.error("Error in checkHackathonRegistration:", error)
+    return false
+  }
+}
+
+export const getJobById = async (jobId: string) => {
+  const client = createClient()
+
+  try {
+    const { data, error } = await client.from("jobs").select("*").eq("id", jobId).single()
+
+    return { data, error }
+  } catch (error) {
+    console.error("Error fetching job by ID:", error)
+    return { data: null, error }
+  }
+}
+
+export const getDetailedAnalytics = async () => {
+  const client = createClient()
+
+  try {
+    const [usersResult, eventsResult, hackathonsResult, jobsResult, coursesResult] = await Promise.all([
+      client.from("users").select("id, created_at, role"),
+      client.from("events").select("id, status, current_participants"),
+      client.from("hackathons").select("id, status, participants_count"),
+      client.from("jobs").select("id, status"),
+      client.from("courses").select("id, status, students_count"),
+    ])
+
+    const totalUsers = usersResult.data?.length || 0
+    const totalEvents = eventsResult.data?.length || 0
+    const totalHackathons = hackathonsResult.data?.length || 0
+    const totalJobs = jobsResult.data?.length || 0
+    const totalCourses = coursesResult.data?.length || 0
+
+    const activeEvents = eventsResult.data?.filter((e) => e.status === "upcoming" || e.status === "ongoing").length || 0
+    const activeHackathons =
+      hackathonsResult.data?.filter((h) => h.status === "upcoming" || h.status === "ongoing").length || 0
+    const activeJobs = jobsResult.data?.filter((j) => j.status === "active").length || 0
+
+    const totalEventParticipants = eventsResult.data?.reduce((sum, e) => sum + (e.current_participants || 0), 0) || 0
+    const totalHackathonParticipants =
+      hackathonsResult.data?.reduce((sum, h) => sum + (h.participants_count || 0), 0) || 0
+    const totalCourseEnrollments = coursesResult.data?.reduce((sum, c) => sum + (c.students_count || 0), 0) || 0
+
+    return {
+      users: {
+        total: totalUsers,
+        admins: usersResult.data?.filter((u) => u.role === "admin").length || 0,
+        regularUsers: usersResult.data?.filter((u) => u.role === "user").length || 0,
+      },
+      events: {
+        total: totalEvents,
+        active: activeEvents,
+        participants: totalEventParticipants,
+      },
+      hackathons: {
+        total: totalHackathons,
+        active: activeHackathons,
+        participants: totalHackathonParticipants,
+      },
+      jobs: {
+        total: totalJobs,
+        active: activeJobs,
+      },
+      courses: {
+        total: totalCourses,
+        enrollments: totalCourseEnrollments,
+      },
+    }
+  } catch (error) {
+    console.error("Error fetching detailed analytics:", error)
+    return {
+      users: { total: 0, admins: 0, regularUsers: 0 },
+      events: { total: 0, active: 0, participants: 0 },
+      hackathons: { total: 0, active: 0, participants: 0 },
+      jobs: { total: 0, active: 0 },
+      courses: { total: 0, enrollments: 0 },
+    }
   }
 }
